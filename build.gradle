@@ -24,9 +24,9 @@ base {
     archivesName = mod_id
 }
 
-// Mojang ships Java 21 to end users on 1.21.x, so mods should target Java 21.
-// The 26.x branches raise this to 25.
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+// 26.x ships java-runtime-epsilon (Java 25) to players, so Java 25 is not
+// optional on this branch.
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
 neoForge {
     version = project.neo_version
