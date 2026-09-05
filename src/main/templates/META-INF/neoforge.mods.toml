@@ -1,0 +1,60 @@
+# LegendQuest StoryTeller — neoforge.mods.toml (values expand from gradle.properties at build time).
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+issueTrackerURL="https://github.com/Sablednah/LegendQuest-StoryTeller/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="${mod_authors}"
+description='''
+${mod_description}
+'''
+displayURL="https://sablecraft.co.uk/legendquest-reforged/"
+
+# Artwork is declared three ways; older loaders ignore keys they do not know.
+# iconFile is the small SQUARE beside the name (26.2+), bannerFile the wide
+# info-panel image (26.2+), logoFile what 1.21.x and 26.1 show. See
+# LegendQuest's CLAUDE.md -- and note logoFile alone raises a dev-only
+# deprecation warning on 26.2, suppressed by declaring the other two.
+#iconFile="storyteller-icon.png"
+#bannerFile="storyteller.png"
+#logoFile="storyteller.png"
+#logoBlur=true
+#iconBlur=true
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# StoryTeller is a LegendQuest expansion, not a standalone mod: the whole cast
+# system is LegendQuest's races, classes and skills wearing a GM's hat. Hard
+# dependency, and ordered AFTER so LegendQuest's registries exist before we
+# read them.
+[[dependencies.${mod_id}]]
+    modId="legendquest"
+    type="required"
+    versionRange="${lq_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+# Standards is optional and stays that way. It supplies the economy (money
+# rewards) and vanish (the Storyteller drifting unseen). Without it those two
+# tools degrade to a clear "not available on this server" rather than breaking.
+[[dependencies.${mod_id}]]
+    modId="standards"
+    type="optional"
+    ordering="AFTER"
+    side="BOTH"

@@ -1,0 +1,88 @@
+# StoryTeller — the toolset, and the order it gets built
+
+The whole design answers one question: **what does a live GM actually reach
+for mid-session?** Not "what could a mod do", but what a person running a table
+needs within three seconds of needing it.
+
+Everything is constrained by the rule in the README: only the server needs a
+mod. A tool that cannot be perceived by a vanilla client is not a tool.
+
+## 1. Presence, oversight, rewards — DONE (milestone 1)
+
+- Drift (spectator) with an anchor, and a return that works even when the
+  anchor is gone.
+- Goto / next: look in on the table.
+- Roster: who, what, how hurt, where, and in whose party.
+- Rewards: XP, karma, money — singly or party-wide, with the recipient always
+  told at the moment it lands.
+
+**Known gaps to close here:** the drift anchor is in memory, so a server crash
+mid-scene strands a Storyteller in spectator (`/st return` recovers them, but
+at the wrong place). Persisting it in a NeoForge attachment, the way
+LegendQuest persists character data, is the fix. Levels, skill points and item
+rewards are also missing — see the note in `Rewards.Packet`.
+
+## 2. Possession and voice
+
+The thing that makes a session feel live, and the reason the Storyteller mode
+in *Vampire: The Masquerade – Redemption* is the model.
+
+- Take over any mob: move it, fight with it, release it back to its AI.
+  **ZombieMod already puppets vanilla mobs with data-driven goals — that
+  codebase is prior art for half of this.**
+- Speak in chat *as* the possessed thing, so an NPC has a voice without an NPC
+  system existing yet.
+- Narrate: title cards, scene text to a radius/party/server, a whisper to one
+  player — a god-voice, a dream, an omen.
+- Ambience: weather, time of day, a sound cue on the room.
+
+Voice is worth building before spawning. A GM can already `/summon` a zombie;
+what they cannot do is make it *say something*.
+
+## 3. The cast
+
+- Spawn palette: plain mobs, or full LegendQuest characters (race × class ×
+  level gets stats, skills, gear rules and a nameplate free from the
+  registries).
+- Preset behaviours: guard, patrol, follow, flee, merchant, quest-giver,
+  ambusher.
+- Save an NPC as a reusable cast member.
+- **`frequency` finally gets its job.** The field is parsed by LegendQuest
+  today and consumed by nothing; it was always meant for weighting a random
+  population. A city district rolls its inhabitants against it — humans
+  common, tieflings rare, one gnome if you are lucky.
+
+## 4. Set dressing
+
+- A structure library placed live from vanilla `.nbt` templates — no
+  proprietary format, so anything that can export a structure block can dress
+  a scene.
+- **Clean removal.** Record what was overwritten so a set can be *struck* as
+  well as placed. A library you can only add from fills a world with
+  abandoned scenery.
+- CityWorld-aware placement, since that sibling mod knows what a plot is.
+
+## 5. The GUI, and the planner
+
+Last, deliberately. Everything above is usable from a chat box first.
+
+- Storyteller screen: roster, spawn palette, reward packets, scene cues.
+- Story planner: ordered beats with triggers (location entered, mob slain,
+  item obtained, time elapsed), fired manually or automatically.
+- Private GM notes per scene, and a session log for the recap.
+
+## Control and safety, threaded throughout
+
+Not a milestone; each of these lands with the tool it protects.
+
+- Freeze/thaw mob AI in an area, to hold a tableau.
+- Mark a plot NPC invulnerable, so the story is not ended by one critical hit.
+- Undo the last spawn, structure or grant.
+- A panic button that removes everything spawned this scene.
+
+## Reward packets
+
+The unit a GM thinks in is not "500 XP", it is "they finished the smuggler
+job". A packet — XP + money + karma + items under one name, applied to a party
+in one action — is the shape the tool should take, and the command form should
+stay the fallback rather than the primary.

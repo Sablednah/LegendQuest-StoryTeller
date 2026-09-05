@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+.gradle-win/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Dev run directories
+run/
+runBuddy/
+
+# The LegendQuest jar this compiles against, dropped here by hand.
+libs/*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.eclipse/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db

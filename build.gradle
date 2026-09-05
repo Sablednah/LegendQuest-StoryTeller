@@ -1,0 +1,177 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.141'
+    id 'idea'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+// The jar carries the Minecraft version it was built against, on EVERY branch
+// -- same reasoning as LegendQuest: three files called storyteller-0.1.0.jar
+// are indistinguishable in a mods folder. The version inside
+// neoforge.mods.toml stays a plain 0.1.0.
+version = "${mod_version}+mc${minecraft_version}"
+group = mod_group_id
+
+repositories {
+    // Add additional repositories here if required by dependencies below.
+}
+
+base {
+    archivesName = mod_id
+}
+
+// Mojang ships Java 21 to end users on 1.21.x, so mods should target Java 21.
+// The 26.x branches raise this to 25.
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    if (project.parchment_minecraft_version?.trim() && project.parchment_mappings_version?.trim()) {
+        parchment {
+            minecraftVersion = project.parchment_minecraft_version
+            mappingsVersion = project.parchment_mappings_version
+        }
+    }
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        // The Storyteller's own client. Named so the log tells you which of
+        // the two windows you are looking at.
+        clientBuddy {
+            client()
+            // 25570, not the default 25565. Six of Sable's mods have a dev
+            // server; each owns a port pair, because a collision on the game
+            // port fails loudly but a collision on RCON just answers "auth
+            // failed" forever. See CLAUDE.md.
+            programArguments.addAll '--username', 'TestBuddy', '--quickPlayMultiplayer', '127.0.0.1:25570'
+            gameDirectory = file('runBuddy')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    // Compile against the LegendQuest jar, matched to THIS branch's
+    // minecraft_version. Lifted wholesale from LegendQuest-SkillPack-Example,
+    // which already learned the lessons below the hard way.
+    //
+    // Version-matched rather than "whatever jar is in libs/", because
+    // libs/*.jar is gitignored: an untracked file does not follow a branch
+    // switch, so a plain wildcard silently compiles the 1.21.11 branch against
+    // whichever jar the last build happened to leave behind.
+    compileOnly files(provider {
+        // Exactly ONE jar, newest-first, because more than one can match. A
+        // build directory accumulates versions, and handing javac both puts
+        // the older API on the classpath first -- which fails pointing at your
+        // code rather than at the stale jar actually causing it.
+        def pattern = ~/legendquest-.*\+mc${minecraft_version}\.jar/
+        def candidates = [file('libs'), file('../LegendQuest-ReForged/build/libs')]
+                .findAll { it.isDirectory() }
+                .collectMany { (it.listFiles() ?: []) as List }
+                .findAll { it.name ==~ pattern }
+        if (candidates.isEmpty()) {
+            throw new GradleException(
+                "No LegendQuest jar for Minecraft ${minecraft_version}. Build the matching " +
+                "LegendQuest branch, or drop its jar in libs/.")
+        }
+        candidates.sort { -it.lastModified() }
+        logger.lifecycle("LegendQuest dependency: ${candidates.first().name}")
+        [candidates.first()]
+    })
+
+    // Standards supplies the economy (money rewards) and vanish. compileOnly
+    // and NOT jarJar'd: it is a SOFT dependency, so StoryTeller builds against
+    // the API and runs perfectly well without the mod present. EconomySupport
+    // is the only class that imports it.
+    //
+    // Version-matched for the same reason the LegendQuest jar above is: that
+    // directory holds a standards jar for every Minecraft version, and a plain
+    // `standards-*.jar` wildcard hands javac all three. An empty result is
+    // fine here -- a soft dependency that is simply absent should leave the API
+    // off the classpath, not fail configuration.
+    compileOnly files(provider {
+        def pattern = ~/standards-.*\+mc${minecraft_version}\.jar/
+        def found = (file('../SableCraft-Standards/build/libs').listFiles() ?: [])
+                .findAll { it.name ==~ pattern }
+                .sort { -it.lastModified() }
+        if (found.isEmpty()) {
+            logger.lifecycle("Standards: no jar for Minecraft ${minecraft_version}; " +
+                "building without the optional economy/vanish API.")
+            return []
+        }
+        logger.lifecycle("Standards dependency: ${found.first().name}")
+        [found.first()]
+    })
+}
+
+// The dev server needs LegendQuest present at runtime, not just at compile
+// time -- StoryTeller does nothing without it. Drop the same jar into
+// run/mods before `runServer`, so a fresh checkout cannot start a server that
+// is missing its own dependency.
+tasks.register('stageLegendQuest', Copy) {
+    from(provider {
+        def pattern = ~/legendquest-.*\+mc${minecraft_version}\.jar/
+        [file('libs'), file('../LegendQuest-ReForged/build/libs')]
+                .findAll { it.isDirectory() }
+                .collectMany { (it.listFiles() ?: []) as List }
+                .findAll { it.name ==~ pattern }
+                .sort { -it.lastModified() }
+                .take(1)
+    })
+    into file('run/mods')
+}
+tasks.matching { it.name == 'runServer' }.configureEach { dependsOn 'stageLegendQuest' }
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description,
+            lq_version_range       : lq_version_range,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
