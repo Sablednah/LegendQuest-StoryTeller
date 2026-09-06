@@ -76,11 +76,23 @@ public class PossessionGoal extends Goal {
 
     @Override
     public void tick() {
-        // Look where the Storyteller looks: the mob's head is the camera, so
-        // this is what makes possession feel like wearing the thing.
-        mob.getLookControl().setLookAt(
-                possessor.getX(), possessor.getEyeY(), possessor.getZ());
-        mob.setYHeadRot(possessor.getYRot());
+        // Mirror the Storyteller's rotation onto the creature, every tick.
+        //
+        // This is what gives mouse-look while possessing, and it works on a
+        // vanilla client: binding the camera to an entity renders from that
+        // entity's eyes AND its orientation, so the only way to look around is
+        // to turn the thing you are wearing.
+        //
+        // Deliberately NOT the look control. setLookAt(possessor) aims the
+        // creature at whoever is possessing it -- which, with the camera in its
+        // head, points the view straight back at your own drifting body. The
+        // two together fight each other every tick, which is what the first
+        // draft of this did.
+        float yaw = possessor.getYRot();
+        mob.setYRot(yaw);
+        mob.setYHeadRot(yaw);
+        mob.yBodyRot = yaw;
+        mob.setXRot(possessor.getXRot());
 
         if (possessor.level() != mob.level()) return; // mid-teleport; wait
 
