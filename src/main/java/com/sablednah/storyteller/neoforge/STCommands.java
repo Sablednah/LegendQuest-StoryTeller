@@ -67,11 +67,11 @@ public final class STCommands {
                 // --- rewards ---
                 .then(Commands.literal("reward")
                         .requires(src -> STPermissions.gate(src, STPermissions::canReward))
-                        .then(Commands.argument("player", EntityArgument.player())
-                                .then(currencies(false)))
+                        .then(attachCurrencies(
+                                Commands.argument("player", EntityArgument.player()), false))
                         .then(Commands.literal("party")
-                                .then(Commands.argument("player", EntityArgument.player())
-                                        .then(currencies(true)))))
+                                .then(attachCurrencies(
+                                        Commands.argument("player", EntityArgument.player()), true))))
 
                 // --- possession ---
                 .then(Commands.literal("possess").executes(STCommands::possess))
@@ -96,28 +96,34 @@ public final class STCommands {
      *
      * <p>Combining several into one packet is what a saved reward preset is
      * for, and that belongs in the GUI rather than in a command line.</p>
+     *
+     * <p>Takes the parent builder and returns it with all five attached as
+     * SIBLINGS — {@code parent.then(a).then(b)} adds both as children of
+     * {@code parent}, which is not the same as {@code a.then(b)}, that nests
+     * {@code b} under {@code a} instead and makes {@code sp} reachable only as
+     * {@code xp sp <n>}. That was the shape of a real bug here: every leaf but
+     * {@code xp} was unreachable by its own name until this was fixed.</p>
      */
-    private static ArgumentBuilder<CommandSourceStack, ?> currencies(boolean party) {
-        LiteralArgumentBuilder<CommandSourceStack> xp = Commands.literal("xp")
-                .then(amount(party, n -> new Rewards.Packet(n, 0, 0, 0, 0)));
-        LiteralArgumentBuilder<CommandSourceStack> levels = Commands.literal("levels")
-                .then(amount(party, n -> new Rewards.Packet(0, (int) n, 0, 0, 0)));
-        LiteralArgumentBuilder<CommandSourceStack> sp = Commands.literal("sp")
-                .then(amount(party, n -> new Rewards.Packet(0, 0, (int) n, 0, 0)));
-        LiteralArgumentBuilder<CommandSourceStack> karma = Commands.literal("karma")
-                .then(amount(party, n -> new Rewards.Packet(0, 0, 0, n, 0)));
-        LiteralArgumentBuilder<CommandSourceStack> money = Commands.literal("money")
-                .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
-                        .executes(ctx -> reward(ctx, party,
-                                new Rewards.Packet(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")), ""))
-                        .then(Commands.literal("for")
-                                .then(Commands.argument("reason", StringArgumentType.greedyString())
-                                        .executes(ctx -> reward(ctx, party,
-                                                new Rewards.Packet(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")),
-                                                StringArgumentType.getString(ctx, "reason"))))));
-        // Chained onto the first, so one call attaches all five to the player
-        // argument above.
-        return xp.then(levels).then(sp).then(karma).then(money);
+    private static ArgumentBuilder<CommandSourceStack, ?> attachCurrencies(
+            ArgumentBuilder<CommandSourceStack, ?> parent, boolean party) {
+        parent.then(Commands.literal("xp")
+                        .then(amount(party, n -> new Rewards.Packet(n, 0, 0, 0, 0))))
+                .then(Commands.literal("levels")
+                        .then(amount(party, n -> new Rewards.Packet(0, (int) n, 0, 0, 0))))
+                .then(Commands.literal("sp")
+                        .then(amount(party, n -> new Rewards.Packet(0, 0, (int) n, 0, 0))))
+                .then(Commands.literal("karma")
+                        .then(amount(party, n -> new Rewards.Packet(0, 0, 0, n, 0))))
+                .then(Commands.literal("money")
+                        .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
+                                .executes(ctx -> reward(ctx, party,
+                                        new Rewards.Packet(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")), ""))
+                                .then(Commands.literal("for")
+                                        .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                                .executes(ctx -> reward(ctx, party,
+                                                        new Rewards.Packet(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")),
+                                                        StringArgumentType.getString(ctx, "reason")))))));
+        return parent;
     }
 
     /** A whole-number amount, optionally followed by {@code for <reason>}. */
