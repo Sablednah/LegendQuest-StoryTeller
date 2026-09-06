@@ -14,16 +14,28 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
+import java.util.Optional;
+
+import com.sablednah.legendquest.LQRegistries;
+
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.commands.arguments.ResourceArgument;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
@@ -68,10 +80,10 @@ public final class STCommands {
                 .then(Commands.literal("reward")
                         .requires(src -> STPermissions.gate(src, STPermissions::canReward))
                         .then(attachCurrencies(
-                                Commands.argument("player", EntityArgument.player()), false))
+                                Commands.argument("player", EntityArgument.player()), false, build))
                         .then(Commands.literal("party")
                                 .then(attachCurrencies(
-                                        Commands.argument("player", EntityArgument.player()), true))))
+                                        Commands.argument("player", EntityArgument.player()), true, build))))
 
                 // --- possession ---
                 .then(Commands.literal("possess").executes(STCommands::possess))
@@ -81,7 +93,38 @@ public final class STCommands {
                                 .executes(STCommands::sayAs)))
 
                 // --- effects ---
-                .then(effects(build));
+                .then(effects(build))
+
+                // --- cast ---
+                .then(castCommands(build))
+
+                // --- set dressing ---
+                .then(structCommands(build))
+
+                // --- narration ---
+                .then(Commands.literal("narrate")
+                        .then(Commands.argument("text", StringArgumentType.greedyString())
+                                .executes(STCommands::narrateServer))
+                        .then(Commands.literal("radius")
+                                .then(Commands.argument("blocks", IntegerArgumentType.integer(1, 500))
+                                        .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                .executes(STCommands::narrateRadius))))
+                        .then(Commands.literal("party")
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                .executes(STCommands::narrateParty)))))
+                .then(Commands.literal("title")
+                        .then(Commands.argument("text", StringArgumentType.greedyString())
+                                .executes(STCommands::title)))
+                .then(Commands.literal("whisper")
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                        .executes(STCommands::whisper))))
+
+                // --- undo ---
+                .then(Commands.literal("undo").executes(STCommands::undo))
+                .then(Commands.literal("scene")
+                        .then(Commands.literal("clear").executes(STCommands::sceneClear)));
 
         dispatcher.register(st);
     }
@@ -105,24 +148,32 @@ public final class STCommands {
      * {@code xp} was unreachable by its own name until this was fixed.</p>
      */
     private static ArgumentBuilder<CommandSourceStack, ?> attachCurrencies(
-            ArgumentBuilder<CommandSourceStack, ?> parent, boolean party) {
+            ArgumentBuilder<CommandSourceStack, ?> parent, boolean party, CommandBuildContext build) {
         parent.then(Commands.literal("xp")
-                        .then(amount(party, n -> new Rewards.Packet(n, 0, 0, 0, 0))))
+                        .then(amount(party, n -> Rewards.Packet.currency(n, 0, 0, 0, 0))))
                 .then(Commands.literal("levels")
-                        .then(amount(party, n -> new Rewards.Packet(0, (int) n, 0, 0, 0))))
+                        .then(amount(party, n -> Rewards.Packet.currency(0, (int) n, 0, 0, 0))))
                 .then(Commands.literal("sp")
-                        .then(amount(party, n -> new Rewards.Packet(0, 0, (int) n, 0, 0))))
+                        .then(amount(party, n -> Rewards.Packet.currency(0, 0, (int) n, 0, 0))))
                 .then(Commands.literal("karma")
-                        .then(amount(party, n -> new Rewards.Packet(0, 0, 0, n, 0))))
+                        .then(amount(party, n -> Rewards.Packet.currency(0, 0, 0, n, 0))))
                 .then(Commands.literal("money")
                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
                                 .executes(ctx -> reward(ctx, party,
-                                        new Rewards.Packet(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")), ""))
+                                        Rewards.Packet.currency(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")), ""))
                                 .then(Commands.literal("for")
                                         .then(Commands.argument("reason", StringArgumentType.greedyString())
                                                 .executes(ctx -> reward(ctx, party,
-                                                        new Rewards.Packet(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")),
-                                                        StringArgumentType.getString(ctx, "reason")))))));
+                                                        Rewards.Packet.currency(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")),
+                                                        StringArgumentType.getString(ctx, "reason")))))))
+                .then(Commands.literal("item")
+                        .then(Commands.argument("item", ResourceArgument.resource(build, Registries.ITEM))
+                                .executes(ctx -> reward(ctx, party,
+                                        Rewards.Packet.of(ResourceArgument.getResource(ctx, "item", Registries.ITEM), 1), ""))
+                                .then(Commands.argument("count", IntegerArgumentType.integer(1, 6400))
+                                        .executes(ctx -> reward(ctx, party,
+                                                Rewards.Packet.of(ResourceArgument.getResource(ctx, "item", Registries.ITEM),
+                                                        IntegerArgumentType.getInteger(ctx, "count")), "")))));
         return parent;
     }
 
@@ -337,6 +388,291 @@ public final class STCommands {
         String rendered = Roster.render(Roster.of(ctx.getSource().getServer()));
         ctx.getSource().sendSuccess(() -> Feedback.colored(rendered), false);
         return 1;
+    }
+
+    // --- cast -----------------------------------------------------------
+
+    private static LiteralArgumentBuilder<CommandSourceStack> castCommands(CommandBuildContext build) {
+        return Commands.literal("cast")
+                .then(Commands.literal("spawn")
+                        .then(Commands.argument("entity", ResourceArgument.resource(build, Registries.ENTITY_TYPE))
+                                .executes(ctx -> castSpawn(ctx, Optional.empty()))
+                                .then(Commands.argument("name", StringArgumentType.greedyString())
+                                        .executes(ctx -> castSpawn(ctx,
+                                                Optional.of(StringArgumentType.getString(ctx, "name")))))))
+                .then(Commands.literal("citizen")
+                        .executes(ctx -> castCitizen(ctx, Optional.empty(), Optional.empty()))
+                        .then(Commands.argument("race", IdentifierArgument.id())
+                                .executes(ctx -> castCitizen(ctx,
+                                        Optional.of(IdentifierArgument.getId(ctx, "race")), Optional.empty()))
+                                .then(Commands.argument("class", IdentifierArgument.id())
+                                        .executes(ctx -> castCitizen(ctx,
+                                                Optional.of(IdentifierArgument.getId(ctx, "race")),
+                                                Optional.of(IdentifierArgument.getId(ctx, "class")))))))
+                .then(Commands.literal("behave")
+                        .then(Commands.literal("guard").executes(ctx -> castBehave(ctx, Cast.Behaviour.GUARD, null)))
+                        .then(Commands.literal("patrol").executes(ctx -> castBehave(ctx, Cast.Behaviour.PATROL, null)))
+                        .then(Commands.literal("flee").executes(ctx -> castBehave(ctx, Cast.Behaviour.FLEE, null)))
+                        .then(Commands.literal("none").executes(ctx -> castBehave(ctx, Cast.Behaviour.NONE, null)))
+                        .then(Commands.literal("follow")
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(ctx -> castBehave(ctx, Cast.Behaviour.FOLLOW,
+                                                EntityArgument.getPlayer(ctx, "player"))))))
+                .then(Commands.literal("save")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                                .executes(STCommands::castSave)))
+                .then(Commands.literal("use")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                                .suggests(STCommands::suggestCastNames)
+                                .executes(STCommands::castUse)))
+                .then(Commands.literal("list").executes(STCommands::castList));
+    }
+
+    private static int castSpawn(CommandContext<CommandSourceStack> ctx, Optional<String> name)
+            throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        Holder<EntityType<?>> type = ResourceArgument.getResource(ctx, "entity", Registries.ENTITY_TYPE);
+        var spawned = Cast.spawn(player, type, name);
+        if (spawned.isEmpty()) {
+            Feedback.chat(player, "&c" + type.value().getDescription().getString()
+                    + " refused to spawn — is it a real, spawnable mob?");
+            return 0;
+        }
+        Feedback.chat(player, "&aCast: &f" + spawned.get().getName().getString());
+        return 1;
+    }
+
+    private static int castCitizen(CommandContext<CommandSourceStack> ctx,
+            Optional<Identifier> race, Optional<Identifier> charClass) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var result = Cast.citizen(player, race, charClass);
+        if (result.isEmpty()) {
+            Feedback.chat(player, "&cNo races or classes are loaded to draw a citizen from.");
+            return 0;
+        }
+        Feedback.chat(player, "&aCast: &f" + result.get().raceName() + " " + result.get().className());
+        return 1;
+    }
+
+    private static int castBehave(CommandContext<CommandSourceStack> ctx, Cast.Behaviour behaviour,
+            ServerPlayer followTarget) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var looked = Possession.lookedAt(player, POSSESS_REACH);
+        if (looked.isEmpty()) {
+            Feedback.chat(player, "&7Nothing in your sights. Look straight at a creature.");
+            return 0;
+        }
+        if (behaviour == Cast.Behaviour.FOLLOW && followTarget == null) {
+            Feedback.chat(player, "&cFollow needs a player: /st cast behave follow <player>.");
+            return 0;
+        }
+        var refusal = Cast.behave(looked.get(), behaviour, followTarget);
+        if (refusal == Cast.BehaviourRefusal.NOT_A_PATHFINDER) {
+            Feedback.chat(player, "&c" + looked.get().getName().getString()
+                    + " cannot be given a movement behaviour (it does not path).");
+            return 0;
+        }
+        Feedback.chat(player, "&a" + looked.get().getName().getString() + " now: &f"
+                + behaviour.name().toLowerCase(java.util.Locale.ROOT));
+        return 1;
+    }
+
+    private static int castSave(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var looked = Possession.lookedAt(player, POSSESS_REACH);
+        if (looked.isEmpty() || !(looked.get() instanceof Mob mob)) {
+            Feedback.chat(player, "&7Nothing in your sights to save. Look straight at a creature.");
+            return 0;
+        }
+        var preset = Cast.presetOf(mob);
+        if (preset.isEmpty()) {
+            Feedback.chat(player, "&cCould not identify that creature's type.");
+            return 0;
+        }
+        String name = StringArgumentType.getString(ctx, "name");
+        com.sablednah.storyteller.state.CastPresets.get(ctx.getSource().getServer()).save(name, preset.get());
+        Feedback.chat(player, "&aSaved as &f" + name + "&a. &f/st cast use " + name + "&a brings one to life.");
+        return 1;
+    }
+
+    private static int castUse(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        String name = StringArgumentType.getString(ctx, "name");
+        var preset = com.sablednah.storyteller.state.CastPresets.get(ctx.getSource().getServer()).get(name);
+        if (preset.isEmpty()) {
+            Feedback.chat(player, "&cNo saved cast member named '" + name + "'. /st cast list to see what you have.");
+            return 0;
+        }
+        var spawned = Cast.spawnFromPreset(player, preset.get());
+        if (spawned.isEmpty()) {
+            Feedback.chat(player, "&cThat preset's entity type no longer exists.");
+            return 0;
+        }
+        Feedback.chat(player, "&aCast: &f" + spawned.get().getName().getString());
+        return 1;
+    }
+
+    private static int castList(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var names = com.sablednah.storyteller.state.CastPresets.get(ctx.getSource().getServer()).names();
+        ctx.getSource().sendSuccess(() -> Feedback.colored(names.isEmpty()
+                ? "&7No saved cast members yet. /st cast save <name> while looking at one."
+                : "&6Saved cast &8(" + names.size() + ")&6: &f" + String.join("&7, &f", names)), false);
+        return 1;
+    }
+
+    private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions>
+            suggestCastNames(CommandContext<CommandSourceStack> ctx,
+                    com.mojang.brigadier.suggestion.SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(
+                com.sablednah.storyteller.state.CastPresets.get(ctx.getSource().getServer()).names(), builder);
+    }
+
+    // --- set dressing -----------------------------------------------------
+
+    private static LiteralArgumentBuilder<CommandSourceStack> structCommands(CommandBuildContext build) {
+        return Commands.literal("struct")
+                .then(Commands.literal("list").executes(STCommands::structList))
+                .then(Commands.literal("place")
+                        .then(Commands.argument("template", IdentifierArgument.id())
+                                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                                        ctx.getSource().getPlayer() != null
+                                                ? Structures.list(ctx.getSource().getPlayer()) : List.of(),
+                                        builder))
+                                .executes(ctx -> structPlace(ctx, Rotation.NONE, Mirror.NONE))
+                                .then(Commands.literal("rotate")
+                                        .then(Commands.literal("cw90").executes(ctx ->
+                                                structPlace(ctx, Rotation.CLOCKWISE_90, Mirror.NONE)))
+                                        .then(Commands.literal("180").executes(ctx ->
+                                                structPlace(ctx, Rotation.CLOCKWISE_180, Mirror.NONE)))
+                                        .then(Commands.literal("ccw90").executes(ctx ->
+                                                structPlace(ctx, Rotation.COUNTERCLOCKWISE_90, Mirror.NONE))))))
+                .then(Commands.literal("library")
+                        .then(Commands.literal("list")
+                                .executes(STCommands::libraryList)
+                                .then(Commands.argument("family", StringArgumentType.word())
+                                        .executes(STCommands::libraryListFamily)))
+                        .then(Commands.literal("place")
+                                .then(Commands.argument("name", StringArgumentType.greedyString())
+                                        .executes(STCommands::libraryPlace))));
+    }
+
+    private static int structPlace(CommandContext<CommandSourceStack> ctx, Rotation rotation, Mirror mirror)
+            throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        Identifier templateId = IdentifierArgument.getId(ctx, "template");
+        var result = Structures.place(player, templateId, rotation, mirror);
+        if (!result.ok()) {
+            Feedback.chat(player, "&cCould not place '" + templateId + "' — "
+                    + (result.refusal() == Structures.Refusal.UNKNOWN_TEMPLATE
+                            ? "no such structure is loaded." : "it placed nothing."));
+            return 0;
+        }
+        Feedback.chat(player, "&aPlaced &f" + templateId + "&a. &f/st undo&a takes it back off.");
+        return 1;
+    }
+
+    private static int structList(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        var names = Structures.list(ctx.getSource().getPlayerOrException());
+        String shown = names.size() > 40
+                ? String.join(", ", names.subList(0, 40)) + " &7(+" + (names.size() - 40) + " more)"
+                : String.join(", ", names);
+        ctx.getSource().sendSuccess(() -> Feedback.colored(
+                "&6Structures &8(" + names.size() + ")&6: &f" + shown), false);
+        return 1;
+    }
+
+    private static int libraryList(CommandContext<CommandSourceStack> ctx) {
+        if (!requireCityWorld(ctx)) return 0;
+        var names = CityWorldSupport.names();
+        ctx.getSource().sendSuccess(() -> Feedback.colored(
+                "&6CityWorld library &8(" + names.size() + ")&6: &f" + String.join("&7, &f", names)), false);
+        return 1;
+    }
+
+    private static int libraryListFamily(CommandContext<CommandSourceStack> ctx) {
+        if (!requireCityWorld(ctx)) return 0;
+        String family = StringArgumentType.getString(ctx, "family");
+        var names = CityWorldSupport.namesInFamily(family);
+        ctx.getSource().sendSuccess(() -> Feedback.colored(names.isEmpty()
+                ? "&7No schematics in family '" + family + "'."
+                : "&6" + family + " &8(" + names.size() + ")&6: &f" + String.join("&7, &f", names)), false);
+        return 1;
+    }
+
+    private static int libraryPlace(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        if (!requireCityWorld(ctx)) return 0;
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        String name = StringArgumentType.getString(ctx, "name");
+        var placed = CityWorldSupport.place(player, name);
+        if (placed.isEmpty()) {
+            Feedback.chat(player, "&cNo classic schematic named '" + name + "'. /st struct library list.");
+            return 0;
+        }
+        Feedback.chat(player, "&aPlaced &f" + name + " &7[" + placed.get().family()
+                + "]&a. &f/st undo&a takes it back off.");
+        return 1;
+    }
+
+    private static boolean requireCityWorld(CommandContext<CommandSourceStack> ctx) {
+        if (net.neoforged.fml.ModList.get().isLoaded("cityworld")) return true;
+        ctx.getSource().sendFailure(Feedback.colored(
+                "&7This server does not have CityWorld — its schematic library is not available. "
+                        + "&f/st struct list&7 still has every vanilla structure."));
+        return false;
+    }
+
+    // --- narration ----------------------------------------------------------
+
+    private static int narrateServer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        Narration.toServer(player, StringArgumentType.getString(ctx, "text"));
+        return 1;
+    }
+
+    private static int narrateRadius(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        int blocks = IntegerArgumentType.getInteger(ctx, "blocks");
+        int heard = Narration.toRadius(player, blocks, StringArgumentType.getString(ctx, "text"));
+        Feedback.chat(player, "&8(heard by " + heard + ")");
+        return heard;
+    }
+
+    private static int narrateParty(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+        int sent = Narration.toParty(target, StringArgumentType.getString(ctx, "text"));
+        return sent;
+    }
+
+    private static int title(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        Narration.title(player, StringArgumentType.getString(ctx, "text"));
+        return 1;
+    }
+
+    private static int whisper(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+        Narration.whisper(target, StringArgumentType.getString(ctx, "text"));
+        return 1;
+    }
+
+    // --- undo ---------------------------------------------------------------
+
+    private static int undo(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var undone = com.sablednah.storyteller.scene.SceneLog.undoLast(player, (ServerLevel) player.level());
+        if (undone.isEmpty()) {
+            Feedback.chat(player, "&7Nothing to undo.");
+            return 0;
+        }
+        Feedback.chat(player, "&aUndone: &f" + undone.get());
+        return 1;
+    }
+
+    private static int sceneClear(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        int count = com.sablednah.storyteller.scene.SceneLog.undoAll(player, (ServerLevel) player.level());
+        Feedback.chat(player, count == 0 ? "&7Nothing to clear." : "&aCleared &f" + count + "&a action(s) from this scene.");
+        return count;
     }
 
     private STCommands() {}
