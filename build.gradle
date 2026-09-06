@@ -128,6 +128,25 @@ dependencies {
         logger.lifecycle("Standards dependency: ${found.first().name}")
         [found.first()]
     })
+
+    // CityWorld supplies its schematic library (legacy .schematic, WorldEdit
+    // .schem, Litematica .litematic, vanilla .nbt) as a second pool for the
+    // Storyteller's set-dressing tools. Soft dependency, same reasoning and
+    // same version-matched lookup as Standards above -- StructureSupport is
+    // the only class that imports it.
+    compileOnly files(provider {
+        def pattern = ~/cityworld-.*\+mc${minecraft_version}\.jar/
+        def found = (file('../CityWorld-ReForged/build/libs').listFiles() ?: [])
+                .findAll { it.name ==~ pattern }
+                .sort { -it.lastModified() }
+        if (found.isEmpty()) {
+            logger.lifecycle("CityWorld: no jar for Minecraft ${minecraft_version}; " +
+                "building without the optional schematic-library API.")
+            return []
+        }
+        logger.lifecycle("CityWorld dependency: ${found.first().name}")
+        [found.first()]
+    })
 }
 
 // The dev server needs LegendQuest present at runtime, not just at compile

@@ -3,11 +3,16 @@ package com.sablednah.storyteller.neoforge;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.Optional;
+
 import com.sablednah.legendquest.character.PlayerCharacter;
 import com.sablednah.legendquest.neoforge.CharacterService;
 import com.sablednah.legendquest.neoforge.Parties;
 
+import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
 /**
@@ -34,9 +39,20 @@ public final class Rewards {
      * One reward, applied as a unit. Any field left at zero/empty is skipped,
      * so "just money" and "the full quest payout" are the same call.
      */
-    public record Packet(long xp, int levels, int skillPoints, long karma, double money) {
+    public record Packet(long xp, int levels, int skillPoints, long karma, double money,
+            Optional<Holder<Item>> item, int itemCount) {
         public boolean isEmpty() {
-            return xp == 0 && levels == 0 && skillPoints == 0 && karma == 0 && money == 0;
+            return xp == 0 && levels == 0 && skillPoints == 0 && karma == 0 && money == 0 && item.isEmpty();
+        }
+
+        /** The five-currency shorthand, for callers with nothing to give but
+         *  numbers — every reward command but {@code item} builds one this way. */
+        public static Packet currency(long xp, int levels, int skillPoints, long karma, double money) {
+            return new Packet(xp, levels, skillPoints, karma, money, Optional.empty(), 0);
+        }
+
+        public static Packet of(Holder<Item> item, int count) {
+            return new Packet(0, 0, 0, 0, 0, Optional.of(item), count);
         }
     }
 
@@ -76,6 +92,19 @@ public final class Rewards {
         if (packet.karma() != 0) {
             pc.addKarma(packet.karma());
             granted.add((packet.karma() > 0 ? "+" : "") + packet.karma() + " karma");
+        }
+
+        if (packet.item().isPresent()) {
+            ItemStack stack = new ItemStack(packet.item().get(), Math.max(1, packet.itemCount()));
+            String label = packet.itemCount() + "x " + stack.getHoverName().getString();
+            boolean fit = player.getInventory().add(stack);
+            if (!stack.isEmpty()) {
+                // Inventory.add drains the stack as it fills slots; whatever is
+                // left over goes at their feet rather than vanishing, so a full
+                // inventory costs a pickup, not the reward itself.
+                player.drop(stack, false);
+            }
+            granted.add(label + (fit ? "" : " (dropped — inventory was full)"));
         }
 
         if (packet.money() != 0) {
