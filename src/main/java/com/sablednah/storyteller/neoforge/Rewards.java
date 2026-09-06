@@ -34,17 +34,11 @@ public final class Rewards {
      * One reward, applied as a unit. Any field left at zero/empty is skipped,
      * so "just money" and "the full quest payout" are the same call.
      */
-    public record Packet(long xp, long karma, double money) {
+    public record Packet(long xp, int levels, int skillPoints, long karma, double money) {
         public boolean isEmpty() {
-            return xp == 0 && karma == 0 && money == 0;
+            return xp == 0 && levels == 0 && skillPoints == 0 && karma == 0 && money == 0;
         }
     }
-    // Levels and skill points are deliberately absent. LegendQuest exposes
-    // Leveling.totalXpForLevel but not the configured XP base behind it, and
-    // has no public way to grant a skill point at all -- so honouring either
-    // here would mean either guessing at LegendQuest's arithmetic or reaching
-    // past its API. `/lq admin level` already does levels correctly; this waits
-    // for a real API rather than shipping a second, subtly different one.
 
     public static Result give(ServerPlayer player, Packet packet, String reason) {
         List<String> granted = new ArrayList<>();
@@ -60,6 +54,23 @@ public final class Rewards {
                 CharacterService.afterXpChange(player, before);
                 granted.add(packet.xp() + " XP");
             }, () -> refused.add("XP (no class yet)"));
+        }
+
+        if (packet.levels() != 0) {
+            // addLevels rather than setLevel: a level awarded should not cost
+            // the character the progress they had made towards the next one.
+            if (CharacterService.addLevels(player, packet.levels())) {
+                granted.add((packet.levels() > 0 ? "+" : "") + packet.levels() + " level"
+                        + (Math.abs(packet.levels()) == 1 ? "" : "s"));
+            } else {
+                refused.add("levels (no class yet)");
+            }
+        }
+
+        if (packet.skillPoints() != 0) {
+            pc.grantSkillPoints(packet.skillPoints());
+            granted.add((packet.skillPoints() > 0 ? "+" : "") + packet.skillPoints()
+                    + " skill point" + (Math.abs(packet.skillPoints()) == 1 ? "" : "s"));
         }
 
         if (packet.karma() != 0) {

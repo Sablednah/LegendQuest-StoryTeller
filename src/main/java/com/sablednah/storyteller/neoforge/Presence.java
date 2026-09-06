@@ -1,19 +1,16 @@
 package com.sablednah.storyteller.neoforge;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
+import com.sablednah.storyteller.state.Anchor;
+import com.sablednah.storyteller.state.STAttachments;
+
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.GameType;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Where the Storyteller is standing, and getting them somewhere else.
@@ -24,22 +21,19 @@ import net.minecraft.world.phys.Vec3;
  * that — it is <b>getting their body back</b>, which is why every entry point
  * here records an anchor first.</p>
  *
- * <p><b>The anchor is in memory only.</b> A clean disconnect restores it (see
- * {@link STServerEvents}), so the bad case is a server crash mid-scene, which
- * leaves a Storyteller in spectator where they were standing. {@code /st
- * return} is written to cope with a missing anchor rather than refuse, so the
- * way out never depends on the thing that was lost.</p>
+ * <p><b>The anchor is persisted</b>, on the player, as an attachment. It has
+ * to be: drifting puts someone in spectator, and the anchor is the only record
+ * of what they were before. Held in memory, a server crash mid-scene would
+ * turn into a Storyteller who logs back in as a spectator with nowhere to
+ * return to — a state they cannot leave without an operator. {@code /st
+ * return} still copes with a missing anchor rather than refusing, because the
+ * way out should never depend on the thing that was lost.</p>
  */
 public final class Presence {
 
-    /** Where a Storyteller left their body, and what they were doing with it. */
-    private record Anchor(ResourceKey<Level> dimension, Vec3 pos, float yRot, float xRot, GameType mode) {}
-
-    private static final Map<UUID, Anchor> ANCHORS = new HashMap<>();
-
     /** Is this player currently out of body? */
     public static boolean isDrifting(ServerPlayer player) {
-        return ANCHORS.containsKey(player.getUUID());
+        return player.getData(STAttachments.ANCHOR).isSet();
     }
 
     /**
@@ -48,10 +42,12 @@ public final class Presence {
      * position, or "return" would bring them back to the middle of the scene.
      */
     public static boolean drift(ServerPlayer player) {
-        if (ANCHORS.containsKey(player.getUUID())) return false;
-        ANCHORS.put(player.getUUID(), new Anchor(
-                player.level().dimension(), player.position(),
-                player.getYRot(), player.getXRot(), player.gameMode.getGameModeForPlayer()));
+        if (player.getData(STAttachments.ANCHOR).isSet()) return false;
+        player.setData(STAttachments.ANCHOR, new Anchor(
+                Optional.of(player.level().dimension()),
+                player.getX(), player.getY(), player.getZ(),
+                player.getYRot(), player.getXRot(),
+                player.gameMode.getGameModeForPlayer()));
         player.setGameMode(GameType.SPECTATOR);
         return true;
     }
@@ -64,21 +60,18 @@ public final class Presence {
      *         act is the one response that leaves them stuck.
      */
     public static boolean returnToBody(ServerPlayer player) {
-        Anchor anchor = ANCHORS.remove(player.getUUID());
-        if (anchor == null) return false;
-        ServerLevel level = player.level().getServer().getLevel(anchor.dimension());
+        Anchor anchor = player.getData(STAttachments.ANCHOR);
+        if (!anchor.isSet()) return false;
+        player.setData(STAttachments.ANCHOR, Anchor.empty());
+        ServerLevel level = player.level().getServer().getLevel(anchor.dimension().get());
+        // The dimension could be gone -- a datapack removed between sessions.
+        // The overworld is a worse landing than the anchor, and a far better
+        // one than staying a spectator forever.
         if (level == null) level = player.level().getServer().overworld();
         player.setGameMode(anchor.mode());
-        player.teleportTo(level, anchor.pos().x, anchor.pos().y, anchor.pos().z,
+        player.teleportTo(level, anchor.x(), anchor.y(), anchor.z(),
                 java.util.Set.of(), anchor.yRot(), anchor.xRot(), false);
         return true;
-    }
-
-    /** Forget an anchor without acting on it — for logout, where the player
-     *  object is about to stop being useful. */
-    public static Optional<GameType> takeAnchorMode(ServerPlayer player) {
-        Anchor anchor = ANCHORS.remove(player.getUUID());
-        return Optional.ofNullable(anchor).map(Anchor::mode);
     }
 
     /** Stand where that player is standing, facing the way they face. */

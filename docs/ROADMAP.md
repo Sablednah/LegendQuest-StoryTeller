@@ -16,11 +16,14 @@ mod. A tool that cannot be perceived by a vanilla client is not a tool.
 - Rewards: XP, karma, money — singly or party-wide, with the recipient always
   told at the moment it lands.
 
-**Known gaps to close here:** the drift anchor is in memory, so a server crash
-mid-scene strands a Storyteller in spectator (`/st return` recovers them, but
-at the wrong place). Persisting it in a NeoForge attachment, the way
-LegendQuest persists character data, is the fix. Levels, skill points and item
-rewards are also missing — see the note in `Rewards.Packet`.
+Closed since: the drift anchor is now a persisted attachment, so a crash
+mid-scene no longer strands anyone; levels and skill points are back in the
+reward packet, on the back of new LegendQuest API
+(`CharacterService.addLevels`, `PlayerCharacter.grantSkillPoints`); and
+effects can be applied to a player or a party.
+
+**Still open here:** item and loot-table rewards, and reward *packets* as
+saved presets rather than one currency per command.
 
 ## 2. Possession and voice
 
