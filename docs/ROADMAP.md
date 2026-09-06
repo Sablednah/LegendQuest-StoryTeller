@@ -25,16 +25,33 @@ effects can be applied to a player or a party.
 **Still open here:** item and loot-table rewards, and reward *packets* as
 saved presets rather than one currency per command.
 
-## 2. Possession and voice
+## 2. Possession and voice — DONE (the core of it)
 
-The thing that makes a session feel live, and the reason the Storyteller mode
-in *Vampire: The Masquerade – Redemption* is the model.
+Take over a creature, wear it, speak as it, give it back. Works on a vanilla
+Storyteller client: camera binding and spectator mode are both server-driven.
 
-- Take over any mob: move it, fight with it, release it back to its AI.
-  **ZombieMod already puppets vanilla mobs with data-driven goals — that
-  codebase is prior art for half of this.**
-- Speak in chat *as* the possessed thing, so an NPC has a voice without an NPC
-  system existing yet.
+**The prior art turned out to be a warning, not a template.** ZombieMod clears
+a mob's goals outright (`removeAllGoals(g -> true)`), which is right for
+rebuilding a mob permanently and wrong here — vanilla registers goals in
+`registerGoals()` at construction and never again, so a cleared list cannot be
+put back and a released goblin would not be a goblin. Possession instead adds
+one goal at priority 0 holding MOVE, LOOK, JUMP and TARGET, starving the
+mob's own goals of the flags they need without removing any. Release is one
+`removeGoal`.
+
+Two failure modes are closed deliberately: a Storyteller who logs out mid-
+possession releases the creature (otherwise it is frozen forever following
+somebody who is not there), and a possessed creature that dies hands back the
+camera (otherwise they are watching through a corpse, which on a vanilla
+client is a black screen they cannot escape from inside the game).
+
+**Still to do here:**
+
+- One-to-one driving via the Storyteller's client mod — attack, strafe, jump
+  on their input rather than leading the creature around.
+- Narration that is not a possessed voice: title cards, scene text to a
+  radius/party/server, a whisper to one player.
+- Ambience: weather, time of day, a sound cue on the room.
 - Narrate: title cards, scene text to a radius/party/server, a whisper to one
   player — a god-voice, a dream, an omen.
 - Ambience: weather, time of day, a sound cue on the room.
