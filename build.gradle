@@ -130,23 +130,29 @@ dependencies {
     })
 }
 
-// The dev server needs LegendQuest present at runtime, not just at compile
-// time -- StoryTeller does nothing without it. Drop the same jar into
-// run/mods before `runServer`, so a fresh checkout cannot start a server that
-// is missing its own dependency.
-tasks.register('stageLegendQuest', Copy) {
-    from(provider {
-        def pattern = ~/legendquest-.*\+mc${minecraft_version}\.jar/
-        [file('libs'), file('../LegendQuest-ReForged/build/libs')]
-                .findAll { it.isDirectory() }
-                .collectMany { (it.listFiles() ?: []) as List }
-                .findAll { it.name ==~ pattern }
-                .sort { -it.lastModified() }
-                .take(1)
-    })
+// LegendQuest is a HARD, required dependency (see the mods.toml template) --
+// FML refuses to load StoryTeller at all without it, on client or server
+// alike. Drop the same jar into both run directories before launch, so a
+// fresh checkout cannot start either half missing its own dependency.
+def legendQuestJar = provider {
+    def pattern = ~/legendquest-.*\+mc${minecraft_version}\.jar/
+    [file('libs'), file('../LegendQuest-ReForged/build/libs')]
+            .findAll { it.isDirectory() }
+            .collectMany { (it.listFiles() ?: []) as List }
+            .findAll { it.name ==~ pattern }
+            .sort { -it.lastModified() }
+            .take(1)
+}
+tasks.register('stageLegendQuestServer', Copy) {
+    from(legendQuestJar)
     into file('run/mods')
 }
-tasks.matching { it.name == 'runServer' }.configureEach { dependsOn 'stageLegendQuest' }
+tasks.register('stageLegendQuestBuddy', Copy) {
+    from(legendQuestJar)
+    into file('runBuddy/mods')
+}
+tasks.matching { it.name == 'runServer' }.configureEach { dependsOn 'stageLegendQuestServer' }
+tasks.matching { it.name == 'runClientBuddy' }.configureEach { dependsOn 'stageLegendQuestBuddy' }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
     var replaceProperties = [
