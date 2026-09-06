@@ -73,6 +73,13 @@ public final class STCommands {
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .then(currencies(true)))))
 
+                // --- possession ---
+                .then(Commands.literal("possess").executes(STCommands::possess))
+                .then(Commands.literal("release").executes(STCommands::release))
+                .then(Commands.literal("say")
+                        .then(Commands.argument("text", StringArgumentType.greedyString())
+                                .executes(STCommands::sayAs)))
+
                 // --- effects ---
                 .then(effects(build));
 
@@ -206,6 +213,67 @@ public final class STCommands {
         }
         String out = sb.toString();
         ctx.getSource().sendSuccess(() -> Feedback.colored(out), false);
+    }
+
+    // --- possession --------------------------------------------------------
+
+    /** How far a Storyteller can reach to take something over. Generous: they
+     *  are usually drifting above the scene rather than standing in it. */
+    private static final double POSSESS_REACH = 24.0D;
+
+    private static int possess(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var looked = Possession.lookedAt(player, POSSESS_REACH);
+        if (looked.isEmpty()) {
+            Feedback.chat(player, "&7Nothing in your sights to take over. Look straight at a creature.");
+            return 0;
+        }
+        var mob = looked.get();
+        // Drifting first, so `release` and `return` stay separately meaningful:
+        // one gives the creature back, the other gives you your body back.
+        boolean startedDrifting = Presence.drift(player);
+        switch (Possession.possess(player, mob)) {
+            case NONE -> {
+                Feedback.chat(player, "&5You are wearing &f" + mob.getName().getString()
+                        + "&5. &f/st say <words>&5 speaks as it, &f/st release&5 lets it go."
+                        + (startedDrifting ? " &8(your body is anchored where you left it)" : ""));
+                return 1;
+            }
+            case ALREADY_HELD -> Feedback.chat(player,
+                    "&7You are already wearing something. &f/st release&7 first.");
+            case TAKEN -> Feedback.chat(player, "&7Another Storyteller is already wearing that one.");
+        }
+        return 0;
+    }
+
+    private static int release(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var released = Possession.release(player);
+        if (released.isEmpty()) {
+            Feedback.chat(player, "&7You are not wearing anything.");
+            return 0;
+        }
+        Feedback.chat(player, "&aYou step out of &f" + released.get().getName().getString()
+                + "&a. It is itself again. &f/st return&a brings you back to your body.");
+        return 1;
+    }
+
+    /** How far an NPC's voice carries. Roughly vanilla chat range for a scene. */
+    private static final double SPEAK_RADIUS = 48.0D;
+
+    private static int sayAs(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var mob = Possession.heldBy(player);
+        if (mob.isEmpty()) {
+            Feedback.chat(player, "&7You are not wearing anything to speak through. &f/st possess&7 first.");
+            return 0;
+        }
+        String text = StringArgumentType.getString(ctx, "text");
+        int heard = Possession.speak(player, mob.get(), text, SPEAK_RADIUS);
+        // Told how many heard it, because a line delivered to an empty clearing
+        // is a beat the Storyteller needs to know landed nowhere.
+        if (heard == 0) Feedback.chat(player, "&8(nobody was close enough to hear that)");
+        return heard;
     }
 
     // --- presence ----------------------------------------------------------

@@ -54,8 +54,23 @@ operator, because a GM should be able to lay a curse without also being handed
 same reason: vanilla's answer is `@a[...]` selectors, and those need operator
 level 2 to parse at all.
 
-Not built yet: possession, NPC spawning, the structure library, the story
-planner and the GUI. See `docs/ROADMAP.md`.
+- `/st possess` — take over the creature you are looking at. Your camera
+  becomes its eyes and its own AI stops deciding things.
+- `/st say <words>` — speak as it, to anyone close enough to hear.
+- `/st release` — give it back to itself, exactly as it was.
+
+Possession works on a **vanilla Storyteller client**. Steering is by leading:
+your drifting body still flies on WASD and the creature walks toward it, bound
+by its own legs — a possessed cow will not scale a cliff the audience can see
+it could not climb. One-to-one input control is what the Storyteller's own
+client mod adds later.
+
+Nothing is destroyed to do it. The creature keeps every goal it was born with;
+possession just adds one at priority 0 that holds all four AI flags, and
+releasing removes exactly that one.
+
+Not built yet: NPC spawning, the structure library, the story planner and the
+GUI. See `docs/ROADMAP.md`.
 
 ## Permissions
 
