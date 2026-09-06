@@ -47,8 +47,12 @@ client is a black screen they cannot escape from inside the game).
 
 **Still to do here:**
 
-- One-to-one driving via the Storyteller's client mod — attack, strafe, jump
-  on their input rather than leading the creature around.
+- One-to-one *movement* via the Storyteller's client mod — strafe, jump and
+  attack on their keypress rather than the creature pathing after them.
+  Looking is already one-to-one and needs no client mod: the camera renders
+  from the creature's orientation, so mirroring the possessor's rotation onto
+  it every tick is mouse-look. Worth testing how that interacts with pathing,
+  which turns a mob toward its own route as it walks.
 - Narration that is not a possessed voice: title cards, scene text to a
   radius/party/server, a whisper to one player.
 - Ambience: weather, time of day, a sound cue on the room.
