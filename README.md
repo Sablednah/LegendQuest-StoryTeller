@@ -59,11 +59,17 @@ level 2 to parse at all.
 - `/st say <words>` — speak as it, to anyone close enough to hear.
 - `/st release` — give it back to itself, exactly as it was.
 
-Possession works on a **vanilla Storyteller client**. Steering is by leading:
-your drifting body still flies on WASD and the creature walks toward it, bound
-by its own legs — a possessed cow will not scale a cliff the audience can see
-it could not climb. One-to-one input control is what the Storyteller's own
-client mod adds later.
+Possession works on a **vanilla Storyteller client**. Looking is one-to-one
+already: binding the camera to an entity renders from its eyes *and* its
+orientation, so the creature's head mirrors your mouse every tick and turning
+your view turns the thing you are wearing. Steering is by leading — your
+drifting body still flies on WASD and the creature walks toward it, bound by
+its own legs, so a possessed cow will not scale a cliff the audience can see
+it could not climb.
+
+What the Storyteller's client mod adds later is the rest of the input:
+strafing, jumping and attacking on your keypress rather than the creature
+pathing after you.
 
 Nothing is destroyed to do it. The creature keeps every goal it was born with;
 possession just adds one at priority 0 that holds all four AI flags, and
