@@ -5,25 +5,26 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 /**
- * Lifecycle handling, which for now is one job: never leave a Storyteller
- * stranded out of their body.
+ * Lifecycle handling: one job, which is that nobody is ever confused about
+ * being a spectator.
  *
- * <p>Drifting is spectator mode plus a remembered anchor. Log out while
- * drifting and the anchor — held in memory — would go with the session, so the
- * next login is a spectator with nothing to return to. Restoring the game mode
- * on the way out costs one event handler and removes the whole failure.</p>
+ * <p>The drift anchor is persisted, so logging out mid-scene and back in
+ * leaves a Storyteller still drifting — which is correct, it is the state they
+ * chose. What would not be correct is arriving as a spectator with no
+ * explanation and no visible way out, so the login says both.</p>
  *
- * <p>It deliberately restores the <em>mode</em> and not the position. Putting
- * someone back at their anchor as they disconnect risks writing a teleport
- * into a save that is mid-flush; leaving them where they were spectating is
- * harmless, and their mode is what actually decides whether they can play.</p>
+ * <p>There is deliberately no logout handler putting them back in their body.
+ * Undoing a state the player deliberately entered, because they happened to
+ * disconnect, is a decision the game should not make for them.</p>
  */
 public final class STServerEvents {
 
     @SubscribeEvent
-    static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+    static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        Presence.takeAnchorMode(player).ifPresent(player::setGameMode);
+        if (!Presence.isDrifting(player)) return;
+        Feedback.chat(player, "&7You are still drifting out of your body. "
+                + "&f/st return&7 brings you back.");
     }
 
     private STServerEvents() {}

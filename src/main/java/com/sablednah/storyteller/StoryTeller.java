@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import com.sablednah.storyteller.neoforge.STCommands;
 import com.sablednah.storyteller.neoforge.STPermissions;
 import com.sablednah.storyteller.neoforge.STServerEvents;
+import com.sablednah.storyteller.state.STAttachments;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -37,6 +38,7 @@ public class StoryTeller {
     public static final Logger LOGGER = LoggerFactory.getLogger("StoryTeller");
 
     public StoryTeller(IEventBus modEventBus, ModContainer container) {
+        STAttachments.register(modEventBus);
         NeoForge.EVENT_BUS.register(STCommands.class);
         NeoForge.EVENT_BUS.register(STPermissions.class);
         NeoForge.EVENT_BUS.register(STServerEvents.class);

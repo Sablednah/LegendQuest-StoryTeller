@@ -38,9 +38,21 @@ Working today:
 - `/st who` — the roster: race, class, level, karma, health, mana, party and
   where everyone is standing, with health coloured because it is the one
   number you have to react to mid-scene.
-- `/st reward <player> xp <n> [karma <n>|money <n>|for <reason>]`
-- `/st reward party <player> xp <n> …` — the whole party in one action,
-  because a GM awarding four people one at a time will award three.
+- `/st reward <player> xp|levels|sp|karma|money <n> [for <reason>]`
+- `/st reward party <player> …` — the whole party in one action, because a GM
+  awarding four people one at a time will award three.
+- `/st effect <player> <effect> <seconds> [level] [hidden]`
+- `/st effect party <player> …` · `/st effect clear <player> [<effect>]`
+
+`hidden` suppresses the swirling particles — for a condition the story imposes
+rather than a potion someone drank.
+
+Effects are not a reimplementation of vanilla `/effect`. They are the same
+capability reached through the Storyteller's own permission instead of
+operator, because a GM should be able to lay a curse without also being handed
+`/stop`, `/ban` and every block on the server. The party form matters for the
+same reason: vanilla's answer is `@a[...]` selectors, and those need operator
+level 2 to parse at all.
 
 Not built yet: possession, NPC spawning, the structure library, the story
 planner and the GUI. See `docs/ROADMAP.md`.
