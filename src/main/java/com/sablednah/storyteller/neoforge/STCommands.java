@@ -357,6 +357,11 @@ public final class STCommands {
                                 + "&5. Walk, and it walks with you. &f/st say <words>&5 speaks as it, "
                                 + "&f/st release&5 lets it go. "
                                 + "&8(/st possess eyes to see through it instead — you cannot do both)");
+                if (!throughItsEyes && !sighted.isNpc() && Possession.cannotBeLed(sighted.mob())) {
+                    Feedback.chat(player, "&7It will not follow you — a slime moves by jumping, "
+                            + "and that cannot be steered. &f/st say&7 still speaks as it, and "
+                            + "&f/st possess eyes&7 still rides along.");
+                }
                 presenceNote(player).ifPresent(note -> Feedback.chat(player, note));
                 return 1;
             }

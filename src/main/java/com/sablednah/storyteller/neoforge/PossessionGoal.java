@@ -43,8 +43,14 @@ import net.minecraft.world.entity.Mob;
  */
 public class PossessionGoal extends Goal {
 
-    /** Close enough that following would only jitter the mob on the spot. */
-    static final double ARRIVED = 1.6D;
+    /**
+     * Close enough that following would only jitter the mob on the spot.
+     *
+     * <p>Was 1.6, which a GM reported as trailing too far behind to feel worn.
+     * Not much lower than this: at contact range the creature spends its time
+     * shouldering the Storyteller aside instead of standing with them.</p>
+     */
+    static final double ARRIVED = 1.1D;
 
     private final Mob mob;
     private final ServerPlayer possessor;
@@ -99,7 +105,8 @@ public class PossessionGoal extends Goal {
         // to walk at all. The head follows your gaze; the body follows its
         // feet. Reported live: "it cant walk a direction it is not facing, so
         // it sort of spins".
-        mob.setYHeadRot(possessor.getYRot());
+        float yaw = possessor.getYRot();
+        mob.setYHeadRot(yaw);
         mob.setXRot(possessor.getXRot());
 
         if (possessor.level() != mob.level()) return; // mid-teleport; wait
@@ -107,6 +114,18 @@ public class PossessionGoal extends Goal {
         double distance = mob.distanceToSqr(possessor);
         if (distance <= ARRIVED * ARRIVED) {
             mob.getNavigation().stop();
+            // Standing still: turn the BODY to face where the Storyteller
+            // faces as well.
+            //
+            // Head-only was right while walking and wrong while stopped.
+            // Vanilla clamps a head to within getMaxHeadYRot() of its body
+            // every tick, so a head held at an angle the body never adopts
+            // drifts back and is re-forced here -- which is exactly the "they
+            // look around before snapping back to my view" that was reported.
+            // Aligning the body when there is no path to fight removes the
+            // disagreement instead of losing it every other tick.
+            mob.setYRot(yaw);
+            mob.yBodyRot = yaw;
             return;
         }
         // Path rather than teleport, so the mob is bound by its own legs: a

@@ -315,6 +315,25 @@ public final class Possession {
                 mob.get().mob().getName().getString(), true));
     }
 
+    /**
+     * Creatures that cannot be led, however willing they are.
+     *
+     * <p>A slime does not walk: it moves by jumping, driven entirely by its own
+     * {@code SlimeRandomDirectionGoal} and {@code SlimeKeepOnJumpingGoal}
+     * through a move control that is package-private and so cannot be steered
+     * from here. Possession starves those goals of their flags, which stops the
+     * jumping without putting anything in its place — so the slime simply sits
+     * there, reported live as "slimes just ignore it lol". Magma cubes extend
+     * Slime and behave the same way.</p>
+     *
+     * <p>Possession is still allowed: the eyes and the voice both work, and a
+     * slime that speaks is a perfectly good scene. Only the leading is
+     * impossible, so only the leading is what gets said.</p>
+     */
+    public static boolean cannotBeLed(Mob mob) {
+        return mob instanceof net.minecraft.world.entity.monster.Slime;
+    }
+
     public static Optional<UUID> heldNpcBy(ServerPlayer player) {
         return Optional.ofNullable(HELD_NPC.get(player.getUUID()));
     }

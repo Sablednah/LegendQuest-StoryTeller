@@ -125,6 +125,13 @@ undo* than parking goals — a `Brain` is built by
 `brainProvider()` at construction, so gutting one has the same one-way problem
 as `removeAllGoals`.
 
+**A slime cannot be led**, and says so when you take one. It does not walk: it
+moves by jumping, driven by its own goals through a move control that is
+package-private and cannot be steered from outside. Possession starves those
+goals of their flags, which stops the jumping without replacing it, so the
+slime just sits. Magma cubes are the same. Eyes and voice both still work —
+only the leading is impossible, so only the leading is refused.
+
 **Untested, predicted from the above:** possessing a Villager should fight
 itself — `PossessionGoal`'s `navigation.moveTo` against the brain's own
 movement, and our rotation mirroring against the brain's look behaviour. Not
