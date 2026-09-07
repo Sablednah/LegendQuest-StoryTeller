@@ -205,6 +205,25 @@ goal, which is GUI/story-planner territory more than a command-line preset.
 - CityWorld-aware placement is done for its schematic library; plot-aware
   placement (asking CityWorld where a plot's boundary is) is not attempted.
 
+## Buttons — DONE (Standards actions)
+
+Five actions registered with Standards 1.6.0: possess, release, drift, return,
+next. Standards draws them as a bar for its client half and as clickable chat
+components for anyone without it, so **a vanilla Storyteller gets working
+buttons** — which is the only reason this mod could adopt them.
+
+Each carries a command string rather than a payload, so a button is
+indistinguishable from typing, and each reports *state* as well as
+availability. The state half was asked for specifically: most of a day of
+play-testing went on this mod and the game disagreeing about what was
+happening, and a bar that shows "you are wearing a cow" catches that in the
+moment.
+
+Keybinds are the client half's to register and are unambiguously client-side —
+a `KeyMapping` is registered before anything knows which server it is talking
+to. Standards will expose `ClientActions.run(id)` so a key handler gets the
+availability check and refusal message for free; not built yet.
+
 ## 5. The GUI, and the planner
 
 Last, deliberately. Everything above is usable from a chat box first.

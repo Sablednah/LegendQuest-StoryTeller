@@ -118,6 +118,26 @@ session: `behave` may not hold on a brain-driven mob (Villager, Piglin, Warden
 and 17 others) because it competes with a Brain rather than replacing it, and
 structure undo restores block states only, not block-entity contents.
 
+## Buttons, without asking anyone to install anything
+
+With Standards 1.6.0 or newer, the Storyteller's five most-used tools —
+possess, release, drift, return, next — are registered as actions: a drawn bar
+for anyone running the Standards client, and a row of clickable chat buttons
+for anyone who is not. **A vanilla client gets working buttons.** That is why
+they exist here at all; a control surface that required a client mod would be
+one this mod could not use, given only the server and the Storyteller are meant
+to need anything.
+
+An action carries a **command string**, not a payload — a button sends
+`/st possess` exactly as if it had been typed. So the buttons cannot drift ahead
+of the commands, and permissions and refusals behave identically whichever way
+the command arrives. The commands stay the interface.
+
+They report **state**, not just availability: possess lights up while you are
+wearing something and names it, drift lights up while you are out of your body.
+A Storyteller who can see *you are wearing a cow* notices a possession that has
+silently ended, instead of finding out three commands later.
+
 ## Permissions
 
 Nodes go through NeoForge's `PermissionAPI`, LuckPerms-compatible, the same
