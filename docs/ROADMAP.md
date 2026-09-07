@@ -31,7 +31,8 @@ Take over a creature, wear it, speak as it, give it back. Works on a vanilla
 Storyteller client: camera binding and spectator mode are both server-driven.
 
 **Two forms, because a vanilla client cannot give both.** `/st possess` steers
-— you drift and the creature walks to where you fly. `/st possess eyes` binds
+— you keep your own grounded body and the creature walks to where you walk.
+`/st possess eyes` binds
 the camera and you ride along seeing what it sees, while it lives its own
 life. You cannot have eyes and control at once: a client stops sending
 movement entirely while spectating an entity (`LocalPlayer.sendPosition` is
@@ -125,6 +126,21 @@ as `removeAllGoals`.
 itself — `PossessionGoal`'s `navigation.moveTo` against the brain's own
 movement, and our rotation mirroring against the brain's look behaviour. Not
 yet observed; flagged rather than assumed.
+
+**Spectator is for surveying, not for steering.** Possession used to drop the
+Storyteller into spectator; a play test showed that is the wrong tool. A
+spectator flies, so the led body gets walked into the air and bounces on the
+way; it noclips, so the body follows it underground; and vanilla repurposes a
+spectator's own inputs — clicking an entity re-binds the camera, sneaking
+unbinds it — so the mode fights the feature continuously.
+
+The division now is that spectator (`/st drift`) keeps the godlike survey it is
+good at — through walls, over rooftops, jumping between players — and
+possession leaves the Storyteller grounded so the creature is following
+somewhere it can actually go. Being *unseen* is vanish's job rather than
+spectator's; Standards exposes vanish read-only today, and a settable API has
+been requested so possession can hide the Storyteller and restore whatever they
+were before. Until it lands, `/st possess` says plainly that they can be seen.
 
 **Merchant/quest-giver/ambusher presets** are not built — they would need
 actual interaction (trading, dialogue, an aggro trigger) beyond a movement

@@ -305,9 +305,18 @@ public final class STCommands {
             Feedback.chat(player, "&7" + sighted.name() + " &7cannot be worn.");
             return 0;
         }
-        // Drifting first, so `release` and `return` stay separately meaningful:
-        // one gives the creature back, the other gives you your body back.
-        boolean startedDrifting = Presence.drift(player);
+        // Deliberately does NOT put them into spectator any more.
+        //
+        // Possession used to drift the Storyteller first, and a play test
+        // showed that is the wrong tool: a spectator flies, so the body it is
+        // leading gets walked into the air and bounces; it noclips, so the body
+        // follows it into the ground; and vanilla repurposes a spectator's own
+        // inputs -- clicking an entity re-binds the camera, sneaking unbinds
+        // it -- which fights the feature the whole time.
+        //
+        // Steering wants a grounded body, so the creature is following
+        // somewhere it can actually go. Spectator keeps its own job: the
+        // godlike survey of a scene, which is what /st drift is for.
         var refusal = sighted.isNpc()
                 ? Possession.possessNpc(player, sighted.npcId(), throughItsEyes)
                 : Possession.possess(player, sighted.mob(), throughItsEyes);
@@ -324,11 +333,8 @@ public final class STCommands {
                         : "&5You are steering &f" + sighted.name()
                                 + "&5. Walk, and it walks with you. &f/st say <words>&5 speaks as it, "
                                 + "&f/st release&5 lets it go. "
-                                + "&8(/st possess eyes to see through it instead — you cannot do both)")
-                        ;
-                if (startedDrifting) {
-                    Feedback.chat(player, "&8Your body is anchored where you left it.");
-                }
+                                + "&8(/st possess eyes to see through it instead — you cannot do both)");
+                presenceNote(player).ifPresent(note -> Feedback.chat(player, note));
                 return 1;
             }
             case ALREADY_HELD -> Feedback.chat(player,
@@ -338,6 +344,24 @@ public final class STCommands {
                     "&7" + sighted.name() + " &7has no body loaded right now — nothing to step into.");
         }
         return 0;
+    }
+
+    /**
+     * What the Storyteller should know about being *seen*, now that possession
+     * no longer hides them.
+     *
+     * <p>Silence when there is nothing to say: already unseen, or on a server
+     * with no vanish at all, where telling them to run a command that does not
+     * exist would be worse than saying nothing.</p>
+     */
+    private static java.util.Optional<String> presenceNote(ServerPlayer player) {
+        if (Presence.isDrifting(player)) {
+            return java.util.Optional.of("&8You are drifting, so it will follow you into the air. "
+                    + "&f/st return&8 first to walk it on the ground.");
+        }
+        if (!net.neoforged.fml.ModList.get().isLoaded("standards")) return java.util.Optional.empty();
+        if (VanishSupport.vanished(player)) return java.util.Optional.empty();
+        return java.util.Optional.of("&8Everyone can see you leading it. &f/vanish&8 to work unseen.");
     }
 
     private static int release(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

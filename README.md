@@ -78,10 +78,18 @@ Possession works on a **vanilla Storyteller client**, and comes in two forms
 because on a vanilla client you can have a creature's eyes or control over it,
 never both.
 
-`/st possess` **steers**. You drift as a spectator, and the creature walks to
-wherever you fly — led rather than driven, bound by its own legs, so a
-possessed cow will not scale a cliff the audience can see it could not climb.
-You keep your own view and your own movement.
+`/st possess` **steers**. You keep your own body and your own view, and the
+creature walks to wherever you walk — led rather than driven, bound by its own
+legs, so a possessed cow will not scale a cliff the audience can see it could
+not climb.
+
+It deliberately does **not** put you into spectator. A spectator flies, so the
+body it leads gets walked into the air; it noclips, so the body follows it into
+the ground; and vanilla repurposes a spectator's inputs, so clicking an entity
+re-binds your camera out from under the possession. Steering wants a grounded
+body. `/vanish` (Standards) if you would rather not be seen doing it —
+spectator keeps its own job, which is `/st drift`: the godlike survey of a
+scene, moving through walls and jumping between players.
 
 `/st possess eyes` **rides along**. The camera binds to the creature and you
 see what it sees, while it carries on being itself. You can speak as it. You
