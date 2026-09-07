@@ -73,6 +73,10 @@ public final class CastSupport {
         return Cast.byId(server, npcId).flatMap(Npc::entity);
     }
 
+    static Optional<Vec3> positionOf(MinecraftServer server, UUID npcId) {
+        return Cast.byId(server, npcId).map(Npc::pos);
+    }
+
     static Optional<String> nameOf(MinecraftServer server, UUID npcId) {
         return Cast.byId(server, npcId).map(Npc::name);
     }

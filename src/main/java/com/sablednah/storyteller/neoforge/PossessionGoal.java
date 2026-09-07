@@ -44,7 +44,7 @@ import net.minecraft.world.entity.Mob;
 public class PossessionGoal extends Goal {
 
     /** Close enough that following would only jitter the mob on the spot. */
-    private static final double ARRIVED = 1.6D;
+    static final double ARRIVED = 1.6D;
 
     private final Mob mob;
     private final ServerPlayer possessor;
@@ -86,22 +86,20 @@ public class PossessionGoal extends Goal {
 
     @Override
     public void tick() {
-        // Mirror the Storyteller's rotation onto the creature, every tick.
-        //
-        // This is what gives mouse-look while possessing, and it works on a
-        // vanilla client: binding the camera to an entity renders from that
-        // entity's eyes AND its orientation, so the only way to look around is
-        // to turn the thing you are wearing.
+        // Turn the creature's head to where the Storyteller is looking, so it
+        // reads as attending to what they attend to.
         //
         // Deliberately NOT the look control. setLookAt(possessor) aims the
-        // creature at whoever is possessing it -- which, with the camera in its
-        // head, points the view straight back at your own drifting body. The
-        // two together fight each other every tick, which is what the first
-        // draft of this did.
-        float yaw = possessor.getYRot();
-        mob.setYRot(yaw);
-        mob.setYHeadRot(yaw);
-        mob.yBodyRot = yaw;
+        // creature at whoever is possessing it, so it stares at the person
+        // leading it rather than where they are going.
+        // HEAD only. Setting the body rotation as well is what made a led cow
+        // spin on the spot: pathfinding turns the body toward the next node,
+        // and forcing yBodyRot to the Storyteller's facing every tick took
+        // that away, so a creature asked to walk backwards could never orient
+        // to walk at all. The head follows your gaze; the body follows its
+        // feet. Reported live: "it cant walk a direction it is not facing, so
+        // it sort of spins".
+        mob.setYHeadRot(possessor.getYRot());
         mob.setXRot(possessor.getXRot());
 
         if (possessor.level() != mob.level()) return; // mid-teleport; wait

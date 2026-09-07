@@ -361,12 +361,23 @@ public final class Possession {
      */
     public static void tick(MinecraftServer server) {
         SERVER = server;
-        if (!EYES.isEmpty()) noticeWhoSneakedOut(server);
+        if (!HELD.isEmpty() || !HELD_NPC.isEmpty()) noticeCameraDrift(server);
         if (HELD_NPC.isEmpty()) return;
         HELD_NPC.forEach((possessorId, npcId) -> {
             ServerPlayer possessor = server.getPlayerList().getPlayer(possessorId);
             if (possessor == null) return;
-            Vec3 to = possessor.position();
+            // Stop SHORT of the Storyteller, by the same margin the mob path
+            // uses. Driving a body onto their exact position puts it inside
+            // the camera -- reported live as "follows so well my camera is
+            // inside its head" -- and makes it copy every spectator flight and
+            // every step into the ground, because a phantom has no physics to
+            // refuse with.
+            Vec3 here = CastSupport.positionOf(server, npcId).orElse(null);
+            if (here == null) return;
+            Vec3 gap = possessor.position().subtract(here);
+            double away = gap.length();
+            if (away <= PossessionGoal.ARRIVED) return; // close enough; standing still reads better than jitter
+            Vec3 to = possessor.position().subtract(gap.scale(PossessionGoal.ARRIVED / away));
             float yaw = possessor.getYRot();
             // Nothing moved: send nothing. A held tableau should not be a
             // packet every tick to everyone watching the scene.
@@ -383,23 +394,45 @@ public final class Possession {
     }
 
     /**
-     * Vanilla ends a bound camera when the player sneaks, and tells nobody.
+     * Notice when the camera has gone somewhere this mod did not put it.
      *
-     * <p>{@code ServerPlayer} calls {@code setCamera(this)} the moment
-     * {@code wantsToStopRiding()} is true, which is how a spectator leaves an
-     * entity they are watching. Nothing fires, so without this check the
-     * Storyteller drops back into their own eyes while this mod still believes
-     * they are wearing something — and every later {@code /st say} speaks
-     * through a creature they can no longer see.</p>
+     * <p>Vanilla repurposes a spectator's inputs, and every one of them can
+     * move the camera out from under a possession without firing anything:
+     * sneaking ends a bound camera ({@code wantsToStopRiding} →
+     * {@code setCamera(this)}), and <b>clicking an entity binds the camera to
+     * that entity instead</b>. Reported live: "if i click on a different mob i
+     * switch to that - but am still weirdly stuck to the old one ... and im
+     * possessing but broken".</p>
+     *
+     * <p>So the rule is not "did they sneak" but "is the camera still where we
+     * put it". Anything else ends the possession cleanly and says so, which is
+     * the only way the Storyteller is never left speaking through a creature
+     * they cannot see.</p>
      */
-    private static void noticeWhoSneakedOut(MinecraftServer server) {
-        for (UUID id : List.copyOf(EYES)) {
+    private static void noticeCameraDrift(MinecraftServer server) {
+        List<UUID> possessors = new java.util.ArrayList<>(HELD.keySet());
+        possessors.addAll(HELD_NPC.keySet());
+        for (UUID id : possessors) {
             ServerPlayer player = server.getPlayerList().getPlayer(id);
-            if (player == null || player.getCamera() != player) continue;
-            // Deliberately branched rather than chained: the NPC arm names
-            // CastSupport, and on a server without Cast that arm must not be
-            // reached at all -- not merely left unexecuted. An explicit if makes that
-            // true by construction instead of by lambda-linkage subtlety.
+            if (player == null) continue;
+
+            // Where the camera is supposed to be: inside the body when they
+            // chose its eyes, and in their own head when they are steering.
+            Entity expected = player;
+            if (EYES.contains(id)) {
+                Mob mob = HELD.get(id);
+                if (mob != null) {
+                    expected = mob;
+                } else {
+                    UUID npcId = HELD_NPC.get(id);
+                    if (npcId == null) continue;
+                    Optional<Entity> body = CastSupport.entityOf(server, npcId);
+                    if (body.isEmpty()) continue; // being rebuilt; leave it be
+                    expected = body.get();
+                }
+            }
+            if (player.getCamera() == expected) continue;
+
             String name;
             Optional<UUID> npc = heldNpcBy(player);
             if (npc.isPresent()) {
@@ -409,8 +442,8 @@ public final class Possession {
                 name = heldBy(player).map(m -> m.getName().getString()).orElse("it");
                 release(player);
             }
-            Feedback.chat(player, "&7You slip out of &f" + name + "&7's eyes. It is itself again. "
-                    + "&f/st possess&7 takes it again — without &feyes&7 you can steer it.");
+            Feedback.chat(player, "&7Your view left &f" + name + "&7, so you have let it go. "
+                    + "&f/st possess&7 takes something again — add &feyes&7 to see through it.");
         }
     }
 
