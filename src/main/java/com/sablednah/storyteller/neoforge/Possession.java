@@ -331,7 +331,16 @@ public final class Possession {
      * impossible, so only the leading is what gets said.</p>
      */
     public static boolean cannotBeLed(Mob mob) {
-        return mob instanceof net.minecraft.world.entity.monster.Slime;
+        // Tested by registry id, not by `instanceof Slime`, and deliberately.
+        // Slime sits in net.minecraft.world.entity.monster on 1.21.11 and 26.1
+        // and in ...monster.cubemob on 26.2 -- porting this file broke on
+        // exactly that. Ids do not move between versions; packages plainly do,
+        // and a fourth per-branch delta to maintain is a worse trade than
+        // giving up the ability to catch a modded subclass of Slime, which
+        // would only miss out on a warning message.
+        String id = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+                .getKey(mob.getType()).getPath();
+        return id.equals("slime") || id.equals("magma_cube");
     }
 
     public static Optional<UUID> heldNpcBy(ServerPlayer player) {
