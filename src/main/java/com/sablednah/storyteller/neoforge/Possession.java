@@ -318,7 +318,8 @@ public final class Possession {
     /**
      * Creatures that cannot be led, however willing they are.
      *
-     * <p>A slime does not walk: it moves by jumping, driven entirely by its own
+     * <p>A slime does not walk — nor does a magma cube or 26.2's sulfur cube.
+     * It moves by jumping, driven entirely by its own
      * {@code SlimeRandomDirectionGoal} and {@code SlimeKeepOnJumpingGoal}
      * through a move control that is package-private and so cannot be steered
      * from here. Possession starves those goals of their flags, which stops the
@@ -338,9 +339,16 @@ public final class Possession {
         // and a fourth per-branch delta to maintain is a worse trade than
         // giving up the ability to catch a modded subclass of Slime, which
         // would only miss out on a warning message.
+        //
+        // 26.2 added the sulfur cube and moved all three into a cubemob
+        // package under a shared AbstractCubeMob -- which would be the ideal
+        // thing to test, and cannot be, because it does not exist on 1.21.11 or
+        // 26.1. An id list is the version-portable answer. "sulfur", not
+        // "sulphur": vanilla's spelling, confirmed from en_us.json rather than
+        // guessed. It simply never matches on the older two.
         String id = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
                 .getKey(mob.getType()).getPath();
-        return id.equals("slime") || id.equals("magma_cube");
+        return id.equals("slime") || id.equals("magma_cube") || id.equals("sulfur_cube");
     }
 
     public static Optional<UUID> heldNpcBy(ServerPlayer player) {
