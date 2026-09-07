@@ -92,9 +92,10 @@ body it leads gets walked into the air; it noclips, so the body follows it into
 the ground; and vanilla repurposes a spectator's inputs, so clicking an entity
 re-binds your camera out from under the possession. Steering wants a grounded
 body. You are hidden automatically while you wear a
-body, if Standards is installed, and given back to the world when you let it
-go — unless you had vanished yourself first, in which case you stay hidden and
-are told so. Spectator keeps its own job, which is `/st drift`: the godlike
+body, if Standards 1.6.0 or newer is installed, and given back to the world
+when you let it go — unless you had vanished yourself first, in which case you
+stay hidden and are told so. On an older Standards the mod still loads and
+possession still works; it just cannot hide you, and says so in the log. Spectator keeps its own job, which is `/st drift`: the godlike
 survey of a scene, moving through walls and jumping between players.
 
 `/st possess eyes` **rides along**. The camera binds to the creature and you

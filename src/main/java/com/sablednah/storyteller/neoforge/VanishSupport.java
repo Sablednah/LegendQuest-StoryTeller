@@ -32,9 +32,14 @@ import net.minecraft.server.level.ServerPlayer;
  * from other players, not pushable, no item pickup, and — since this was
  * asked — not targeted by mobs. It stays solid against blocks and subject to
  * gravity, which is the whole reason possession uses it instead of spectator.
- * The one honest limit is that clearing a mob's target cannot un-anger
- * something already hunting you: vanishing is walking away from a fight, not
- * undoing one.</p>
+ * Targeting is covered in both directions — new targeting is refused, and
+ * anything already hunting within 64 blocks has its target cleared as you go.
+ * What is left is narrow: a blow already in flight lands, and a lit creeper
+ * still goes off.</p>
+ *
+ * <p>All of which needs <b>Standards 1.6.0 or newer</b>, deliberately not
+ * declared as a version floor — see {@link #hold} for why the runtime guard is
+ * the right tool for an optional dependency.</p>
  */
 final class VanishSupport {
 
@@ -46,7 +51,14 @@ final class VanishSupport {
      * Set once {@code hold} turns out not to exist, so the failure is reported
      * once rather than every time anybody possesses anything.
      *
-     * <p><b>Why a runtime guard and not a version check.</b>
+     * <p><b>Why a runtime guard and not a version floor.</b> Declaring
+     * {@code standards [1.6.0,)} would give a compile-time guarantee and cost
+     * more than it is worth: Standards is an <em>optional</em> dependency, and
+     * a version range on an optional dependency makes FML refuse to load this
+     * mod at all when an older Standards is present. A feature that should
+     * quietly degrade would become a server that will not start.</p>
+     *
+     * <p><b>And why not a version check either.</b>
      * {@code ModList.isLoaded("standards")} answers whether the mod is there,
      * not whether it is new enough, and the version string cannot answer it
      * either: the build carrying {@code hold} is still called 1.5.0, because a

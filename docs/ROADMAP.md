@@ -170,8 +170,16 @@ when it is true rather than assumed either way.
 Vanish guarantees, asked rather than assumed: hidden from players, not
 pushable, no item pickup, not targeted by mobs, still solid against blocks and
 still subject to gravity. Mob targeting was **not** covered until this was
-asked, and clearing a target still cannot un-anger something already hunting
-you — vanishing is walking away from a fight, not undoing one.
+asked. Vanishing also clears the target of anything already hunting within 64
+blocks, so it is not only new targeting that is refused. What remains is
+narrow: a blow already in flight lands, and a lit creeper still goes off.
+
+Hiding needs **Standards 1.6.0 or newer**. It is not declared as a version
+floor: Standards is an optional dependency, and a floor on an optional
+dependency makes FML refuse to load this mod outright when an older one is
+present — turning a feature that should quietly degrade into a server that
+will not start. `VanishSupport` catches the `LinkageError` instead, says so
+once in the log, and possession carries on without hiding anyone.
 
 **Merchant/quest-giver/ambusher presets** are not built — they would need
 actual interaction (trading, dialogue, an aggro trigger) beyond a movement
