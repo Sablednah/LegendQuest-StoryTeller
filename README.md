@@ -58,6 +58,21 @@ level 2 to parse at all.
   becomes its eyes and its own AI stops deciding things.
 - `/st say <words>` — speak as it, to anyone close enough to hear.
 - `/st release` — give it back to itself, exactly as it was.
+- `/st cast spawn <entity> [name]` · `/st cast citizen [race] [class]` — put a
+  named mob in the scene; citizen rolls a race and class by weighted
+  `frequency` for a Villager's name (flavour, not a character — LegendQuest
+  has no NPC of its own).
+- `/st cast behave guard|patrol|follow <player>|flee|none` — a movement habit,
+  alongside a mob's own goals rather than instead of them.
+- `/st cast save|use|list` — a saved cast, kept with the world.
+- `/st struct place <template> [rotate ...]` — any vanilla `.nbt` structure a
+  loaded datapack declares, undo-able.
+- `/st struct library list|place` — CityWorld's schematic library
+  (`.schematic`/`.schem`/`.litematic`/`.nbt`) as a second pool, when installed.
+- `/st narrate [radius <n>|party <player>] <text>` · `/st title <text>` · `/st
+  whisper <player> <text>` — the Storyteller's own voice.
+- `/st undo` · `/st scene clear` — take back the last scene action, or every
+  one this session (a spawn, a placed structure).
 
 Possession works on a **vanilla Storyteller client**. Looking is one-to-one
 already: binding the camera to an entity renders from its eyes *and* its
@@ -75,8 +90,10 @@ Nothing is destroyed to do it. The creature keeps every goal it was born with;
 possession just adds one at priority 0 that holds all four AI flags, and
 releasing removes exactly that one.
 
-Not built yet: NPC spawning, the structure library, the story planner and the
-GUI. See `docs/ROADMAP.md`.
+Not built yet: the story planner and the GUI. See `docs/ROADMAP.md` — it also
+has two known limitations worth reading before relying on this in a real
+session: a plain Villager's own schedule AI can override a GUARD/PATROL habit,
+and structure undo restores block states only, not block-entity contents.
 
 ## Permissions
 

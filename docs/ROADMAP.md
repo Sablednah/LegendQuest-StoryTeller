@@ -63,28 +63,55 @@ client is a black screen they cannot escape from inside the game).
 Voice is worth building before spawning. A GM can already `/summon` a zombie;
 what they cannot do is make it *say something*.
 
-## 3. The cast
+## 3. The cast — DONE (the honest version)
 
-- Spawn palette: plain mobs, or full LegendQuest characters (race × class ×
-  level gets stats, skills, gear rules and a nameplate free from the
-  registries).
-- Preset behaviours: guard, patrol, follow, flee, merchant, quest-giver,
-  ambusher.
-- Save an NPC as a reusable cast member.
-- **`frequency` finally gets its job.** The field is parsed by LegendQuest
-  today and consumed by nothing; it was always meant for weighting a random
-  population. A city district rolls its inhabitants against it — humans
-  common, tieflings rare, one gnome if you are lucky.
+- `/st cast spawn <entity> [name]` — any mob, named or not.
+- `/st cast citizen [race] [class]` — a named Villager, race and class rolled
+  by weighted `frequency`, or pinned to a specific one. **This is flavour, not
+  a character**: LegendQuest has no NPC entity of its own, so a citizen has no
+  stats, skills or inventory rules behind its name. Stated plainly rather than
+  overclaimed.
+- `frequency` finally has a job — parsed by LegendQuest since day one, consumed
+  by nothing until this. Verified live: three rolls produced Human Rogue,
+  Human Mage and Elf Barbarian.
+- `/st cast behave guard|patrol|follow <player>|flee|none` — a goal added
+  *alongside* a mob's own, not instead of them, so a cast member still fights
+  back or flinches from fire. Re-applying replaces rather than layers.
+- `/st cast save|use|list` — a `SavedData` store, one per world save, mirroring
+  LegendQuest's own `Parties`.
 
-## 4. Set dressing
+**Known limitation, found live-testing:** a plain Villager's own vanilla
+schedule AI (seeking a bed, a workstation, socialising) can out-prioritise the
+GUARD/PATROL goal here, since those run at a middling priority alongside a
+mob's existing goals rather than replacing them. It stayed inside its radius
+against a plain Pig every time tested; a Villager wandered further on its own
+schedule in one observed run. Worth revisiting if citizens are meant to hold a
+post reliably — either a higher priority for this mod's goal, or accepting
+that citizens roam and reserving GUARD for non-villager cast members.
 
-- A structure library placed live from vanilla `.nbt` templates — no
-  proprietary format, so anything that can export a structure block can dress
-  a scene.
-- **Clean removal.** Record what was overwritten so a set can be *struck* as
-  well as placed. A library you can only add from fills a world with
-  abandoned scenery.
-- CityWorld-aware placement, since that sibling mod knows what a plot is.
+**Merchant/quest-giver/ambusher presets** are not built — they would need
+actual interaction (trading, dialogue, an aggro trigger) beyond a movement
+goal, which is GUI/story-planner territory more than a command-line preset.
+
+## 4. Set dressing — DONE (vanilla + CityWorld, both with undo)
+
+- `/st struct place <template> [rotate cw90|180|ccw90]` — any vanilla `.nbt`
+  structure any loaded datapack declares, the same 1202-entry catalogue
+  `/place template` draws from (counted live on the vanilla catalogue alone),
+  reached through this mod's own permission instead of operator level 2.
+- `/st struct library list|place` — CityWorld's `SchematicLibrary` as a second
+  pool (`.schematic`/`.schem`/`.litematic`/`.nbt`) when CityWorld is installed;
+  a plain, clear refusal when it is not.
+- **Both give `/st undo` something CityWorld's own paste never had.** Every
+  placement snapshots its block volume first and restores it on undo — proven
+  live on a full building (`village/plains/houses/plains_small_house_1`),
+  placed and taken back off cleanly.
+- **Known limitation, stated rather than hidden:** undo restores block STATES
+  only, not block-entity contents. A chest a structure overwrites comes back
+  as an empty chest of the right kind, not with what was in it. Fine for
+  dressing empty ground; not a promise for placing over someone's base.
+- CityWorld-aware placement is done for its schematic library; plot-aware
+  placement (asking CityWorld where a plot's boundary is) is not attempted.
 
 ## 5. The GUI, and the planner
 
