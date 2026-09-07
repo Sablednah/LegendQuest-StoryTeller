@@ -594,11 +594,12 @@ public final class STCommands {
             Feedback.chat(player, "&7Nothing in your sights. Look straight at a creature.");
             return 0;
         }
-        if (sighted.get().isNpc()) {
-            Feedback.chat(player, "&7" + sighted.get().name() + " &7is a cast NPC — Cast holds it "
-                    + "on its spot, so a movement goal here would only fight that. "
-                    + "&8This command steers wild creatures.");
+        if (behaviour == Cast.Behaviour.FOLLOW && followTarget == null) {
+            Feedback.chat(player, "&cFollow needs a player: /st cast behave follow <player>.");
             return 0;
+        }
+        if (sighted.get().isNpc()) {
+            return castNpcBehave(ctx, player, sighted.get(), behaviour, followTarget);
         }
         var looked = java.util.Optional.of(sighted.get().mob());
         if (behaviour == Cast.Behaviour.FOLLOW && followTarget == null) {
@@ -623,6 +624,51 @@ public final class STCommands {
             Feedback.chat(player, "&8It has a mind of its own — villagers, goats, camels and "
                     + "their like run on a Brain rather than goals, so this competes with what "
                     + "it already wants and may not hold. Watch it before you rely on it.");
+        }
+        return 1;
+    }
+
+    /**
+     * A behaviour on one of Cast's own bodies.
+     *
+     * <p>Cast pulls its bodies back to their spot once a second, so a movement
+     * goal added on top of that runs, gets dragged home, and runs again —
+     * reported live as "it ran. then bounced back to anchor, repeat". The goal
+     * was not wrong and the anchor was not wrong; having both was.</p>
+     *
+     * <p>So a behaviour <b>suspends the anchor</b> for as long as it stands,
+     * exactly as possession does, and {@code none} gives the body back to
+     * Cast — re-anchoring it wherever it has ended up, so a fled villager
+     * stays where it fled to.</p>
+     */
+    private static int castNpcBehave(CommandContext<CommandSourceStack> ctx, ServerPlayer player,
+            Possession.Sighted sighted, Cast.Behaviour behaviour, ServerPlayer followTarget) {
+        var server = ctx.getSource().getServer();
+        var body = CastSupport.bodyOf(server, sighted.npcId());
+        if (body.isEmpty()) {
+            // A human NPC is a phantom with no goals to give: Cast drives it.
+            Feedback.chat(player, "&7" + sighted.name() + " &7has no creature body to steer — "
+                    + "a person is driven by Cast, not by movement goals.");
+            return 0;
+        }
+        var refusal = Cast.behave(body.get(), behaviour, followTarget);
+        if (refusal == Cast.BehaviourRefusal.NOT_A_PATHFINDER) {
+            Feedback.chat(player, "&c" + sighted.name() + " cannot be given a movement behaviour.");
+            return 0;
+        }
+        boolean standing = behaviour != Cast.Behaviour.NONE;
+        // Suspended while it moves, restored when it stops -- and restoring
+        // anchors it where it now IS, not where it began.
+        CastSupport.setAnchored(server, sighted.npcId(), !standing);
+        Feedback.chat(player, "&a" + sighted.name() + " now: &f"
+                + behaviour.name().toLowerCase(java.util.Locale.ROOT)
+                + (standing
+                        ? "&a. &8Cast will not hold it on its spot while this stands."
+                        : "&a. &8Cast holds it where it stands now."));
+        if (standing && Cast.brainDriven(body.get())) {
+            Feedback.chat(player, "&8It has a mind of its own — villagers and their like run on a "
+                    + "Brain rather than goals, so this competes with what it already wants "
+                    + "and may not hold.");
         }
         return 1;
     }

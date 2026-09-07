@@ -73,6 +73,14 @@ public final class CastSupport {
         return Cast.byId(server, npcId).flatMap(Npc::entity);
     }
 
+    /** The mob body behind a cast NPC, if it has one — a human NPC is a
+     *  phantom {@code ServerPlayer} and answers empty. */
+    static Optional<net.minecraft.world.entity.Mob> bodyOf(MinecraftServer server, UUID npcId) {
+        return entityOf(server, npcId)
+                .filter(e -> e instanceof net.minecraft.world.entity.Mob)
+                .map(e -> (net.minecraft.world.entity.Mob) e);
+    }
+
     static Optional<Vec3> positionOf(MinecraftServer server, UUID npcId) {
         return Cast.byId(server, npcId).map(Npc::pos);
     }
