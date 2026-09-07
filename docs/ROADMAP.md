@@ -80,14 +80,34 @@ what they cannot do is make it *say something*.
 - `/st cast save|use|list` — a `SavedData` store, one per world save, mirroring
   LegendQuest's own `Parties`.
 
-**Known limitation, found live-testing:** a plain Villager's own vanilla
-schedule AI (seeking a bed, a workstation, socialising) can out-prioritise the
-GUARD/PATROL goal here, since those run at a middling priority alongside a
-mob's existing goals rather than replacing them. It stayed inside its radius
-against a plain Pig every time tested; a Villager wandered further on its own
-schedule in one observed run. Worth revisiting if citizens are meant to hold a
-post reliably — either a higher priority for this mod's goal, or accepting
-that citizens roam and reserving GUARD for non-villager cast members.
+**Known limitation:** `behave` does nothing on a *brain-driven* mob. It held a
+plain Pig inside its radius every time tested; a Villager wandered off on its
+own schedule.
+
+The reason is not priority. `Villager.java` contains **no references to
+`goalSelector` at all** and ticks its `Brain` in `customServerAiStep()`. Goal
+flags (MOVE/LOOK/JUMP/TARGET) only arbitrate *between goals* — a Brain is not a
+goal and never asks the flag system for permission. So on these mobs our goal
+is not outranked, it is irrelevant, and raising its priority would change
+nothing.
+
+The 20 brain-driven classes in 21.11 are Allay, Armadillo, Axolotl, Breeze,
+Camel, CopperGolem, Creaking, Frog, Goat, HappyGhast, Hoglin, Nautilus, Piglin,
+PiglinBrute, Sniffer, Tadpole, Villager, Warden, Zoglin and ZombieNautilus.
+**That list grows every few versions** — five of those are recent arrivals — so
+a hardcoded exclusion list would rot. Detect at runtime instead.
+
+This also makes `/st cast citizen` the awkward case: a Villager is the obvious
+body for a person and the one body `behave` cannot hold. Reserve GUARD/PATROL
+for non-villager cast members until the Brain is handled, and note that parking
+a Brain is *harder to undo* than parking goals — a `Brain` is built by
+`brainProvider()` at construction, so gutting one has the same one-way problem
+as `removeAllGoals`.
+
+**Untested, predicted from the above:** possessing a Villager should fight
+itself — `PossessionGoal`'s `navigation.moveTo` against the brain's own
+movement, and our rotation mirroring against the brain's look behaviour. Not
+yet observed; flagged rather than assumed.
 
 **Merchant/quest-giver/ambusher presets** are not built — they would need
 actual interaction (trading, dialogue, an aggro trigger) beyond a movement
