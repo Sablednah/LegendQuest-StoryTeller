@@ -584,11 +584,23 @@ public final class STCommands {
     private static int castBehave(CommandContext<CommandSourceStack> ctx, Cast.Behaviour behaviour,
             ServerPlayer followTarget) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var looked = Possession.lookedAt(player, POSSESS_REACH);
-        if (looked.isEmpty()) {
+        // lookingAt, not lookedAt: a Cast NPC with a human body is a phantom —
+        // not a Mob, and in no level — so the plain gaze ray cannot see one and
+        // reported "nothing in your sights" at something standing in front of
+        // the Storyteller. Seeing it is the first half; the second is saying
+        // something truer than "no target".
+        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        if (sighted.isEmpty()) {
             Feedback.chat(player, "&7Nothing in your sights. Look straight at a creature.");
             return 0;
         }
+        if (sighted.get().isNpc()) {
+            Feedback.chat(player, "&7" + sighted.get().name() + " &7is a cast NPC — Cast holds it "
+                    + "on its spot, so a movement goal here would only fight that. "
+                    + "&8This command steers wild creatures.");
+            return 0;
+        }
+        var looked = java.util.Optional.of(sighted.get().mob());
         if (behaviour == Cast.Behaviour.FOLLOW && followTarget == null) {
             Feedback.chat(player, "&cFollow needs a player: /st cast behave follow <player>.");
             return 0;
@@ -617,8 +629,21 @@ public final class STCommands {
 
     private static int castSave(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var looked = Possession.lookedAt(player, POSSESS_REACH);
-        if (looked.isEmpty() || !(looked.get() instanceof Mob mob)) {
+        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        if (sighted.isEmpty()) {
+            Feedback.chat(player, "&7Nothing in your sights to save. Look straight at a creature.");
+            return 0;
+        }
+        if (sighted.get().isNpc()) {
+            // A preset here records an entity type and a name. Saving a cast
+            // NPC through it would quietly throw away everything Cast gives the
+            // body -- its skin, roles and anchoring -- and hand back a plain
+            // creature wearing the same name.
+            Feedback.chat(player, "&7" + sighted.get().name() + " &7is a cast NPC, and this would "
+                    + "save only a plain creature with its name. &8Cast keeps its own.");
+            return 0;
+        }
+        if (!(sighted.get().mob() instanceof Mob mob)) {
             Feedback.chat(player, "&7Nothing in your sights to save. Look straight at a creature.");
             return 0;
         }
