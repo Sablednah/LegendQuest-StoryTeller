@@ -63,28 +63,75 @@ client is a black screen they cannot escape from inside the game).
 Voice is worth building before spawning. A GM can already `/summon` a zombie;
 what they cannot do is make it *say something*.
 
-## 3. The cast
+## 3. The cast — DONE (the honest version)
 
-- Spawn palette: plain mobs, or full LegendQuest characters (race × class ×
-  level gets stats, skills, gear rules and a nameplate free from the
-  registries).
-- Preset behaviours: guard, patrol, follow, flee, merchant, quest-giver,
-  ambusher.
-- Save an NPC as a reusable cast member.
-- **`frequency` finally gets its job.** The field is parsed by LegendQuest
-  today and consumed by nothing; it was always meant for weighting a random
-  population. A city district rolls its inhabitants against it — humans
-  common, tieflings rare, one gnome if you are lucky.
+- `/st cast spawn <entity> [name]` — any mob, named or not.
+- `/st cast citizen [race] [class]` — a named Villager, race and class rolled
+  by weighted `frequency`, or pinned to a specific one. **This is flavour, not
+  a character**: LegendQuest has no NPC entity of its own, so a citizen has no
+  stats, skills or inventory rules behind its name. Stated plainly rather than
+  overclaimed.
+- `frequency` finally has a job — parsed by LegendQuest since day one, consumed
+  by nothing until this. Verified live: three rolls produced Human Rogue,
+  Human Mage and Elf Barbarian.
+- `/st cast behave guard|patrol|follow <player>|flee|none` — a goal added
+  *alongside* a mob's own, not instead of them, so a cast member still fights
+  back or flinches from fire. Re-applying replaces rather than layers.
+- `/st cast save|use|list` — a `SavedData` store, one per world save, mirroring
+  LegendQuest's own `Parties`.
 
-## 4. Set dressing
+**Known limitation:** `behave` does nothing on a *brain-driven* mob. It held a
+plain Pig inside its radius every time tested; a Villager wandered off on its
+own schedule.
 
-- A structure library placed live from vanilla `.nbt` templates — no
-  proprietary format, so anything that can export a structure block can dress
-  a scene.
-- **Clean removal.** Record what was overwritten so a set can be *struck* as
-  well as placed. A library you can only add from fills a world with
-  abandoned scenery.
-- CityWorld-aware placement, since that sibling mod knows what a plot is.
+The reason is not priority. `Villager.java` contains **no references to
+`goalSelector` at all** and ticks its `Brain` in `customServerAiStep()`. Goal
+flags (MOVE/LOOK/JUMP/TARGET) only arbitrate *between goals* — a Brain is not a
+goal and never asks the flag system for permission. So on these mobs our goal
+is not outranked, it is irrelevant, and raising its priority would change
+nothing.
+
+The 20 brain-driven classes in 21.11 are Allay, Armadillo, Axolotl, Breeze,
+Camel, CopperGolem, Creaking, Frog, Goat, HappyGhast, Hoglin, Nautilus, Piglin,
+PiglinBrute, Sniffer, Tadpole, Villager, Warden, Zoglin and ZombieNautilus.
+**That list grows every few versions** — five of those are recent arrivals — so
+a hardcoded exclusion list would rot. Detect at runtime instead.
+
+This also makes `/st cast citizen` the awkward case: a Villager is the obvious
+body for a person and the one body `behave` cannot hold. Reserve GUARD/PATROL
+for non-villager cast members until the Brain is handled, and note that parking
+a Brain is *harder to undo* than parking goals — a `Brain` is built by
+`brainProvider()` at construction, so gutting one has the same one-way problem
+as `removeAllGoals`.
+
+**Untested, predicted from the above:** possessing a Villager should fight
+itself — `PossessionGoal`'s `navigation.moveTo` against the brain's own
+movement, and our rotation mirroring against the brain's look behaviour. Not
+yet observed; flagged rather than assumed.
+
+**Merchant/quest-giver/ambusher presets** are not built — they would need
+actual interaction (trading, dialogue, an aggro trigger) beyond a movement
+goal, which is GUI/story-planner territory more than a command-line preset.
+
+## 4. Set dressing — DONE (vanilla + CityWorld, both with undo)
+
+- `/st struct place <template> [rotate cw90|180|ccw90]` — any vanilla `.nbt`
+  structure any loaded datapack declares, the same 1202-entry catalogue
+  `/place template` draws from (counted live on the vanilla catalogue alone),
+  reached through this mod's own permission instead of operator level 2.
+- `/st struct library list|place` — CityWorld's `SchematicLibrary` as a second
+  pool (`.schematic`/`.schem`/`.litematic`/`.nbt`) when CityWorld is installed;
+  a plain, clear refusal when it is not.
+- **Both give `/st undo` something CityWorld's own paste never had.** Every
+  placement snapshots its block volume first and restores it on undo — proven
+  live on a full building (`village/plains/houses/plains_small_house_1`),
+  placed and taken back off cleanly.
+- **Known limitation, stated rather than hidden:** undo restores block STATES
+  only, not block-entity contents. A chest a structure overwrites comes back
+  as an empty chest of the right kind, not with what was in it. Fine for
+  dressing empty ground; not a promise for placing over someone's base.
+- CityWorld-aware placement is done for its schematic library; plot-aware
+  placement (asking CityWorld where a plot's boundary is) is not attempted.
 
 ## 5. The GUI, and the planner
 
@@ -110,3 +157,87 @@ The unit a GM thinks in is not "500 XP", it is "they finished the smuggler
 job". A packet — XP + money + karma + items under one name, applied to a party
 in one action — is the shape the tool should take, and the command form should
 stay the fallback rather than the primary.
+
+## The NPC mod — proposed, awaiting Sable's decision
+
+**Nothing here is agreed work.** Chronicler's session and this one converged on
+a design for a third mod owning NPC entities; the name, and who builds it, are
+Sable's call. Recorded so both repos say the same thing. Working name **Cast**,
+mod id `cast`, MIT, its own repo, **depending on nothing** — so Chronicler can
+have quest-giver NPCs with no LegendQuest installed, and StoryTeller can drive
+the same NPCs when it is.
+
+**Why a third mod rather than growing this one.** It is the same discipline
+already in force here: exactly one class imports each optional dependency,
+behind a `ModList.isLoaded` guard sitting *outside* it. `EconomySupport` and
+`CityWorldSupport` are the existing examples. An NPC that neither mod is
+required to own fits that shape.
+
+### Bodies
+
+- **HUMAN** is a *real* server entity, not a packet-only phantom — so it is
+  visible to a ray, bindable as a camera target, and hit by interaction events.
+  Profile UUID derived from the `npcId`; the signed skin textures property
+  copied from whichever account the skin names, since the signature covers the
+  value rather than the wearer.
+- **MOB** is goal-selector mobs only in v1. Brain-driven bodies are **refused
+  at spawn** with a message naming why, decided by a runtime check rather than
+  a hardcoded list, with the 20-class list above as the self-test fixture so
+  drift is caught rather than assumed.
+- Cast owns MOB bodies **from spawn**, so it builds their goals from its own
+  spec outright. That is ownership, and it is why it may be one-way — it is
+  explicitly *not* the reversible parking that possession needs.
+
+### Possession stays here
+
+It has to work on wild mobs with Cast absent, so it cannot move out of this
+mod. Cast never parks anything it does not own. What Cast provides instead:
+`Npc.canPossess()`, `Npc.entity()` (the real entity to bind a camera to),
+`Npc.drive(...)` for a HUMAN body with no navigation, and an
+`NpcRemovedEvent(npcId, reason)` covering **death, unload and removal** — so
+the camera goes home on every path, not only the one this mod already handles.
+`Cast.isBrainDriven(Mob)` is exposed as a static so both refusals are one line;
+when Cast is absent this mod keeps its own copy. **The check may live twice;
+the parking never does.**
+
+### Identity
+
+Every NPC has an `npcId`, in a `SavedData` store (`Identifier` id on 26.x).
+`Cast.byId`, `Npc.isLoaded()`, `Cast.isNpc(Entity)`, `Cast.npcAt(ray)` covering
+both kinds, and a `remove(npcId)` that is idempotent and works while the NPC is
+unloaded. Entities materialise on chunk load and are never saved as entities.
+
+### Roles
+
+`Cast.registerRole(Identifier, handler)`; an NPC carries roles, right-click
+dispatches in order. **Cast NPCs have no LegendQuest character** — the
+`/st cast citizen` boundary holds, and Cast never imports LegendQuest. If a
+cast member ever needs a sheet, that is an attachment on this side, decided
+deliberately.
+
+### Open questions this mod should insist on before depending on it
+
+1. **A real `ServerPlayer` added to the player list is counted as a player.**
+   Sleep percentage, mob-spawning anchors and chunk loading, difficulty
+   scaling, `/list` and the server player count are all driven by that list. A
+   village of ten human NPCs that quietly makes it impossible to skip night is
+   the exact "alarming and harmless" failure this project tries not to ship.
+   Needs testing before the design is committed to, not after.
+2. **A rejected or rotated skin signature must degrade to a default skin**, not
+   fail the spawn.
+3. **`Npc.drive` should move with collision, not teleport** — or say plainly
+   that it teleports. Possession here paths deliberately, so that a possessed
+   cow cannot scale a cliff the audience can see it could not climb.
+4. **One canonical marker for "this is a cast NPC"**, readable by other mods.
+   A mob's entity UUID does not survive rematerialising, and ZombieMod needs to
+   read the same marker to know not to re-genus one.
+5. **Role dispatch needs suppressing for a Storyteller**, who right-clicks NPCs
+   to work on them rather than to talk to them.
+
+### Noted for whoever builds it
+
+This mod's `Possession.java` and `PossessionGoal.java` are the starting point
+for anything that binds a camera — live-tested, including the death-release
+path. The rotation mirroring there is deliberate: an earlier draft used the
+look control, which aims the mob at its possessor and therefore points the
+camera back at your own drifting body, fighting itself every tick.
