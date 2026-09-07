@@ -3,6 +3,7 @@ package com.sablednah.storyteller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.sablednah.storyteller.neoforge.CastSupport;
 import com.sablednah.storyteller.neoforge.STCommands;
 import com.sablednah.storyteller.neoforge.STPermissions;
 import com.sablednah.storyteller.neoforge.STServerEvents;
@@ -10,6 +11,7 @@ import com.sablednah.storyteller.state.STAttachments;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -42,6 +44,14 @@ public class StoryTeller {
         NeoForge.EVENT_BUS.register(STCommands.class);
         NeoForge.EVENT_BUS.register(STPermissions.class);
         NeoForge.EVENT_BUS.register(STServerEvents.class);
+        // The guard has to sit out here, not inside CastSupport: naming a
+        // class is what loads it, so registering it unguarded would be a
+        // NoClassDefFoundError on every server without Cast. Same rule
+        // LegendQuest keeps for ChatSupport, and this mod for EconomySupport.
+        if (ModList.get().isLoaded("cast")) {
+            NeoForge.EVENT_BUS.register(CastSupport.class);
+            LOGGER.info("Cast found — NPC bodies can be possessed and spoken through");
+        }
         LOGGER.info("LegendQuest StoryTeller initialising");
     }
 }

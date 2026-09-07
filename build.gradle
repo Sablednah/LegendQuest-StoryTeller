@@ -147,6 +147,25 @@ dependencies {
         logger.lifecycle("CityWorld dependency: ${found.first().name}")
         [found.first()]
     })
+
+    // Cast owns NPC entities -- human bodies (phantoms driven by packets) and
+    // mob bodies -- for any mod that wants them, depending on nothing itself.
+    // StoryTeller drives them when it is present and is unchanged when it is
+    // not. Soft dependency, same version-matched lookup as the two above;
+    // CastSupport is the only class that imports it.
+    compileOnly files(provider {
+        def pattern = ~/cast-.*\+mc${minecraft_version}\.jar/
+        def found = (file('../Cast/build/libs').listFiles() ?: [])
+                .findAll { it.name ==~ pattern }
+                .sort { -it.lastModified() }
+        if (found.isEmpty()) {
+            logger.lifecycle("Cast: no jar for Minecraft ${minecraft_version}; " +
+                "building without the optional NPC API.")
+            return []
+        }
+        logger.lifecycle("Cast dependency: ${found.first().name}")
+        [found.first()]
+    })
 }
 
 // LegendQuest is a HARD, required dependency (see the mods.toml template) --

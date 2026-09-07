@@ -280,18 +280,28 @@ public final class STCommands {
 
     private static int possess(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var looked = Possession.lookedAt(player, POSSESS_REACH);
+        // One gesture, both kinds of body: a wild creature found by our own
+        // ray, or a cast NPC found by Cast. Whichever was nearer is the one
+        // they were looking at.
+        var looked = Possession.lookingAt(player, POSSESS_REACH);
         if (looked.isEmpty()) {
             Feedback.chat(player, "&7Nothing in your sights to take over. Look straight at a creature.");
             return 0;
         }
-        var mob = looked.get();
+        var sighted = looked.get();
+        if (!sighted.canPossess()) {
+            Feedback.chat(player, "&7" + sighted.name() + " &7cannot be worn.");
+            return 0;
+        }
         // Drifting first, so `release` and `return` stay separately meaningful:
         // one gives the creature back, the other gives you your body back.
         boolean startedDrifting = Presence.drift(player);
-        switch (Possession.possess(player, mob)) {
+        var refusal = sighted.isNpc()
+                ? Possession.possessNpc(player, sighted.npcId())
+                : Possession.possess(player, sighted.mob());
+        switch (refusal) {
             case NONE -> {
-                Feedback.chat(player, "&5You are wearing &f" + mob.getName().getString()
+                Feedback.chat(player, "&5You are wearing &f" + sighted.name()
                         + "&5. &f/st say <words>&5 speaks as it, &f/st release&5 lets it go."
                         + (startedDrifting ? " &8(your body is anchored where you left it)" : ""));
                 return 1;
@@ -299,12 +309,22 @@ public final class STCommands {
             case ALREADY_HELD -> Feedback.chat(player,
                     "&7You are already wearing something. &f/st release&7 first.");
             case TAKEN -> Feedback.chat(player, "&7Another Storyteller is already wearing that one.");
+            case NOT_LOADED -> Feedback.chat(player,
+                    "&7" + sighted.name() + " &7has no body loaded right now — nothing to step into.");
         }
         return 0;
     }
 
     private static int release(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
+        if (Possession.castAvailable()) {
+            var npc = Possession.releaseNpc(player);
+            if (npc.isPresent()) {
+                Feedback.chat(player, "&aYou step out of &f" + npc.get()
+                        + "&a. It is itself again. &f/st return&a brings you back to your body.");
+                return 1;
+            }
+        }
         var released = Possession.release(player);
         if (released.isEmpty()) {
             Feedback.chat(player, "&7You are not wearing anything.");
@@ -320,13 +340,20 @@ public final class STCommands {
 
     private static int sayAs(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var mob = Possession.heldBy(player);
-        if (mob.isEmpty()) {
-            Feedback.chat(player, "&7You are not wearing anything to speak through. &f/st possess&7 first.");
-            return 0;
-        }
         String text = StringArgumentType.getString(ctx, "text");
-        int heard = Possession.speak(player, mob.get(), text, SPEAK_RADIUS);
+        var npc = Possession.heldNpcBy(player);
+        int heard;
+        if (npc.isPresent()) {
+            heard = Possession.speakAsNpc(player, npc.get(), text, SPEAK_RADIUS);
+        } else {
+            var mob = Possession.heldBy(player);
+            if (mob.isEmpty()) {
+                Feedback.chat(player,
+                        "&7You are not wearing anything to speak through. &f/st possess&7 first.");
+                return 0;
+            }
+            heard = Possession.speak(player, mob.get(), text, SPEAK_RADIUS);
+        }
         // Told how many heard it, because a line delivered to an empty clearing
         // is a beat the Storyteller needs to know landed nowhere.
         if (heard == 0) Feedback.chat(player, "&8(nobody was close enough to hear that)");
