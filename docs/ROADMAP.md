@@ -30,6 +30,23 @@ saved presets rather than one currency per command.
 Take over a creature, wear it, speak as it, give it back. Works on a vanilla
 Storyteller client: camera binding and spectator mode are both server-driven.
 
+**Two forms, because a vanilla client cannot give both.** `/st possess` steers
+— you drift and the creature walks to where you fly. `/st possess eyes` binds
+the camera and you ride along seeing what it sees, while it lives its own
+life. You cannot have eyes and control at once: a client stops sending
+movement entirely while spectating an entity (`LocalPlayer.sendPosition` is
+gated on `isControlledCamera()`), and `ServerPlayer` snaps a spectator onto
+its camera entity — rotation included — every tick, so a bound camera costs
+the Storyteller both walking and looking.
+
+This was found the hard way. The first version bound the camera *and* expected
+the drifting body to steer, which the code asserted confidently in three
+places and which was never possible; the first attempt to steer a cow did
+nothing at all. Vanilla also ends a bound camera silently when the player
+sneaks (`wantsToStopRiding` → `setCamera(this)`), so possession now watches
+for that and releases cleanly rather than leaving a Storyteller speaking
+through a creature they can no longer see.
+
 **The prior art turned out to be a warning, not a template.** ZombieMod clears
 a mob's goals outright (`removeAllGoals(g -> true)`), which is right for
 rebuilding a mob permanently and wrong here — vanilla registers goals in

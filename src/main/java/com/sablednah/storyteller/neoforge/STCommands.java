@@ -86,7 +86,9 @@ public final class STCommands {
                                         Commands.argument("player", EntityArgument.player()), true, build))))
 
                 // --- possession ---
-                .then(Commands.literal("possess").executes(STCommands::possess))
+                .then(Commands.literal("possess")
+                        .executes(ctx -> possess(ctx, false))
+                        .then(Commands.literal("eyes").executes(ctx -> possess(ctx, true))))
                 .then(Commands.literal("release").executes(STCommands::release))
                 .then(Commands.literal("say")
                         .then(Commands.argument("text", StringArgumentType.greedyString())
@@ -278,7 +280,17 @@ public final class STCommands {
      *  are usually drifting above the scene rather than standing in it. */
     private static final double POSSESS_REACH = 24.0D;
 
-    private static int possess(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    /**
+     * @param throughItsEyes bind the camera to the body, seeing what it sees —
+     *        at the cost of every control the Storyteller has. That is not a
+     *        design choice: a vanilla client stops sending movement entirely
+     *        while spectating an entity ({@code sendPosition} is gated on
+     *        {@code isControlledCamera}), and the server snaps the spectator
+     *        onto the camera entity every tick regardless. Eyes or control,
+     *        never both, until a client mod supplies the input.
+     */
+    private static int possess(CommandContext<CommandSourceStack> ctx, boolean throughItsEyes)
+            throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         // One gesture, both kinds of body: a wild creature found by our own
         // ray, or a cast NPC found by Cast. Whichever was nearer is the one
@@ -297,13 +309,26 @@ public final class STCommands {
         // one gives the creature back, the other gives you your body back.
         boolean startedDrifting = Presence.drift(player);
         var refusal = sighted.isNpc()
-                ? Possession.possessNpc(player, sighted.npcId())
-                : Possession.possess(player, sighted.mob());
+                ? Possession.possessNpc(player, sighted.npcId(), throughItsEyes)
+                : Possession.possess(player, sighted.mob(), throughItsEyes);
         switch (refusal) {
             case NONE -> {
-                Feedback.chat(player, "&5You are wearing &f" + sighted.name()
-                        + "&5. &f/st say <words>&5 speaks as it, &f/st release&5 lets it go."
-                        + (startedDrifting ? " &8(your body is anchored where you left it)" : ""));
+                // Say which of the two this is, at the moment it happens. A
+                // Storyteller who expected to steer and cannot would otherwise
+                // be left pressing keys at a creature that ignores them.
+                Feedback.chat(player, throughItsEyes
+                        ? "&5You are seeing through &f" + sighted.name()
+                                + "&5. &f/st say <words>&5 speaks as it, &f/st release&5 lets it go. "
+                                + "&8(you cannot move while wearing its eyes — sneak or "
+                                + "&f/st possess&8 without &feyes&8 to steer it instead)"
+                        : "&5You are steering &f" + sighted.name()
+                                + "&5. Walk, and it walks with you. &f/st say <words>&5 speaks as it, "
+                                + "&f/st release&5 lets it go. "
+                                + "&8(/st possess eyes to see through it instead — you cannot do both)")
+                        ;
+                if (startedDrifting) {
+                    Feedback.chat(player, "&8Your body is anchored where you left it.");
+                }
                 return 1;
             }
             case ALREADY_HELD -> Feedback.chat(player,

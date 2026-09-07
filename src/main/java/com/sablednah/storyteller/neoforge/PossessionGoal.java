@@ -24,12 +24,22 @@ import net.minecraft.world.entity.Mob;
  * without a single goal being removed. Releasing is one
  * {@code removeGoal} call and the mob is exactly what it was.</p>
  *
- * <p><b>Driving, on a vanilla client.</b> While possessing, the Storyteller is
- * a spectator with their camera bound to the mob — a vanilla client honours
- * both. Their own invisible body still flies on WASD, so the mob is steered by
- * walking it toward wherever that body has drifted to. It is leading rather
- * than driving, and it is deliberately the version that needs no client mod at
- * all; one-to-one input control is what the Storyteller's own mod adds later.</p>
+ * <p><b>Steering, on a vanilla client.</b> The Storyteller drifts as a
+ * spectator and this goal walks the creature to wherever they have flown, so
+ * the mob is led rather than driven. It is deliberately the version that needs
+ * no client mod at all; one-to-one input control is what the Storyteller's own
+ * mod adds later.
+ *
+ * <p><b>This goal is used only when the camera is NOT bound to the mob</b>,
+ * and that is not a preference. A vanilla client stops sending movement
+ * entirely while spectating an entity — {@code LocalPlayer.sendPosition} is
+ * gated on {@code isControlledCamera()}, which is
+ * {@code getCameraEntity() == this} — and {@code ServerPlayer} snaps the
+ * spectator onto its camera entity, rotation included, every single tick.
+ * Binding the camera therefore costs the Storyteller every input they have:
+ * they cannot walk, and they cannot even look. Eyes or control, never both.
+ * An earlier version of this class claimed both worked; it was never true, and
+ * the first person to try steering a cow found out.</p>
  */
 public class PossessionGoal extends Goal {
 

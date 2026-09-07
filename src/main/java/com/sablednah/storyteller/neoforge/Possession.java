@@ -1,6 +1,7 @@
 package com.sablednah.storyteller.neoforge;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,6 +41,10 @@ public final class Possession {
      *  NPC body is driven rather than steered: it has no goalSelector to hold
      *  a goal, and a human body has no navigation at all. */
     private static final Map<UUID, UUID> HELD_NPC = new HashMap<>();
+    /** Possessors who chose the mob's eyes over control of it. Kept apart
+     *  because a bound camera is the thing that costs them their input, and
+     *  because vanilla lets them leave it by sneaking without telling us. */
+    private static final java.util.Set<UUID> EYES = new java.util.HashSet<>();
     /** What we last drove each body to, so an unmoving scene sends no packets. */
     private static final Map<UUID, Vec3> DRIVEN_TO = new HashMap<>();
     private static final Map<UUID, Float> DRIVEN_YAW = new HashMap<>();
@@ -129,15 +134,26 @@ public final class Possession {
      * possessing and drifting are separately undoable and conflating them
      * makes "release" ambiguous.
      */
-    public static Refusal possess(ServerPlayer player, Mob mob) {
-        if (HELD.containsKey(player.getUUID())) return Refusal.ALREADY_HELD;
+    public static Refusal possess(ServerPlayer player, Mob mob, boolean throughItsEyes) {
+        if (HELD.containsKey(player.getUUID()) || HELD_NPC.containsKey(player.getUUID())) {
+            return Refusal.ALREADY_HELD;
+        }
         if (possessorOf(mob).isPresent()) return Refusal.TAKEN;
 
-        PossessionGoal goal = new PossessionGoal(mob, player);
-        mob.goalSelector.addGoal(0, goal);
         HELD.put(player.getUUID(), mob);
-        GOALS.put(player.getUUID(), goal);
-        player.setCamera(mob);
+        if (throughItsEyes) {
+            // No goal at all. Holding the creature still would give a frozen
+            // stare: the possessor's rotation is snapped from the mob every
+            // tick, so mirroring it back is a closed loop and the view never
+            // turns. Riding a creature that is living its own life is both the
+            // better scene and the simpler code.
+            EYES.add(player.getUUID());
+            player.setCamera(mob);
+        } else {
+            PossessionGoal goal = new PossessionGoal(mob, player);
+            mob.goalSelector.addGoal(0, goal);
+            GOALS.put(player.getUUID(), goal);
+        }
         return Refusal.NONE;
     }
 
@@ -148,6 +164,7 @@ public final class Possession {
      * @return the mob that was released, if any.
      */
     public static Optional<Mob> release(ServerPlayer player) {
+        EYES.remove(player.getUUID());
         Mob mob = HELD.remove(player.getUUID());
         PossessionGoal goal = GOALS.remove(player.getUUID());
         if (mob != null && goal != null) {
@@ -195,6 +212,7 @@ public final class Possession {
     /** Drop a possession without touching the player — for logout, where the
      *  player object is on its way out. */
     public static void forget(ServerPlayer player) {
+        EYES.remove(player.getUUID());
         Mob mob = HELD.remove(player.getUUID());
         PossessionGoal goal = GOALS.remove(player.getUUID());
         if (mob != null && goal != null) {
@@ -264,7 +282,7 @@ public final class Possession {
      * sent — an unpinned phantom means possession that reports success and
      * does nothing visible. Only then is the camera bound.</p>
      */
-    public static Refusal possessNpc(ServerPlayer player, UUID npcId) {
+    public static Refusal possessNpc(ServerPlayer player, UUID npcId, boolean throughItsEyes) {
         if (HELD.containsKey(player.getUUID()) || HELD_NPC.containsKey(player.getUUID())) {
             return Refusal.ALREADY_HELD;
         }
@@ -274,14 +292,20 @@ public final class Possession {
         Optional<Entity> body = CastSupport.entityOf(server, npcId);
         if (body.isEmpty()) return Refusal.NOT_LOADED;
 
-        CastSupport.pin(player, npcId);
         HELD_NPC.put(player.getUUID(), npcId);
-        player.setCamera(body.get());
+        if (throughItsEyes) {
+            EYES.add(player.getUUID());
+            // Pin BEFORE binding: the camera packet carries only an entity id,
+            // and a vanilla client silently ignores an id it was never sent.
+            CastSupport.pin(player, npcId);
+            player.setCamera(body.get());
+        }
         return Refusal.NONE;
     }
 
     /** @return the name of the NPC that was released, if any. */
     public static Optional<String> releaseNpc(ServerPlayer player) {
+        EYES.remove(player.getUUID());
         UUID npcId = HELD_NPC.remove(player.getUUID());
         DRIVEN_TO.remove(player.getUUID());
         DRIVEN_YAW.remove(player.getUUID());
@@ -306,6 +330,7 @@ public final class Possession {
                 .toList()
                 .forEach(possessor -> {
                     HELD_NPC.remove(possessor);
+                    EYES.remove(possessor);
                     DRIVEN_TO.remove(possessor);
                     DRIVEN_YAW.remove(possessor);
                     ServerPlayer player = SERVER == null ? null
@@ -336,6 +361,7 @@ public final class Possession {
      */
     public static void tick(MinecraftServer server) {
         SERVER = server;
+        if (!EYES.isEmpty()) noticeWhoSneakedOut(server);
         if (HELD_NPC.isEmpty()) return;
         HELD_NPC.forEach((possessorId, npcId) -> {
             ServerPlayer possessor = server.getPlayerList().getPlayer(possessorId);
@@ -354,6 +380,38 @@ public final class Possession {
             DRIVEN_YAW.put(possessorId, yaw);
             CastSupport.drive(server, npcId, to, yaw, possessor.getXRot());
         });
+    }
+
+    /**
+     * Vanilla ends a bound camera when the player sneaks, and tells nobody.
+     *
+     * <p>{@code ServerPlayer} calls {@code setCamera(this)} the moment
+     * {@code wantsToStopRiding()} is true, which is how a spectator leaves an
+     * entity they are watching. Nothing fires, so without this check the
+     * Storyteller drops back into their own eyes while this mod still believes
+     * they are wearing something — and every later {@code /st say} speaks
+     * through a creature they can no longer see.</p>
+     */
+    private static void noticeWhoSneakedOut(MinecraftServer server) {
+        for (UUID id : List.copyOf(EYES)) {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            if (player == null || player.getCamera() != player) continue;
+            // Deliberately branched rather than chained: the NPC arm names
+            // CastSupport, and on a server without Cast that arm must not be
+            // reached at all -- not merely left unexecuted. An explicit if makes that
+            // true by construction instead of by lambda-linkage subtlety.
+            String name;
+            Optional<UUID> npc = heldNpcBy(player);
+            if (npc.isPresent()) {
+                name = CastSupport.nameOf(server, npc.get()).orElse("it");
+                releaseNpc(player);
+            } else {
+                name = heldBy(player).map(m -> m.getName().getString()).orElse("it");
+                release(player);
+            }
+            Feedback.chat(player, "&7You slip out of &f" + name + "&7's eyes. It is itself again. "
+                    + "&f/st possess&7 takes it again — without &feyes&7 you can steer it.");
+        }
     }
 
     /**

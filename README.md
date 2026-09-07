@@ -74,21 +74,28 @@ level 2 to parse at all.
 - `/st undo` · `/st scene clear` — take back the last scene action, or every
   one this session (a spawn, a placed structure).
 
-Possession works on a **vanilla Storyteller client**. Looking is one-to-one
-already: binding the camera to an entity renders from its eyes *and* its
-orientation, so the creature's head mirrors your mouse every tick and turning
-your view turns the thing you are wearing. Steering is by leading — your
-drifting body still flies on WASD and the creature walks toward it, bound by
-its own legs, so a possessed cow will not scale a cliff the audience can see
-it could not climb.
+Possession works on a **vanilla Storyteller client**, and comes in two forms
+because on a vanilla client you can have a creature's eyes or control over it,
+never both.
 
-What the Storyteller's client mod adds later is the rest of the input:
-strafing, jumping and attacking on your keypress rather than the creature
-pathing after you.
+`/st possess` **steers**. You drift as a spectator, and the creature walks to
+wherever you fly — led rather than driven, bound by its own legs, so a
+possessed cow will not scale a cliff the audience can see it could not climb.
+You keep your own view and your own movement.
 
-Nothing is destroyed to do it. The creature keeps every goal it was born with;
-possession just adds one at priority 0 that holds all four AI flags, and
-releasing removes exactly that one.
+`/st possess eyes` **rides along**. The camera binds to the creature and you
+see what it sees, while it carries on being itself. You can speak as it. You
+cannot steer it, and you cannot even look around — sneak to step back out.
+
+That limit is vanilla's, not a shortcut. A client stops sending movement
+entirely while spectating an entity (`LocalPlayer.sendPosition` is gated on
+`isControlledCamera()`), and the server snaps a spectator onto its camera
+entity — rotation included — every tick. Supplying that missing input is
+exactly what the Storyteller's own client mod is for.
+
+Nothing is destroyed either way. A steered creature keeps every goal it was
+born with; possession just adds one at priority 0 that holds all four AI
+flags, and releasing removes exactly that one.
 
 Not built yet: the story planner and the GUI. See `docs/ROADMAP.md` — it also
 has two known limitations worth reading before relying on this in a real
