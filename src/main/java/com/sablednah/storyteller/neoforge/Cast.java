@@ -19,6 +19,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.npc.villager.Villager;
@@ -135,7 +136,7 @@ public final class Cast {
         String className = charClass.get().value().name();
         String fullName = raceName + " " + className;
 
-        Entity spawned = EntityType.VILLAGER.create(level, EntitySpawnReason.COMMAND);
+        Entity spawned = EntityTypes.VILLAGER.create(level, EntitySpawnReason.COMMAND);
         if (!(spawned instanceof Villager villager)) return Optional.empty();
         BlockPos at = spawnPoint(caster);
         villager.snapTo(at.getX() + 0.5D, at.getY(), at.getZ() + 0.5D, caster.getYRot() + 180.0F, 0.0F);
