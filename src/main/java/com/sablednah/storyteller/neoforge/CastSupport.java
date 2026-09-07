@@ -73,10 +73,6 @@ public final class CastSupport {
         return Cast.byId(server, npcId).flatMap(Npc::entity);
     }
 
-    static Optional<Vec3> positionOf(MinecraftServer server, UUID npcId) {
-        return Cast.byId(server, npcId).map(Npc::pos);
-    }
-
     static Optional<String> nameOf(MinecraftServer server, UUID npcId) {
         return Cast.byId(server, npcId).map(Npc::name);
     }
@@ -97,8 +93,9 @@ public final class CastSupport {
         Cast.drive(server, npcId, pos, yaw, pitch);
     }
 
-    static void say(MinecraftServer server, UUID npcId, String text, double radius) {
-        Cast.say(server, npcId, text, radius);
+    /** @return how many players were close enough to hear it. */
+    static int say(MinecraftServer server, UUID npcId, String text, double radius) {
+        return Cast.say(server, npcId, text, radius);
     }
 
     /**

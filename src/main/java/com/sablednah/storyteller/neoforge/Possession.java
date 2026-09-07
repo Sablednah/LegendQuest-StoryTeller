@@ -359,18 +359,12 @@ public final class Possession {
     /**
      * Say something as a worn NPC.
      *
-     * @return how many players were close enough to hear it. Counted here
-     *         rather than taken from Cast, which returns nothing, because the
-     *         Storyteller is told when a line landed in an empty clearing.
+     * @return how many players were close enough to hear it — Cast's own
+     *         count, so the Storyteller is told a line landed nowhere without
+     *         this mod keeping a second copy of the radius rule to drift from.
      */
     public static int speakAsNpc(ServerPlayer player, UUID npcId, String text, double radius) {
-        MinecraftServer server = player.level().getServer();
-        CastSupport.say(server, npcId, text, radius);
-        return CastSupport.positionOf(server, npcId)
-                .map(pos -> (int) server.getPlayerList().getPlayers().stream()
-                        .filter(l -> l.position().distanceToSqr(pos) <= radius * radius)
-                        .count())
-                .orElse(0);
+        return CastSupport.say(player.level().getServer(), npcId, text, radius);
     }
 
     private Possession() {}
