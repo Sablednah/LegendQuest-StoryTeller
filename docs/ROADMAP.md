@@ -221,8 +221,29 @@ moment.
 
 Keybinds are the client half's to register and are unambiguously client-side —
 a `KeyMapping` is registered before anything knows which server it is talking
-to. Standards will expose `ClientActions.run(id)` so a key handler gets the
-availability check and refusal message for free; not built yet.
+to. `ClientActions.run(id)` gives a key handler the availability check and a
+silent no-op when the action is not offered, so none of that is reimplemented
+here. Silent is right: a key brushed on a server that does not offer the action
+should do nothing, because the player may not know it is bound.
+
+**StoryTeller has no client half yet** — it is server-only today, which is why
+the buttons had to work through clickable chat. Three things are already
+decided for when one is built:
+
+- **Register keys UNBOUND by default.** A mod claiming keys on install is how
+  conflicts start, and anyone installing this will bind them deliberately.
+  Standards registers its own the same way, as a worked example.
+- **Keep everything that touches a rendering type in ONE small class.** 26.x
+  reworked GUI rendering wholesale — `GuiGraphics` became
+  `GuiGraphicsExtractor`, `renderItem` became `item`, `drawString` became
+  `text`, and a screen's `render` became `extractRenderState`; `fill` survived.
+  Standards ported its whole client half by touching a single file, because
+  only one file drew anything. Spread thinner than that and every version drop
+  becomes a hunt.
+- **The drawn bar is not proof.** Standards' bar compiles and its server half
+  is self-tested, but nobody has seen it rendered — there is no display on that
+  machine. First sight of it being wrong is likelier to be their layout than
+  our registration, and is worth reporting rather than working around.
 
 ## 5. The GUI, and the planner
 
