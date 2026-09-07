@@ -447,10 +447,31 @@ public final class Possession {
      * asymmetry is deliberate and worth knowing, since a worn human can cross
      * ground a worn animal cannot.</p>
      */
+    /** Ticks until the next anchor re-assertion. */
+    private static int anchorHeartbeat = 0;
+
     public static void tick(MinecraftServer server) {
         SERVER = server;
         if (!HELD.isEmpty() || !HELD_NPC.isEmpty()) noticeCameraDrift(server);
         if (HELD_NPC.isEmpty()) return;
+
+        // Once a second, say again that a body being worn is not anchored.
+        //
+        // Cast resets a body's anchor whenever it re-owns it -- on restart, on
+        // rebody, and on a chunk reload -- which is the right rule for a mover
+        // that has GONE. A possession is a mover that is still here, and the
+        // driving is done from this side rather than by a goal that would die
+        // with the entity, so nothing about a rebuilt body tells Cast the
+        // wearer is still holding it. Without this, walking a worn NPC into a
+        // freshly loaded chunk would quietly re-anchor it and the body would
+        // start being pulled home under its own wearer.
+        //
+        // Idempotent and cheap: re-asserting a suspension that already stands
+        // costs a map write on Cast's side.
+        if (++anchorHeartbeat >= 20) {
+            anchorHeartbeat = 0;
+            HELD_NPC.values().forEach(npcId -> CastSupport.setAnchored(server, npcId, false));
+        }
         HELD_NPC.forEach((possessorId, npcId) -> {
             ServerPlayer possessor = server.getPlayerList().getPlayer(possessorId);
             if (possessor == null) return;
