@@ -3,6 +3,7 @@ package com.sablednah.storyteller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.sablednah.storyteller.neoforge.ActionsSupport;
 import com.sablednah.storyteller.neoforge.CastSupport;
 import com.sablednah.storyteller.neoforge.STCommands;
 import com.sablednah.storyteller.neoforge.STPermissions;
@@ -48,6 +49,18 @@ public class StoryTeller {
         // class is what loads it, so registering it unguarded would be a
         // NoClassDefFoundError on every server without Cast. Same rule
         // LegendQuest keeps for ChatSupport, and this mod for EconomySupport.
+        // Standards renders these as a drawn bar for a modded client and as
+        // clickable chat for a vanilla one, so this costs the audience nothing.
+        // Wrapped as well as guarded: an older Standards has no actions API,
+        // and losing the buttons must not cost anyone the whole mod.
+        if (ModList.get().isLoaded("standards")) {
+            try {
+                ActionsSupport.register();
+            } catch (LinkageError older) {
+                LOGGER.info("Standards on this server has no actions API, so there are no "
+                        + "Storyteller buttons. Every command still works; update Standards for the bar.");
+            }
+        }
         if (ModList.get().isLoaded("cast")) {
             NeoForge.EVENT_BUS.register(CastSupport.class);
             LOGGER.info("Cast found — NPC bodies can be possessed and spoken through");
