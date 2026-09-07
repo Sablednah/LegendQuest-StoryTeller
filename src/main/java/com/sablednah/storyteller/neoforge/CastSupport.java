@@ -81,6 +81,26 @@ public final class CastSupport {
         return Cast.byId(server, npcId).map(Npc::name);
     }
 
+    /** Is this entity one of Cast's own bodies, and which? Needed because a
+     *  Cast MOB body is a real entity in the level, so StoryTeller's own gaze
+     *  ray finds it too and would otherwise treat it as a wild creature. */
+    static Optional<UUID> npcIdOf(net.minecraft.world.entity.Entity entity) {
+        return Cast.npcIdOf(entity);
+    }
+
+    /**
+     * Suspend or restore Cast's anchor.
+     *
+     * <p>Cast puts a body back on its spot once a second, which is right for a
+     * villager a zombie is shoving and wrong for one a Storyteller is walking
+     * across a room. Re-anchoring makes wherever it stands at that moment its
+     * new spot, so releasing leaves it where the scene left it rather than
+     * snapping it home.</p>
+     */
+    static void setAnchored(MinecraftServer server, UUID npcId, boolean anchored) {
+        Cast.setAnchored(server, npcId, anchored);
+    }
+
     /** Keep this NPC on this player's client whatever the range, for as long
      *  as they are wearing it. */
     static void pin(ServerPlayer viewer, UUID npcId) {

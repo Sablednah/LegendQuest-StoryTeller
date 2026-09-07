@@ -224,7 +224,11 @@ public final class Possession {
         DRIVEN_YAW.remove(player.getUUID());
         // Unpin even on the way out: a phantom kept visible for a player who
         // is no longer here is a viewer Cast would go on serving forever.
-        if (npc != null && castAvailable()) CastSupport.unpin(player, npc);
+        if (npc != null && castAvailable()) {
+            MinecraftServer server = player.level().getServer();
+            if (server != null) CastSupport.setAnchored(server, npc, true);
+            CastSupport.unpin(player, npc);
+        }
     }
 
     // --- NPC bodies (Cast) -------------------------------------------------
@@ -255,11 +259,32 @@ public final class Possession {
         if (!castAvailable()) return wild;
 
         Optional<CastSupport.Target> npc = CastSupport.hitAt(player, reach);
-        if (npc.isEmpty()) return wild;
+        if (npc.isEmpty()) return asNpcIfCastOwnsIt(wild, mob);
         CastSupport.Target target = npc.get();
         // Both hit: the nearer one is the one they meant.
-        if (mob.isPresent() && mob.get().distance() < target.distance()) return wild;
+        if (mob.isPresent() && mob.get().distance() < target.distance()) {
+            return asNpcIfCastOwnsIt(wild, mob);
+        }
         return Optional.of(new Sighted(null, target.id(), target.name(), target.canPossess()));
+    }
+
+    /**
+     * A Cast MOB body is a real entity in the level, so our own ray finds it
+     * just as Cast's does — and the two distances are measured differently, so
+     * either can come out nearer for the same creature.
+     *
+     * <p>Taking the wild-creature path for one of Cast's bodies would attach a
+     * goal to something Cast owns and, worse, skip suspending its anchor — so
+     * Cast would put the body back on its spot once a second while the
+     * Storyteller walked it across the room. Whoever owns the body decides the
+     * path, not whichever search happened to measure a shorter hit.</p>
+     */
+    private static Optional<Sighted> asNpcIfCastOwnsIt(Optional<Sighted> wild, Optional<MobHit> mob) {
+        if (mob.isEmpty()) return wild;
+        Optional<UUID> owned = CastSupport.npcIdOf(mob.get().mob());
+        if (owned.isEmpty()) return wild;
+        return Optional.of(new Sighted(null, owned.get(),
+                mob.get().mob().getName().getString(), true));
     }
 
     public static Optional<UUID> heldNpcBy(ServerPlayer player) {
@@ -293,6 +318,9 @@ public final class Possession {
         if (body.isEmpty()) return Refusal.NOT_LOADED;
 
         HELD_NPC.put(player.getUUID(), npcId);
+        // Suspended BEFORE anything moves the body, so it cannot be snapped
+        // home between taking it and driving it.
+        CastSupport.setAnchored(server, npcId, false);
         if (throughItsEyes) {
             EYES.add(player.getUUID());
             // Pin BEFORE binding: the camera packet carries only an entity id,
@@ -312,6 +340,8 @@ public final class Possession {
         if (npcId == null) return Optional.empty();
         MinecraftServer server = player.level().getServer();
         Optional<String> name = CastSupport.nameOf(server, npcId);
+        // Re-anchor where it now stands, so the scene keeps where it was left.
+        CastSupport.setAnchored(server, npcId, true);
         CastSupport.unpin(player, npcId);
         player.setCamera(player);
         return Optional.of(name.orElse("the body"));
@@ -333,6 +363,14 @@ public final class Possession {
                     EYES.remove(possessor);
                     DRIVEN_TO.remove(possessor);
                     DRIVEN_YAW.remove(possessor);
+                    // Re-anchor first, and regardless of whether the wearer
+                    // is still online. For most reasons the body is gone and
+                    // this is a no-op, but REBODY keeps the npcId and builds a
+                    // new body under it -- that body would otherwise inherit an
+                    // anchor this mod switched off and nothing switched back
+                    // on, leaving it free to be shoved around forever.
+                    if (SERVER != null) CastSupport.setAnchored(SERVER, npcId, true);
+
                     ServerPlayer player = SERVER == null ? null
                             : SERVER.getPlayerList().getPlayer(possessor);
                     if (player == null) return;
