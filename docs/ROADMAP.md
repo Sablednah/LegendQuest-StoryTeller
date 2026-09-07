@@ -180,10 +180,19 @@ required to own fits that shape.
   Profile UUID derived from the `npcId`; the signed skin textures property
   copied from whichever account the skin names, since the signature covers the
   value rather than the wearer.
-- **MOB** is goal-selector mobs only in v1. Brain-driven bodies are **refused
-  at spawn** with a message naming why, decided by a runtime check rather than
-  a hardcoded list, with the 20-class list above as the self-test fixture so
-  drift is caught rather than assumed.
+- **MOB** includes brain-driven bodies — **Villager NPCs are a requirement**,
+  so Cast neutralises a Brain rather than refusing one. The classifier is
+  vanilla's own `Brain.isBrainDead()` (memories, sensors and behaviours all
+  empty), so nothing hand-rolled can drift; the 20-class list above is the
+  self-test fixture. Note it is a *spawn-time* classifier — it still reads
+  false after the behaviours are stripped.
+- Neutralising is one of two, chosen per NPC: `setNoAi(true)` cuts the branch
+  above the brain tick (`isEffectiveAi()` gates `serverAiStep`, which is what
+  calls `customServerAiStep` and therefore `Brain.tick`) and persists as the
+  `NoAI` save tag — but it stops `navigation` and `moveControl` too, so the
+  body only moves when Cast moves it. For a body that must walk, strip the
+  behaviours instead (`removeAllBehaviors`, `clearMemories`, `setSchedule`)
+  and leave navigation alive.
 - Cast owns MOB bodies **from spawn**, so it builds their goals from its own
   spec outright. That is ownership, and it is why it may be one-way — it is
   explicitly *not* the reversible parking that possession needs.
