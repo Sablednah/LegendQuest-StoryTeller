@@ -156,7 +156,24 @@ public final class Cast {
 
     /** What a behaviour needs the target to be. Guard/patrol/flee only need a
      *  navigating mob; follow additionally needs a living player to follow. */
-    public enum BehaviourRefusal { NONE, NOT_A_PATHFINDER }
+    public enum BehaviourRefusal { NONE, NOT_A_PATHFINDER, BRAIN_DRIVEN }
+
+    /**
+     * Is this creature steered by a Brain rather than by goals?
+     *
+     * <p>Vanilla's own test, so it cannot drift as more mobs are converted:
+     * {@code isBrainDead()} is true when a Brain has no memories, sensors or
+     * behaviours, which is the state every goal-driven mob's inherited Brain is
+     * in. Twenty classes fail it in 21.11 — Villager, Piglin, Warden and the
+     * rest — and the list grows every few versions, which is exactly why this
+     * asks the mob instead of consulting a list.</p>
+     *
+     * <p>Deliberately not Cast's {@code isBrainDriven}: this has to answer for
+     * wild creatures on servers with no Cast at all.</p>
+     */
+    public static boolean brainDriven(Mob mob) {
+        return !mob.getBrain().isBrainDead();
+    }
 
     /**
      * Apply a preset behaviour to a mob, replacing any this mod applied
@@ -165,6 +182,11 @@ public final class Cast {
      */
     public static BehaviourRefusal behave(Mob mob, Behaviour behaviour, ServerPlayer follow) {
         if (!(mob instanceof PathfinderMob pathfinder)) return BehaviourRefusal.NOT_A_PATHFINDER;
+        // Refuse rather than pretend. A goal added to a brain-driven mob is not
+        // outranked, it is INERT -- goal flags arbitrate only between goals, and
+        // a Brain never asks them -- so this used to report success and do
+        // absolutely nothing, which is the worst way to fail.
+        if (brainDriven(mob)) return BehaviourRefusal.BRAIN_DRIVEN;
 
         mob.goalSelector.getAvailableGoals().stream()
                 .filter(w -> w.getGoal() instanceof AnchoredWanderGoal || w.getGoal() instanceof FollowPlayerGoal)

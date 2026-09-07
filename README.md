@@ -113,9 +113,9 @@ flags, and releasing removes exactly that one.
 
 Not built yet: the story planner and the GUI. See `docs/ROADMAP.md` — it also
 has two known limitations worth reading before relying on this in a real
-session: `behave` does nothing at all on a brain-driven mob (Villager, Piglin,
-Warden and 17 others), and structure undo restores block states only, not
-block-entity contents.
+session: `behave` refuses a brain-driven mob (Villager, Piglin, Warden and 17
+others) because a goal cannot steer one, and structure undo restores block
+states only, not block-entity contents.
 
 ## Permissions
 

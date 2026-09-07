@@ -99,9 +99,9 @@ what they cannot do is make it *say something*.
 - `/st cast save|use|list` — a `SavedData` store, one per world save, mirroring
   LegendQuest's own `Parties`.
 
-**Known limitation:** `behave` does nothing on a *brain-driven* mob. It held a
-plain Pig inside its radius every time tested; a Villager wandered off on its
-own schedule.
+**`behave` refuses a brain-driven mob**, rather than accepting and doing
+nothing. It held a plain Pig inside its radius every time tested; a Villager
+wandered off on its own schedule, and reported success while doing it.
 
 The reason is not priority. `Villager.java` contains **no references to
 `goalSelector` at all** and ticks its `Brain` in `customServerAiStep()`. Goal
@@ -117,9 +117,11 @@ PiglinBrute, Sniffer, Tadpole, Villager, Warden, Zoglin and ZombieNautilus.
 a hardcoded exclusion list would rot. Detect at runtime instead.
 
 This also makes `/st cast citizen` the awkward case: a Villager is the obvious
-body for a person and the one body `behave` cannot hold. Reserve GUARD/PATROL
-for non-villager cast members until the Brain is handled, and note that parking
-a Brain is *harder to undo* than parking goals — a `Brain` is built by
+body for a person and the one body `behave` cannot hold — the command now says
+so at the moment it is asked, and names what to use instead. Cast handles it
+properly on its own bodies by stripping the behaviours outright, which it can
+do because it owns them from spawn; note that parking a Brain is *harder to
+undo* than parking goals — a `Brain` is built by
 `brainProvider()` at construction, so gutting one has the same one-way problem
 as `removeAllGoals`.
 

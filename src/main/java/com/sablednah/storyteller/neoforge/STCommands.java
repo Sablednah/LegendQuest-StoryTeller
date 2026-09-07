@@ -594,6 +594,14 @@ public final class STCommands {
                     + " cannot be given a movement behaviour (it does not path).");
             return 0;
         }
+        if (refusal == Cast.BehaviourRefusal.BRAIN_DRIVEN) {
+            // Name the reason and the way round it, not just the problem.
+            Feedback.chat(player, "&c" + looked.get().getName().getString()
+                    + " is driven by a Brain, not by goals, so a behaviour would do nothing at all. "
+                    + "&7Villagers, piglins, wardens and their like are all this way — "
+                    + "use a goal-driven creature, or a Cast NPC, to hold a post.");
+            return 0;
+        }
         Feedback.chat(player, "&a" + looked.get().getName().getString() + " now: &f"
                 + behaviour.name().toLowerCase(java.util.Locale.ROOT));
         return 1;
