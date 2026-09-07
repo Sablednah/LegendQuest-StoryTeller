@@ -108,7 +108,7 @@ dependencies {
     // Standards supplies the economy (money rewards) and vanish. compileOnly
     // and NOT jarJar'd: it is a SOFT dependency, so StoryTeller builds against
     // the API and runs perfectly well without the mod present. EconomySupport
-    // is the only class that imports it.
+    // and VanishSupport are the only classes that import it.
     //
     // Version-matched for the same reason the LegendQuest jar above is: that
     // directory holds a standards jar for every Minecraft version, and a plain

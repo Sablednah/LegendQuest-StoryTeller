@@ -56,6 +56,29 @@ public final class Possession {
         return ModList.get().isLoaded("cast");
     }
 
+    /** Standards owns vanish, and possession hides the Storyteller while they
+     *  wear a body. Guard outside {@link VanishSupport} for the usual reason. */
+    public static boolean vanishAvailable() {
+        return ModList.get().isLoaded("standards");
+    }
+
+    /** Hide the wearer, so the audience sees the creature and not the person
+     *  walking it. Safe to call twice; the hold is keyed. */
+    private static void hideWearer(ServerPlayer player) {
+        if (vanishAvailable()) VanishSupport.hide(player);
+    }
+
+    /**
+     * Give the wearer back to the world.
+     *
+     * @return true when they are actually visible again — false when they were
+     *         already vanished by their own hand and still are, which is the
+     *         difference worth telling them about.
+     */
+    private static boolean revealWearer(ServerPlayer player) {
+        return vanishAvailable() && VanishSupport.reveal(player);
+    }
+
     public static Optional<Mob> heldBy(ServerPlayer player) {
         return Optional.ofNullable(HELD.get(player.getUUID()));
     }
@@ -154,6 +177,7 @@ public final class Possession {
             mob.goalSelector.addGoal(0, goal);
             GOALS.put(player.getUUID(), goal);
         }
+        hideWearer(player);
         return Refusal.NONE;
     }
 
@@ -165,6 +189,7 @@ public final class Possession {
      */
     public static Optional<Mob> release(ServerPlayer player) {
         EYES.remove(player.getUUID());
+        revealWearer(player);
         Mob mob = HELD.remove(player.getUUID());
         PossessionGoal goal = GOALS.remove(player.getUUID());
         if (mob != null && goal != null) {
@@ -213,6 +238,9 @@ public final class Possession {
      *  player object is on its way out. */
     public static void forget(ServerPlayer player) {
         EYES.remove(player.getUUID());
+        // Standards drops our hold on logout by itself, but releasing is
+        // harmless and keeps every exit from possession identical.
+        revealWearer(player);
         Mob mob = HELD.remove(player.getUUID());
         PossessionGoal goal = GOALS.remove(player.getUUID());
         if (mob != null && goal != null) {
@@ -328,12 +356,14 @@ public final class Possession {
             CastSupport.pin(player, npcId);
             player.setCamera(body.get());
         }
+        hideWearer(player);
         return Refusal.NONE;
     }
 
     /** @return the name of the NPC that was released, if any. */
     public static Optional<String> releaseNpc(ServerPlayer player) {
         EYES.remove(player.getUUID());
+        revealWearer(player);
         UUID npcId = HELD_NPC.remove(player.getUUID());
         DRIVEN_TO.remove(player.getUUID());
         DRIVEN_YAW.remove(player.getUUID());
@@ -376,6 +406,7 @@ public final class Possession {
                     if (player == null) return;
                     CastSupport.unpin(player, npcId);
                     player.setCamera(player);
+                    revealWearer(player);
                     Feedback.chat(player, "&cThe body you were wearing " + wording
                             + ". &f/st return&c brings you back to your body.");
                 });

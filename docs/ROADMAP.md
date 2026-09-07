@@ -138,9 +138,24 @@ The division now is that spectator (`/st drift`) keeps the godlike survey it is
 good at — through walls, over rooftops, jumping between players — and
 possession leaves the Storyteller grounded so the creature is following
 somewhere it can actually go. Being *unseen* is vanish's job rather than
-spectator's; Standards exposes vanish read-only today, and a settable API has
-been requested so possession can hide the Storyteller and restore whatever they
-were before. Until it lands, `/st possess` says plainly that they can be seen.
+spectator's, and possession now hides the Storyteller through Standards for as
+long as they wear a body.
+
+It takes a **keyed hold** (`storyteller:possess`) rather than setting a
+boolean. A player stays hidden while any hold stands and each caller releases
+only its own key, so this never reads the state first and never reasons about
+who else is involved — and a Storyteller who typed `/vanish` before the scene
+is still hidden after it, because the command is itself a holder under its own
+key. The read-then-set version would have revealed them; the shape removes that
+bug rather than avoiding it. Releasing reports whether they are genuinely back
+in view, so "you are still hidden — that is your own /vanish, not this" is said
+when it is true rather than assumed either way.
+
+Vanish guarantees, asked rather than assumed: hidden from players, not
+pushable, no item pickup, not targeted by mobs, still solid against blocks and
+still subject to gravity. Mob targeting was **not** covered until this was
+asked, and clearing a target still cannot un-anger something already hunting
+you — vanishing is walking away from a fight, not undoing one.
 
 **Merchant/quest-giver/ambusher presets** are not built — they would need
 actual interaction (trading, dialogue, an aggro trigger) beyond a movement

@@ -359,9 +359,12 @@ public final class STCommands {
             return java.util.Optional.of("&8You are drifting, so it will follow you into the air. "
                     + "&f/st return&8 first to walk it on the ground.");
         }
-        if (!net.neoforged.fml.ModList.get().isLoaded("standards")) return java.util.Optional.empty();
-        if (VanishSupport.vanished(player)) return java.util.Optional.empty();
-        return java.util.Optional.of("&8Everyone can see you leading it. &f/vanish&8 to work unseen.");
+        // Possession has already hidden them by this point, when it can.
+        if (Possession.vanishAvailable()) {
+            return java.util.Optional.of("&8You are hidden while you lead it.");
+        }
+        return java.util.Optional.of("&8Everyone can see you leading it "
+                + "&8(no vanish on this server).");
     }
 
     private static int release(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
@@ -370,7 +373,7 @@ public final class STCommands {
             var npc = Possession.releaseNpc(player);
             if (npc.isPresent()) {
                 Feedback.chat(player, "&aYou step out of &f" + npc.get()
-                        + "&a. It is itself again. &f/st return&a brings you back to your body.");
+                        + "&a. It is itself again." + seenAgain(player));
                 return 1;
             }
         }
@@ -380,8 +383,26 @@ public final class STCommands {
             return 0;
         }
         Feedback.chat(player, "&aYou step out of &f" + released.get().getName().getString()
-                + "&a. It is itself again. &f/st return&a brings you back to your body.");
+                + "&a. It is itself again." + seenAgain(player));
         return 1;
+    }
+
+    /**
+     * Whether stepping out has actually put them back in view.
+     *
+     * <p>It has not, if they had vanished themselves before the scene: their
+     * own hold still stands and they are still invisible. Saying "you are
+     * visible again" there would be a lie the player only discovers by
+     * walking in front of somebody.</p>
+     */
+    private static String seenAgain(ServerPlayer player) {
+        if (Presence.isDrifting(player)) {
+            return " &f/st return&a brings you back to your body.";
+        }
+        if (Possession.vanishAvailable() && VanishSupport.vanished(player)) {
+            return " &8You are still hidden — that is your own &f/vanish&8, not this.";
+        }
+        return "";
     }
 
     /** How far an NPC's voice carries. Roughly vanilla chat range for a scene. */

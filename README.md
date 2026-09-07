@@ -87,9 +87,11 @@ It deliberately does **not** put you into spectator. A spectator flies, so the
 body it leads gets walked into the air; it noclips, so the body follows it into
 the ground; and vanilla repurposes a spectator's inputs, so clicking an entity
 re-binds your camera out from under the possession. Steering wants a grounded
-body. `/vanish` (Standards) if you would rather not be seen doing it —
-spectator keeps its own job, which is `/st drift`: the godlike survey of a
-scene, moving through walls and jumping between players.
+body. You are hidden automatically while you wear a
+body, if Standards is installed, and given back to the world when you let it
+go — unless you had vanished yourself first, in which case you stay hidden and
+are told so. Spectator keeps its own job, which is `/st drift`: the godlike
+survey of a scene, moving through walls and jumping between players.
 
 `/st possess eyes` **rides along**. The camera binds to the creature and you
 see what it sees, while it carries on being itself. You can speak as it. You
