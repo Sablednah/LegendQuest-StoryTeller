@@ -7,11 +7,11 @@ import com.sablednah.standards.api.economy.Economy;
 /**
  * Money, when a server has any.
  *
- * <p><b>This is the only class in StoryTeller that imports
- * {@code com.sablednah.standards}</b>, and the {@code ModList.isLoaded} guard
- * lives outside it in {@link Rewards} — naming a class is what loads it, so an
- * unguarded call here would be a {@code NoClassDefFoundError} on every server
- * without Standards. LegendQuest keeps {@code ChatSupport} to the same rule
+ * <p><b>One of two classes in StoryTeller that import
+ * {@code com.sablednah.standards}</b> — {@link VanishSupport} is the other —
+ * and the {@code ModList.isLoaded} guard lives outside it in {@link Rewards};
+ * naming a class is what loads it, so an unguarded call here would be a
+ * {@code NoClassDefFoundError} on every server without Standards. LegendQuest keeps {@code ChatSupport} to the same rule
  * for the same reason; this is that discipline copied deliberately, not by
  * habit.</p>
  *

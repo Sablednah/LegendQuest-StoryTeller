@@ -58,3 +58,13 @@ displayURL="https://sablecraft.co.uk/legendquest-reforged/"
     type="optional"
     ordering="AFTER"
     side="BOTH"
+
+# Cast is optional and stays that way. It supplies NPC bodies -- human phantoms
+# and mob bodies alike -- which the Storyteller can then possess, speak through
+# and direct. Without it, possession still works on any wild creature and the
+# NPC tools say plainly that there are no NPCs to work with.
+[[dependencies.${mod_id}]]
+    modId="cast"
+    type="optional"
+    ordering="AFTER"
+    side="BOTH"

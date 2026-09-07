@@ -86,7 +86,9 @@ public final class STCommands {
                                         Commands.argument("player", EntityArgument.player()), true, build))))
 
                 // --- possession ---
-                .then(Commands.literal("possess").executes(STCommands::possess))
+                .then(Commands.literal("possess")
+                        .executes(ctx -> possess(ctx, false))
+                        .then(Commands.literal("eyes").executes(ctx -> possess(ctx, true))))
                 .then(Commands.literal("release").executes(STCommands::release))
                 .then(Commands.literal("say")
                         .then(Commands.argument("text", StringArgumentType.greedyString())
@@ -157,15 +159,34 @@ public final class STCommands {
                         .then(amount(party, n -> Rewards.Packet.currency(0, 0, (int) n, 0, 0))))
                 .then(Commands.literal("karma")
                         .then(amount(party, n -> Rewards.Packet.currency(0, 0, 0, n, 0))))
+                // Reputation is NOT karma: karma is LegendQuest's own moral
+                // axis, reputation is Standards' ledger of standing on a named
+                // track, so a character can be loved in one town and hated in
+                // the next. A GM paying out "the smuggler job" usually means
+                // this one. Tracks are suggested from the server's own list --
+                // nobody should have to remember what the provider called them.
+                .then(Commands.literal("reputation")
+                        .then(Commands.argument("standing", StringArgumentType.word())
+                                .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                                        net.neoforged.fml.ModList.get().isLoaded("standards")
+                                                ? ReputationSupport.standings() : List.of(), b))
+                                .then(Commands.argument("amount", IntegerArgumentType.integer())
+                                        .executes(ctx -> reward(ctx, party, Rewards.Packet.standing(
+                                                StringArgumentType.getString(ctx, "standing"),
+                                                IntegerArgumentType.getInteger(ctx, "amount")), ""))
+                                        .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                                .executes(ctx -> reward(ctx, party, Rewards.Packet.standing(
+                                                        StringArgumentType.getString(ctx, "standing"),
+                                                        IntegerArgumentType.getInteger(ctx, "amount")),
+                                                        StringArgumentType.getString(ctx, "reason")))))))
                 .then(Commands.literal("money")
                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
                                 .executes(ctx -> reward(ctx, party,
                                         Rewards.Packet.currency(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")), ""))
-                                .then(Commands.literal("for")
-                                        .then(Commands.argument("reason", StringArgumentType.greedyString())
-                                                .executes(ctx -> reward(ctx, party,
-                                                        Rewards.Packet.currency(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")),
-                                                        StringArgumentType.getString(ctx, "reason")))))))
+                                .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                        .executes(ctx -> reward(ctx, party,
+                                                Rewards.Packet.currency(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")),
+                                                StringArgumentType.getString(ctx, "reason"))))))
                 .then(Commands.literal("item")
                         .then(Commands.argument("item", ResourceArgument.resource(build, Registries.ITEM))
                                 .executes(ctx -> reward(ctx, party,
@@ -181,11 +202,15 @@ public final class STCommands {
     private static ArgumentBuilder<CommandSourceStack, ?> amount(boolean party, LongFunction<Rewards.Packet> toPacket) {
         return Commands.argument("amount", LongArgumentType.longArg())
                 .executes(ctx -> reward(ctx, party, toPacket.apply(LongArgumentType.getLong(ctx, "amount")), ""))
-                .then(Commands.literal("for")
-                        .then(Commands.argument("reason", StringArgumentType.greedyString())
-                                .executes(ctx -> reward(ctx, party,
-                                        toPacket.apply(LongArgumentType.getLong(ctx, "amount")),
-                                        StringArgumentType.getString(ctx, "reason")))));
+                // The reason follows the number directly. It used to require a
+                // literal "for", which a GM had to actually type -- reported as
+                // "weird i had to literally type for". A greedy string takes
+                // the rest of the line, so the word is unnecessary, and anyone
+                // who writes it anyway just gets it in their reason.
+                .then(Commands.argument("reason", StringArgumentType.greedyString())
+                        .executes(ctx -> reward(ctx, party,
+                                toPacket.apply(LongArgumentType.getLong(ctx, "amount")),
+                                StringArgumentType.getString(ctx, "reason"))));
     }
 
     private static int reward(CommandContext<CommandSourceStack> ctx, boolean party,
@@ -278,41 +303,136 @@ public final class STCommands {
      *  are usually drifting above the scene rather than standing in it. */
     private static final double POSSESS_REACH = 24.0D;
 
-    private static int possess(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    /**
+     * @param throughItsEyes bind the camera to the body, seeing what it sees —
+     *        at the cost of every control the Storyteller has. That is not a
+     *        design choice: a vanilla client stops sending movement entirely
+     *        while spectating an entity ({@code sendPosition} is gated on
+     *        {@code isControlledCamera}), and the server snaps the spectator
+     *        onto the camera entity every tick regardless. Eyes or control,
+     *        never both, until a client mod supplies the input.
+     */
+    private static int possess(CommandContext<CommandSourceStack> ctx, boolean throughItsEyes)
+            throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var looked = Possession.lookedAt(player, POSSESS_REACH);
+        // One gesture, both kinds of body: a wild creature found by our own
+        // ray, or a cast NPC found by Cast. Whichever was nearer is the one
+        // they were looking at.
+        var looked = Possession.lookingAt(player, POSSESS_REACH);
         if (looked.isEmpty()) {
             Feedback.chat(player, "&7Nothing in your sights to take over. Look straight at a creature.");
             return 0;
         }
-        var mob = looked.get();
-        // Drifting first, so `release` and `return` stay separately meaningful:
-        // one gives the creature back, the other gives you your body back.
-        boolean startedDrifting = Presence.drift(player);
-        switch (Possession.possess(player, mob)) {
+        var sighted = looked.get();
+        if (!sighted.canPossess()) {
+            Feedback.chat(player, "&7" + sighted.name() + " &7cannot be worn.");
+            return 0;
+        }
+        // Deliberately does NOT put them into spectator any more.
+        //
+        // Possession used to drift the Storyteller first, and a play test
+        // showed that is the wrong tool: a spectator flies, so the body it is
+        // leading gets walked into the air and bounces; it noclips, so the body
+        // follows it into the ground; and vanilla repurposes a spectator's own
+        // inputs -- clicking an entity re-binds the camera, sneaking unbinds
+        // it -- which fights the feature the whole time.
+        //
+        // Steering wants a grounded body, so the creature is following
+        // somewhere it can actually go. Spectator keeps its own job: the
+        // godlike survey of a scene, which is what /st drift is for.
+        var refusal = sighted.isNpc()
+                ? Possession.possessNpc(player, sighted.npcId(), throughItsEyes)
+                : Possession.possess(player, sighted.mob(), throughItsEyes);
+        switch (refusal) {
             case NONE -> {
-                Feedback.chat(player, "&5You are wearing &f" + mob.getName().getString()
-                        + "&5. &f/st say <words>&5 speaks as it, &f/st release&5 lets it go."
-                        + (startedDrifting ? " &8(your body is anchored where you left it)" : ""));
+                // Say which of the two this is, at the moment it happens. A
+                // Storyteller who expected to steer and cannot would otherwise
+                // be left pressing keys at a creature that ignores them.
+                Feedback.chat(player, throughItsEyes
+                        ? "&5You are seeing through &f" + sighted.name()
+                                + "&5. &f/st say <words>&5 speaks as it, &f/st release&5 lets it go. "
+                                + "&8(you cannot move while wearing its eyes — sneak or "
+                                + "&f/st possess&8 without &feyes&8 to steer it instead)"
+                        : "&5You are steering &f" + sighted.name()
+                                + "&5. Walk, and it walks with you. &f/st say <words>&5 speaks as it, "
+                                + "&f/st release&5 lets it go. "
+                                + "&8(/st possess eyes to see through it instead — you cannot do both)");
+                if (!throughItsEyes && !sighted.isNpc() && Possession.cannotBeLed(sighted.mob())) {
+                    Feedback.chat(player, "&7It will not follow you — a slime moves by jumping, "
+                            + "and that cannot be steered. &f/st say&7 still speaks as it, and "
+                            + "&f/st possess eyes&7 still rides along.");
+                }
+                presenceNote(player).ifPresent(note -> Feedback.chat(player, note));
                 return 1;
             }
             case ALREADY_HELD -> Feedback.chat(player,
                     "&7You are already wearing something. &f/st release&7 first.");
             case TAKEN -> Feedback.chat(player, "&7Another Storyteller is already wearing that one.");
+            case NOT_LOADED -> Feedback.chat(player,
+                    "&7" + sighted.name() + " &7has no body loaded right now — nothing to step into.");
         }
         return 0;
     }
 
+    /**
+     * What the Storyteller should know about being *seen*, now that possession
+     * no longer hides them.
+     *
+     * <p>Silence when there is nothing to say: already unseen, or on a server
+     * with no vanish at all, where telling them to run a command that does not
+     * exist would be worse than saying nothing.</p>
+     */
+    private static java.util.Optional<String> presenceNote(ServerPlayer player) {
+        if (Presence.isDrifting(player)) {
+            return java.util.Optional.of("&8You are drifting, so it will follow you into the air. "
+                    + "&f/st return&8 first to walk it on the ground.");
+        }
+        // Possession has already tried to hide them. ASK whether it worked
+        // rather than assuming it did: an older Standards has no holds, and
+        // telling somebody they are hidden when they are not is a lie they
+        // find out by walking in front of a player.
+        if (Possession.vanishAvailable() && VanishSupport.vanished(player)) {
+            return java.util.Optional.of("&8You are hidden while you lead it.");
+        }
+        return java.util.Optional.of("&8Everyone can see you leading it.");
+    }
+
     private static int release(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
+        if (Possession.castAvailable()) {
+            var npc = Possession.releaseNpc(player);
+            if (npc.isPresent()) {
+                Feedback.chat(player, "&aYou step out of &f" + npc.get()
+                        + "&a. It is itself again." + seenAgain(player));
+                return 1;
+            }
+        }
         var released = Possession.release(player);
         if (released.isEmpty()) {
             Feedback.chat(player, "&7You are not wearing anything.");
             return 0;
         }
         Feedback.chat(player, "&aYou step out of &f" + released.get().getName().getString()
-                + "&a. It is itself again. &f/st return&a brings you back to your body.");
+                + "&a. It is itself again." + seenAgain(player));
         return 1;
+    }
+
+    /**
+     * Whether stepping out has actually put them back in view.
+     *
+     * <p>It has not, if they had vanished themselves before the scene: their
+     * own hold still stands and they are still invisible. Saying "you are
+     * visible again" there would be a lie the player only discovers by
+     * walking in front of somebody.</p>
+     */
+    private static String seenAgain(ServerPlayer player) {
+        if (Presence.isDrifting(player)) {
+            return " &f/st return&a brings you back to your body.";
+        }
+        if (Possession.vanishAvailable() && VanishSupport.vanished(player)) {
+            return " &8You are still hidden — that is your own &f/vanish&8, not this.";
+        }
+        return "";
     }
 
     /** How far an NPC's voice carries. Roughly vanilla chat range for a scene. */
@@ -320,13 +440,20 @@ public final class STCommands {
 
     private static int sayAs(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var mob = Possession.heldBy(player);
-        if (mob.isEmpty()) {
-            Feedback.chat(player, "&7You are not wearing anything to speak through. &f/st possess&7 first.");
-            return 0;
-        }
         String text = StringArgumentType.getString(ctx, "text");
-        int heard = Possession.speak(player, mob.get(), text, SPEAK_RADIUS);
+        var npc = Possession.heldNpcBy(player);
+        int heard;
+        if (npc.isPresent()) {
+            heard = Possession.speakAsNpc(player, npc.get(), text, SPEAK_RADIUS);
+        } else {
+            var mob = Possession.heldBy(player);
+            if (mob.isEmpty()) {
+                Feedback.chat(player,
+                        "&7You are not wearing anything to speak through. &f/st possess&7 first.");
+                return 0;
+            }
+            heard = Possession.speak(player, mob.get(), text, SPEAK_RADIUS);
+        }
         // Told how many heard it, because a line delivered to an empty clearing
         // is a beat the Storyteller needs to know landed nowhere.
         if (heard == 0) Feedback.chat(player, "&8(nobody was close enough to hear that)");
@@ -457,11 +584,24 @@ public final class STCommands {
     private static int castBehave(CommandContext<CommandSourceStack> ctx, Cast.Behaviour behaviour,
             ServerPlayer followTarget) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var looked = Possession.lookedAt(player, POSSESS_REACH);
-        if (looked.isEmpty()) {
+        // lookingAt, not lookedAt: a Cast NPC with a human body is a phantom —
+        // not a Mob, and in no level — so the plain gaze ray cannot see one and
+        // reported "nothing in your sights" at something standing in front of
+        // the Storyteller. Seeing it is the first half; the second is saying
+        // something truer than "no target".
+        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        if (sighted.isEmpty()) {
             Feedback.chat(player, "&7Nothing in your sights. Look straight at a creature.");
             return 0;
         }
+        if (behaviour == Cast.Behaviour.FOLLOW && followTarget == null) {
+            Feedback.chat(player, "&cFollow needs a player: /st cast behave follow <player>.");
+            return 0;
+        }
+        if (sighted.get().isNpc()) {
+            return castNpcBehave(ctx, player, sighted.get(), behaviour, followTarget);
+        }
+        var looked = java.util.Optional.of(sighted.get().mob());
         if (behaviour == Cast.Behaviour.FOLLOW && followTarget == null) {
             Feedback.chat(player, "&cFollow needs a player: /st cast behave follow <player>.");
             return 0;
@@ -474,13 +614,82 @@ public final class STCommands {
         }
         Feedback.chat(player, "&a" + looked.get().getName().getString() + " now: &f"
                 + behaviour.name().toLowerCase(java.util.Locale.ROOT));
+        // Say when it may not stick, without pretending to know whether it
+        // will. A Brain issues movement of its own and this goal competes with
+        // it rather than replacing it, so how well it holds depends on how busy
+        // that Brain is: villagers ignore a post outright, goats and frogs flee
+        // convincingly, camels do not care. "It may not hold" is the honest
+        // claim; "it will not work" would have been wrong.
+        if (Cast.brainDriven(looked.get())) {
+            Feedback.chat(player, "&8It has a mind of its own — villagers, goats, camels and "
+                    + "their like run on a Brain rather than goals, so this competes with what "
+                    + "it already wants and may not hold. Watch it before you rely on it.");
+        }
+        return 1;
+    }
+
+    /**
+     * A behaviour on one of Cast's own bodies.
+     *
+     * <p>Cast pulls its bodies back to their spot once a second, so a movement
+     * goal added on top of that runs, gets dragged home, and runs again —
+     * reported live as "it ran. then bounced back to anchor, repeat". The goal
+     * was not wrong and the anchor was not wrong; having both was.</p>
+     *
+     * <p>So a behaviour <b>suspends the anchor</b> for as long as it stands,
+     * exactly as possession does, and {@code none} gives the body back to
+     * Cast — re-anchoring it wherever it has ended up, so a fled villager
+     * stays where it fled to.</p>
+     */
+    private static int castNpcBehave(CommandContext<CommandSourceStack> ctx, ServerPlayer player,
+            Possession.Sighted sighted, Cast.Behaviour behaviour, ServerPlayer followTarget) {
+        var server = ctx.getSource().getServer();
+        var body = CastSupport.bodyOf(server, sighted.npcId());
+        if (body.isEmpty()) {
+            // A human NPC is a phantom with no goals to give: Cast drives it.
+            Feedback.chat(player, "&7" + sighted.name() + " &7has no creature body to steer — "
+                    + "a person is driven by Cast, not by movement goals.");
+            return 0;
+        }
+        var refusal = Cast.behave(body.get(), behaviour, followTarget);
+        if (refusal == Cast.BehaviourRefusal.NOT_A_PATHFINDER) {
+            Feedback.chat(player, "&c" + sighted.name() + " cannot be given a movement behaviour.");
+            return 0;
+        }
+        boolean standing = behaviour != Cast.Behaviour.NONE;
+        // Suspended while it moves, restored when it stops -- and restoring
+        // anchors it where it now IS, not where it began.
+        CastSupport.setAnchored(server, sighted.npcId(), !standing);
+        Feedback.chat(player, "&a" + sighted.name() + " now: &f"
+                + behaviour.name().toLowerCase(java.util.Locale.ROOT)
+                + (standing
+                        ? "&a. &8Cast will not hold it on its spot while this stands."
+                        : "&a. &8Cast holds it where it stands now."));
+        if (standing && Cast.brainDriven(body.get())) {
+            Feedback.chat(player, "&8It has a mind of its own — villagers and their like run on a "
+                    + "Brain rather than goals, so this competes with what it already wants "
+                    + "and may not hold.");
+        }
         return 1;
     }
 
     private static int castSave(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var looked = Possession.lookedAt(player, POSSESS_REACH);
-        if (looked.isEmpty() || !(looked.get() instanceof Mob mob)) {
+        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        if (sighted.isEmpty()) {
+            Feedback.chat(player, "&7Nothing in your sights to save. Look straight at a creature.");
+            return 0;
+        }
+        if (sighted.get().isNpc()) {
+            // A preset here records an entity type and a name. Saving a cast
+            // NPC through it would quietly throw away everything Cast gives the
+            // body -- its skin, roles and anchoring -- and hand back a plain
+            // creature wearing the same name.
+            Feedback.chat(player, "&7" + sighted.get().name() + " &7is a cast NPC, and this would "
+                    + "save only a plain creature with its name. &8Cast keeps its own.");
+            return 0;
+        }
+        if (!(sighted.get().mob() instanceof Mob mob)) {
             Feedback.chat(player, "&7Nothing in your sights to save. Look straight at a creature.");
             return 0;
         }

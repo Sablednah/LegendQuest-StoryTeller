@@ -147,6 +147,22 @@ dependencies {
         logger.lifecycle("CityWorld dependency: ${found.first().name}")
         [found.first()]
     })
+
+    // Cast owns NPC entities -- human bodies (phantoms driven by packets) and
+    // mob bodies. StoryTeller drives them when present, unchanged when not.
+    compileOnly files(provider {
+        def pattern = ~/cast-.*\+mc${minecraft_version}\.jar/
+        def found = (file('../Cast/build/libs').listFiles() ?: [])
+                .findAll { it.name ==~ pattern }
+                .sort { -it.lastModified() }
+        if (found.isEmpty()) {
+            logger.lifecycle("Cast: no jar for Minecraft ${minecraft_version}; " +
+                "building without the optional NPC API.")
+            return []
+        }
+        logger.lifecycle("Cast dependency: ${found.first().name}")
+        [found.first()]
+    })
 }
 
 // The dev server needs LegendQuest present at runtime, not just at compile
