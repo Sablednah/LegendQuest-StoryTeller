@@ -179,6 +179,13 @@ public final class Cast {
         // A middling priority: low enough that a cast member still flinches
         // from fire or fights back if attacked (those goals typically sit
         // near 0-2), high enough to beat idle wandering (usually 6-8+).
+        //
+        // This only steers a mob that actually uses goalSelector. On a
+        // brain-driven mob it is a no-op -- not a losing priority, a no-op:
+        // Villager references goalSelector nowhere at all and ticks its Brain
+        // from customServerAiStep, and goal flags arbitrate only between
+        // goals. Raising the number here would change nothing. See
+        // docs/ROADMAP.md for the full list of affected mobs.
         switch (behaviour) {
             case GUARD -> mob.goalSelector.addGoal(3,
                     new AnchoredWanderGoal(pathfinder, mob.blockPosition(), GUARD_RADIUS));
