@@ -599,16 +599,19 @@ public final class STCommands {
                     + " cannot be given a movement behaviour (it does not path).");
             return 0;
         }
-        if (refusal == Cast.BehaviourRefusal.BRAIN_DRIVEN) {
-            // Name the reason and the way round it, not just the problem.
-            Feedback.chat(player, "&c" + looked.get().getName().getString()
-                    + " is driven by a Brain, not by goals, so a behaviour would do nothing at all. "
-                    + "&7Villagers, piglins, wardens and their like are all this way — "
-                    + "use a goal-driven creature, or a Cast NPC, to hold a post.");
-            return 0;
-        }
         Feedback.chat(player, "&a" + looked.get().getName().getString() + " now: &f"
                 + behaviour.name().toLowerCase(java.util.Locale.ROOT));
+        // Say when it may not stick, without pretending to know whether it
+        // will. A Brain issues movement of its own and this goal competes with
+        // it rather than replacing it, so how well it holds depends on how busy
+        // that Brain is: villagers ignore a post outright, goats and frogs flee
+        // convincingly, camels do not care. "It may not hold" is the honest
+        // claim; "it will not work" would have been wrong.
+        if (Cast.brainDriven(looked.get())) {
+            Feedback.chat(player, "&8It has a mind of its own — villagers, goats, camels and "
+                    + "their like run on a Brain rather than goals, so this competes with what "
+                    + "it already wants and may not hold. Watch it before you rely on it.");
+        }
         return 1;
     }
 

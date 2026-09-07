@@ -99,9 +99,16 @@ what they cannot do is make it *say something*.
 - `/st cast save|use|list` — a `SavedData` store, one per world save, mirroring
   LegendQuest's own `Parties`.
 
-**`behave` refuses a brain-driven mob**, rather than accepting and doing
-nothing. It held a plain Pig inside its radius every time tested; a Villager
-wandered off on its own schedule, and reported success while doing it.
+**`behave` warns on a brain-driven mob** rather than refusing it. It briefly
+refused them; a play test showed that was too coarse. A brain-driven mob still
+ticks its goalSelector and targetSelector, so the goal does run — it competes
+with a Brain issuing movement of its own, and who wins depends on how busy that
+Brain is. Observed: a Villager ignores GUARD outright, goats and frogs flee
+well enough to read as fleeing, a camel does not care. A plain Pig held its
+radius every time.
+
+So it applies the behaviour and says it may not hold. The defect was never that
+it ran — it was that it claimed success it had not earned.
 
 The reason is not priority. `Villager.java` contains **no references to
 `goalSelector` at all** and ticks its `Brain` in `customServerAiStep()`. Goal
@@ -117,8 +124,7 @@ PiglinBrute, Sniffer, Tadpole, Villager, Warden, Zoglin and ZombieNautilus.
 a hardcoded exclusion list would rot. Detect at runtime instead.
 
 This also makes `/st cast citizen` the awkward case: a Villager is the obvious
-body for a person and the one body `behave` cannot hold — the command now says
-so at the moment it is asked, and names what to use instead. Cast handles it
+body for a person and the one that ignores a post most completely. Cast handles it
 properly on its own bodies by stripping the behaviours outright, which it can
 do because it owns them from spawn; note that parking a Brain is *harder to
 undo* than parking goals — a `Brain` is built by
