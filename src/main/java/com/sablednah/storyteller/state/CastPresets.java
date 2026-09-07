@@ -53,7 +53,8 @@ public final class CastPresets extends SavedData {
             .fieldOf("cast").codec();
 
     public static final SavedDataType<CastPresets> TYPE =
-            new SavedDataType<>("storyteller_cast", CastPresets::new, CODEC, null);
+            new SavedDataType<>(Identifier.fromNamespaceAndPath(
+                    com.sablednah.storyteller.StoryTeller.MODID, "cast"), CastPresets::new, CODEC, null);
 
     /** Lowercased preset name → preset. */
     private final Map<String, Preset> presets;
