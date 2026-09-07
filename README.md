@@ -38,7 +38,11 @@ Working today:
 - `/st who` — the roster: race, class, level, karma, health, mana, party and
   where everyone is standing, with health coloured because it is the one
   number you have to react to mid-scene.
-- `/st reward <player> xp|levels|sp|karma|money <n> [for <reason>]`
+- `/st reward <player> xp|levels|sp|karma|money <n> [reason]`
+- `/st reward <player> reputation <track> <n> [reason]` — standing with a
+  faction or town, via Standards. Not the same thing as karma: karma is
+  LegendQuest's own moral axis and drives titles, reputation is standing on a
+  named track, so a character can be loved in one place and hated in the next.
 - `/st reward party <player> …` — the whole party in one action, because a GM
   awarding four people one at a time will award three.
 - `/st effect <player> <effect> <seconds> [level] [hidden]`
@@ -121,7 +125,7 @@ scheme LegendQuest uses.
 | Node | Grants |
 |---|---|
 | `storyteller.storyteller` | `/st` at all: drift, goto, next, who |
-| `storyteller.reward` | handing out XP, karma and money |
+| `storyteller.reward` | handing out XP, karma, reputation and money |
 
 **Both default to false, ops included.** LegendQuest lets op level 2 satisfy
 `legendquest.admin`; this does not follow that. An op is someone who can fix
@@ -131,7 +135,8 @@ possess a player's rival mid-session.
 ## Optional: Standards
 
 With [Standards](https://github.com/Sablednah/SableCraft-Standards) present,
-money rewards use its economy API. Without it, `money` on a reward reports
+money rewards use its economy API, and reputation its reputation API.
+Without it, `money` on a reward reports
 plainly that the server has no economy and everything else still lands.
 Standards being *installed* and the server *having an economy provider* are
 asked as two separate questions, because they are two separate things.

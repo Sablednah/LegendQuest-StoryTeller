@@ -13,7 +13,8 @@ mod. A tool that cannot be perceived by a vanilla client is not a tool.
   anchor is gone.
 - Goto / next: look in on the table.
 - Roster: who, what, how hurt, where, and in whose party.
-- Rewards: XP, karma, money — singly or party-wide, with the recipient always
+- Rewards: XP, levels, skill points, karma, reputation, money and items —
+  singly or party-wide, with the recipient always
   told at the moment it lands.
 
 Closed since: the drift anchor is now a persisted attachment, so a crash

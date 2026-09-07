@@ -2,6 +2,8 @@ package com.sablednah.storyteller.neoforge;
 
 import com.sablednah.standards.api.vanish.Vanish;
 
+import com.sablednah.storyteller.StoryTeller;
+
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -40,17 +42,47 @@ final class VanishSupport {
      *  another mod's, or with the /vanish command's own. */
     private static final String HOLD = "storyteller:possess";
 
+    /**
+     * Set once {@code hold} turns out not to exist, so the failure is reported
+     * once rather than every time anybody possesses anything.
+     *
+     * <p><b>Why a runtime guard and not a version check.</b>
+     * {@code ModList.isLoaded("standards")} answers whether the mod is there,
+     * not whether it is new enough, and the version string cannot answer it
+     * either: the build carrying {@code hold} is still called 1.5.0, because a
+     * version does not bump until release — so a server can run a 1.5.0 that
+     * has it and a 1.5.0 that does not. Asking the method itself is the only
+     * question with a true answer, and it is asked by calling it.</p>
+     */
+    private static boolean holdMissing = false;
+
     /** @return true if the player actually became hidden — false when somebody
-     *          else was already holding them and nothing went on the wire. */
+     *          else was already holding them and nothing went on the wire, or
+     *          when this Standards is too old to have holds at all. */
     static boolean hide(ServerPlayer player) {
-        return Vanish.hold(player, HOLD, true);
+        return hold(player, true);
     }
 
     /** @return true if the player actually became visible again. False when
      *          another hold still stands, which is the case worth reporting
      *          differently: they are not back in view yet. */
     static boolean reveal(ServerPlayer player) {
-        return Vanish.hold(player, HOLD, false);
+        return hold(player, false);
+    }
+
+    private static boolean hold(ServerPlayer player, boolean hidden) {
+        if (holdMissing) return false;
+        try {
+            return Vanish.hold(player, HOLD, hidden);
+        } catch (LinkageError missing) {
+            // NoSuchMethodError and friends. An older Standards that predates
+            // holds: everything else this mod does still works, so it says so
+            // once and carries on visible rather than failing a possession.
+            holdMissing = true;
+            StoryTeller.LOGGER.warn("Standards on this server has no Vanish.hold, so the "
+                    + "Storyteller stays visible while possessing. Update Standards to hide them.");
+            return false;
+        }
     }
 
     static boolean vanished(ServerPlayer player) {

@@ -40,19 +40,29 @@ public final class Rewards {
      * so "just money" and "the full quest payout" are the same call.
      */
     public record Packet(long xp, int levels, int skillPoints, long karma, double money,
-            Optional<Holder<Item>> item, int itemCount) {
+            Optional<Holder<Item>> item, int itemCount,
+            Optional<String> standing, int reputation) {
         public boolean isEmpty() {
-            return xp == 0 && levels == 0 && skillPoints == 0 && karma == 0 && money == 0 && item.isEmpty();
+            return xp == 0 && levels == 0 && skillPoints == 0 && karma == 0 && money == 0
+                    && item.isEmpty() && standing.isEmpty();
         }
 
         /** The five-currency shorthand, for callers with nothing to give but
          *  numbers — every reward command but {@code item} builds one this way. */
         public static Packet currency(long xp, int levels, int skillPoints, long karma, double money) {
-            return new Packet(xp, levels, skillPoints, karma, money, Optional.empty(), 0);
+            return new Packet(xp, levels, skillPoints, karma, money, Optional.empty(), 0,
+                    Optional.empty(), 0);
         }
 
         public static Packet of(Holder<Item> item, int count) {
-            return new Packet(0, 0, 0, 0, 0, Optional.of(item), count);
+            return new Packet(0, 0, 0, 0, 0, Optional.of(item), count, Optional.empty(), 0);
+        }
+
+        /** Standing on one named track. Kept apart from {@link #currency}
+         *  because it needs a track name as well as a number, and because
+         *  reputation is Standards' ledger rather than LegendQuest's karma. */
+        public static Packet standing(String track, int delta) {
+            return new Packet(0, 0, 0, 0, 0, Optional.empty(), 0, Optional.of(track), delta);
         }
     }
 
@@ -92,6 +102,22 @@ public final class Rewards {
         if (packet.karma() != 0) {
             pc.addKarma(packet.karma());
             granted.add((packet.karma() > 0 ? "+" : "") + packet.karma() + " karma");
+        }
+
+        if (packet.standing().isPresent() && packet.reputation() != 0) {
+            String track = packet.standing().get();
+            // Two questions, not one: Standards being installed is not the same
+            // as the server having a reputation provider registered.
+            if (!ModList.get().isLoaded("standards")) {
+                refused.add("reputation (no Standards on this server)");
+            } else if (!ReputationSupport.available()) {
+                refused.add("reputation (Standards has no reputation provider)");
+            } else {
+                int now = ReputationSupport.adjust(player.getUUID(), track, packet.reputation(),
+                        reason.isBlank() ? "storyteller" : reason);
+                granted.add((packet.reputation() > 0 ? "+" : "") + packet.reputation()
+                        + " " + track + " reputation (now " + now + ")");
+            }
         }
 
         if (packet.item().isPresent()) {

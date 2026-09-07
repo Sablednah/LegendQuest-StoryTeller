@@ -159,15 +159,34 @@ public final class STCommands {
                         .then(amount(party, n -> Rewards.Packet.currency(0, 0, (int) n, 0, 0))))
                 .then(Commands.literal("karma")
                         .then(amount(party, n -> Rewards.Packet.currency(0, 0, 0, n, 0))))
+                // Reputation is NOT karma: karma is LegendQuest's own moral
+                // axis, reputation is Standards' ledger of standing on a named
+                // track, so a character can be loved in one town and hated in
+                // the next. A GM paying out "the smuggler job" usually means
+                // this one. Tracks are suggested from the server's own list --
+                // nobody should have to remember what the provider called them.
+                .then(Commands.literal("reputation")
+                        .then(Commands.argument("standing", StringArgumentType.word())
+                                .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                                        net.neoforged.fml.ModList.get().isLoaded("standards")
+                                                ? ReputationSupport.standings() : List.of(), b))
+                                .then(Commands.argument("amount", IntegerArgumentType.integer())
+                                        .executes(ctx -> reward(ctx, party, Rewards.Packet.standing(
+                                                StringArgumentType.getString(ctx, "standing"),
+                                                IntegerArgumentType.getInteger(ctx, "amount")), ""))
+                                        .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                                .executes(ctx -> reward(ctx, party, Rewards.Packet.standing(
+                                                        StringArgumentType.getString(ctx, "standing"),
+                                                        IntegerArgumentType.getInteger(ctx, "amount")),
+                                                        StringArgumentType.getString(ctx, "reason")))))))
                 .then(Commands.literal("money")
                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
                                 .executes(ctx -> reward(ctx, party,
                                         Rewards.Packet.currency(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")), ""))
-                                .then(Commands.literal("for")
-                                        .then(Commands.argument("reason", StringArgumentType.greedyString())
-                                                .executes(ctx -> reward(ctx, party,
-                                                        Rewards.Packet.currency(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")),
-                                                        StringArgumentType.getString(ctx, "reason")))))))
+                                .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                        .executes(ctx -> reward(ctx, party,
+                                                Rewards.Packet.currency(0, 0, 0, 0, DoubleArgumentType.getDouble(ctx, "amount")),
+                                                StringArgumentType.getString(ctx, "reason"))))))
                 .then(Commands.literal("item")
                         .then(Commands.argument("item", ResourceArgument.resource(build, Registries.ITEM))
                                 .executes(ctx -> reward(ctx, party,
@@ -183,11 +202,15 @@ public final class STCommands {
     private static ArgumentBuilder<CommandSourceStack, ?> amount(boolean party, LongFunction<Rewards.Packet> toPacket) {
         return Commands.argument("amount", LongArgumentType.longArg())
                 .executes(ctx -> reward(ctx, party, toPacket.apply(LongArgumentType.getLong(ctx, "amount")), ""))
-                .then(Commands.literal("for")
-                        .then(Commands.argument("reason", StringArgumentType.greedyString())
-                                .executes(ctx -> reward(ctx, party,
-                                        toPacket.apply(LongArgumentType.getLong(ctx, "amount")),
-                                        StringArgumentType.getString(ctx, "reason")))));
+                // The reason follows the number directly. It used to require a
+                // literal "for", which a GM had to actually type -- reported as
+                // "weird i had to literally type for". A greedy string takes
+                // the rest of the line, so the word is unnecessary, and anyone
+                // who writes it anyway just gets it in their reason.
+                .then(Commands.argument("reason", StringArgumentType.greedyString())
+                        .executes(ctx -> reward(ctx, party,
+                                toPacket.apply(LongArgumentType.getLong(ctx, "amount")),
+                                StringArgumentType.getString(ctx, "reason"))));
     }
 
     private static int reward(CommandContext<CommandSourceStack> ctx, boolean party,
@@ -359,12 +382,14 @@ public final class STCommands {
             return java.util.Optional.of("&8You are drifting, so it will follow you into the air. "
                     + "&f/st return&8 first to walk it on the ground.");
         }
-        // Possession has already hidden them by this point, when it can.
-        if (Possession.vanishAvailable()) {
+        // Possession has already tried to hide them. ASK whether it worked
+        // rather than assuming it did: an older Standards has no holds, and
+        // telling somebody they are hidden when they are not is a lie they
+        // find out by walking in front of a player.
+        if (Possession.vanishAvailable() && VanishSupport.vanished(player)) {
             return java.util.Optional.of("&8You are hidden while you lead it.");
         }
-        return java.util.Optional.of("&8Everyone can see you leading it "
-                + "&8(no vanish on this server).");
+        return java.util.Optional.of("&8Everyone can see you leading it.");
     }
 
     private static int release(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
