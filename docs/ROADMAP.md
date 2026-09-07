@@ -157,3 +157,87 @@ The unit a GM thinks in is not "500 XP", it is "they finished the smuggler
 job". A packet — XP + money + karma + items under one name, applied to a party
 in one action — is the shape the tool should take, and the command form should
 stay the fallback rather than the primary.
+
+## The NPC mod — proposed, awaiting Sable's decision
+
+**Nothing here is agreed work.** Chronicler's session and this one converged on
+a design for a third mod owning NPC entities; the name, and who builds it, are
+Sable's call. Recorded so both repos say the same thing. Working name **Cast**,
+mod id `cast`, MIT, its own repo, **depending on nothing** — so Chronicler can
+have quest-giver NPCs with no LegendQuest installed, and StoryTeller can drive
+the same NPCs when it is.
+
+**Why a third mod rather than growing this one.** It is the same discipline
+already in force here: exactly one class imports each optional dependency,
+behind a `ModList.isLoaded` guard sitting *outside* it. `EconomySupport` and
+`CityWorldSupport` are the existing examples. An NPC that neither mod is
+required to own fits that shape.
+
+### Bodies
+
+- **HUMAN** is a *real* server entity, not a packet-only phantom — so it is
+  visible to a ray, bindable as a camera target, and hit by interaction events.
+  Profile UUID derived from the `npcId`; the signed skin textures property
+  copied from whichever account the skin names, since the signature covers the
+  value rather than the wearer.
+- **MOB** is goal-selector mobs only in v1. Brain-driven bodies are **refused
+  at spawn** with a message naming why, decided by a runtime check rather than
+  a hardcoded list, with the 20-class list above as the self-test fixture so
+  drift is caught rather than assumed.
+- Cast owns MOB bodies **from spawn**, so it builds their goals from its own
+  spec outright. That is ownership, and it is why it may be one-way — it is
+  explicitly *not* the reversible parking that possession needs.
+
+### Possession stays here
+
+It has to work on wild mobs with Cast absent, so it cannot move out of this
+mod. Cast never parks anything it does not own. What Cast provides instead:
+`Npc.canPossess()`, `Npc.entity()` (the real entity to bind a camera to),
+`Npc.drive(...)` for a HUMAN body with no navigation, and an
+`NpcRemovedEvent(npcId, reason)` covering **death, unload and removal** — so
+the camera goes home on every path, not only the one this mod already handles.
+`Cast.isBrainDriven(Mob)` is exposed as a static so both refusals are one line;
+when Cast is absent this mod keeps its own copy. **The check may live twice;
+the parking never does.**
+
+### Identity
+
+Every NPC has an `npcId`, in a `SavedData` store (`Identifier` id on 26.x).
+`Cast.byId`, `Npc.isLoaded()`, `Cast.isNpc(Entity)`, `Cast.npcAt(ray)` covering
+both kinds, and a `remove(npcId)` that is idempotent and works while the NPC is
+unloaded. Entities materialise on chunk load and are never saved as entities.
+
+### Roles
+
+`Cast.registerRole(Identifier, handler)`; an NPC carries roles, right-click
+dispatches in order. **Cast NPCs have no LegendQuest character** — the
+`/st cast citizen` boundary holds, and Cast never imports LegendQuest. If a
+cast member ever needs a sheet, that is an attachment on this side, decided
+deliberately.
+
+### Open questions this mod should insist on before depending on it
+
+1. **A real `ServerPlayer` added to the player list is counted as a player.**
+   Sleep percentage, mob-spawning anchors and chunk loading, difficulty
+   scaling, `/list` and the server player count are all driven by that list. A
+   village of ten human NPCs that quietly makes it impossible to skip night is
+   the exact "alarming and harmless" failure this project tries not to ship.
+   Needs testing before the design is committed to, not after.
+2. **A rejected or rotated skin signature must degrade to a default skin**, not
+   fail the spawn.
+3. **`Npc.drive` should move with collision, not teleport** — or say plainly
+   that it teleports. Possession here paths deliberately, so that a possessed
+   cow cannot scale a cliff the audience can see it could not climb.
+4. **One canonical marker for "this is a cast NPC"**, readable by other mods.
+   A mob's entity UUID does not survive rematerialising, and ZombieMod needs to
+   read the same marker to know not to re-genus one.
+5. **Role dispatch needs suppressing for a Storyteller**, who right-clicks NPCs
+   to work on them rather than to talk to them.
+
+### Noted for whoever builds it
+
+This mod's `Possession.java` and `PossessionGoal.java` are the starting point
+for anything that binds a camera — live-tested, including the death-release
+path. The rotation mirroring there is deliberate: an earlier draft used the
+look control, which aims the mob at its possessor and therefore points the
+camera back at your own drifting body, fighting itself every tick.
