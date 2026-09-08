@@ -28,15 +28,13 @@ import net.minecraft.server.level.ServerPlayer;
  * identically whichever way the command arrives. The commands remain the
  * interface; these are a faster way to reach them.</p>
  *
- * <p><b>Built against the seven-argument constructor deliberately.</b> Standards
- * also has a form taking a text hint, and StoryTeller used it to read out what
- * was being worn — "possess (a cow)". That constructor's arity is currently
- * moving: as of 2026-09-08 the 1.21.11 jar takes a ninth argument for child
- * actions while the 26.1 and 26.2 jars still take eight, so any code using it
- * compiles on one line and not the others. The two-predicate form exists
- * identically in all three, so it is the one that can be built and shipped
- * everywhere today. Restore the hint once the shape settles — the wording is in
- * this file's history.</p>
+ * <p><b>The hint constructor is a supported overload, not the canonical one.</b>
+ * Standards briefly lost it: adding a {@code children} component to the
+ * {@code Action} record silently replaced the previous canonical shape, so this
+ * file compiled against 1.21.11 and not against 26.x for a day. It is now an
+ * explicit overload on all three lines, promised not to be removed, and
+ * {@code children} is not required — so reading out what is being worn is safe
+ * to rely on again.</p>
  *
  * <p><b>Why each one reports state and not just availability.</b> Most of a day
  * of play-testing went on the game and this mod disagreeing about what was
@@ -58,7 +56,8 @@ public final class ActionsSupport {
                 Identifier.parse("minecraft:carved_pumpkin"),
                 "action.storyteller.possess", "st possess",
                 STPermissions::isStoryteller,
-                Possession::isPossessing));
+                Possession::isPossessing,
+                ActionsSupport::wornName));
 
         Actions.register(new Action("storyteller:release", RELEASE,
                 Identifier.parse("minecraft:feather"),
@@ -71,7 +70,8 @@ public final class ActionsSupport {
                 Identifier.parse("minecraft:elytra"),
                 "action.storyteller.drift", "st drift",
                 STPermissions::isStoryteller,
-                Presence::isDrifting));
+                Presence::isDrifting,
+                player -> Presence.isDrifting(player) ? "out of your body" : null));
 
         Actions.register(new Action("storyteller:return", RETURN,
                 Identifier.parse("minecraft:compass"),
@@ -84,6 +84,18 @@ public final class ActionsSupport {
                 Presence::isDrifting));
 
         StoryTeller.LOGGER.info("Registered 5 Storyteller actions with Standards");
+    }
+
+    /** What they are wearing, for the hint — the whole point of the state seam
+     *  is that this reads "a cow" rather than merely "on". */
+    private static String wornName(ServerPlayer player) {
+        var mob = Possession.heldBy(player);
+        if (mob.isPresent()) return mob.get().getName().getString();
+        var npc = Possession.heldNpcBy(player);
+        if (npc.isEmpty()) return null;
+        var server = player.level().getServer();
+        if (server == null || !Possession.castAvailable()) return "someone";
+        return CastSupport.nameOf(server, npc.get()).orElse("someone");
     }
 
     private ActionsSupport() {}
