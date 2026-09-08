@@ -50,14 +50,43 @@ public final class ActionsSupport {
      *  for most, so it leads. */
     private static final int POSSESS = 50, RELEASE = 49, DRIFT = 45, RETURN = 44, NEXT = 43;
 
+    /**
+     * Whether this Standards has the hint constructor.
+     *
+     * <p>Asked by building one and throwing it away, because that is the only
+     * question with a true answer. The version number cannot answer it: builds
+     * of 1.6.0 exist both with and without the overload, which is how an
+     * already-shipped StoryTeller lost its buttons to a same-version rebuild
+     * once already. Probing costs one object at startup and means the richer
+     * form is used wherever it exists and the plainer one wherever it does not,
+     * instead of the whole bar disappearing on a server that is behind.</p>
+     */
+    private static boolean hintSupported() {
+        try {
+            new Action("storyteller:probe", 0, Identifier.parse("minecraft:stone"),
+                    "action.storyteller.possess", "st who",
+                    p -> false, p -> false, p -> null);
+            return true;
+        } catch (LinkageError older) {
+            StoryTeller.LOGGER.info("Standards here predates the Action hint, so the buttons will "
+                    + "not name what you are wearing. Everything else is unaffected.");
+            return false;
+        }
+    }
+
     public static void register() {
+        boolean hints = hintSupported();
         // Wearing a face is the gesture, so the icon is the thing you wear.
-        Actions.register(new Action("storyteller:possess", POSSESS,
-                Identifier.parse("minecraft:carved_pumpkin"),
-                "action.storyteller.possess", "st possess",
-                STPermissions::isStoryteller,
-                Possession::isPossessing,
-                ActionsSupport::wornName));
+        Actions.register(hints
+                ? new Action("storyteller:possess", POSSESS,
+                        Identifier.parse("minecraft:carved_pumpkin"),
+                        "action.storyteller.possess", "st possess",
+                        STPermissions::isStoryteller, Possession::isPossessing,
+                        ActionsSupport::wornName)
+                : new Action("storyteller:possess", POSSESS,
+                        Identifier.parse("minecraft:carved_pumpkin"),
+                        "action.storyteller.possess", "st possess",
+                        STPermissions::isStoryteller, Possession::isPossessing));
 
         Actions.register(new Action("storyteller:release", RELEASE,
                 Identifier.parse("minecraft:feather"),
@@ -66,12 +95,16 @@ public final class ActionsSupport {
                 // with nothing worn is a button that can only ever say no.
                 Possession::isPossessing));
 
-        Actions.register(new Action("storyteller:drift", DRIFT,
-                Identifier.parse("minecraft:elytra"),
-                "action.storyteller.drift", "st drift",
-                STPermissions::isStoryteller,
-                Presence::isDrifting,
-                player -> Presence.isDrifting(player) ? "out of your body" : null));
+        Actions.register(hints
+                ? new Action("storyteller:drift", DRIFT,
+                        Identifier.parse("minecraft:elytra"),
+                        "action.storyteller.drift", "st drift",
+                        STPermissions::isStoryteller, Presence::isDrifting,
+                        player -> Presence.isDrifting(player) ? "out of your body" : null)
+                : new Action("storyteller:drift", DRIFT,
+                        Identifier.parse("minecraft:elytra"),
+                        "action.storyteller.drift", "st drift",
+                        STPermissions::isStoryteller, Presence::isDrifting));
 
         Actions.register(new Action("storyteller:return", RETURN,
                 Identifier.parse("minecraft:compass"),
