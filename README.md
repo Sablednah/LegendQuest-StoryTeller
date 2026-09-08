@@ -38,7 +38,11 @@ Working today:
 - `/st who` — the roster: race, class, level, karma, health, mana, party and
   where everyone is standing, with health coloured because it is the one
   number you have to react to mid-scene.
-- `/st reward <player> xp|levels|sp|karma|money <n> [for <reason>]`
+- `/st reward <player> xp|levels|sp|karma|money <n> [reason]`
+- `/st reward <player> reputation <track> <n> [reason]` — standing with a
+  faction or town, via Standards. Not the same thing as karma: karma is
+  LegendQuest's own moral axis and drives titles, reputation is standing on a
+  named track, so a character can be loved in one place and hated in the next.
 - `/st reward party <player> …` — the whole party in one action, because a GM
   awarding four people one at a time will award three.
 - `/st effect <player> <effect> <seconds> [level] [hidden]`
@@ -74,27 +78,65 @@ level 2 to parse at all.
 - `/st undo` · `/st scene clear` — take back the last scene action, or every
   one this session (a spawn, a placed structure).
 
-Possession works on a **vanilla Storyteller client**. Looking is one-to-one
-already: binding the camera to an entity renders from its eyes *and* its
-orientation, so the creature's head mirrors your mouse every tick and turning
-your view turns the thing you are wearing. Steering is by leading — your
-drifting body still flies on WASD and the creature walks toward it, bound by
-its own legs, so a possessed cow will not scale a cliff the audience can see
-it could not climb.
+Possession works on a **vanilla Storyteller client**, and comes in two forms
+because on a vanilla client you can have a creature's eyes or control over it,
+never both.
 
-What the Storyteller's client mod adds later is the rest of the input:
-strafing, jumping and attacking on your keypress rather than the creature
-pathing after you.
+`/st possess` **steers**. You keep your own body and your own view, and the
+creature walks to wherever you walk — led rather than driven, bound by its own
+legs, so a possessed cow will not scale a cliff the audience can see it could
+not climb.
 
-Nothing is destroyed to do it. The creature keeps every goal it was born with;
-possession just adds one at priority 0 that holds all four AI flags, and
-releasing removes exactly that one.
+It deliberately does **not** put you into spectator. A spectator flies, so the
+body it leads gets walked into the air; it noclips, so the body follows it into
+the ground; and vanilla repurposes a spectator's inputs, so clicking an entity
+re-binds your camera out from under the possession. Steering wants a grounded
+body. You are hidden automatically while you wear a
+body, if Standards 1.6.0 or newer is installed, and given back to the world
+when you let it go — unless you had vanished yourself first, in which case you
+stay hidden and are told so. On an older Standards the mod still loads and
+possession still works; it just cannot hide you, and says so in the log. Spectator keeps its own job, which is `/st drift`: the godlike
+survey of a scene, moving through walls and jumping between players.
+
+`/st possess eyes` **rides along**. The camera binds to the creature and you
+see what it sees, while it carries on being itself. You can speak as it. You
+cannot steer it, and you cannot even look around — sneak to step back out.
+
+That limit is vanilla's, not a shortcut. A client stops sending movement
+entirely while spectating an entity (`LocalPlayer.sendPosition` is gated on
+`isControlledCamera()`), and the server snaps a spectator onto its camera
+entity — rotation included — every tick. Supplying that missing input is
+exactly what the Storyteller's own client mod is for.
+
+Nothing is destroyed either way. A steered creature keeps every goal it was
+born with; possession just adds one at priority 0 that holds all four AI
+flags, and releasing removes exactly that one.
 
 Not built yet: the story planner and the GUI. See `docs/ROADMAP.md` — it also
 has two known limitations worth reading before relying on this in a real
-session: `behave` does nothing at all on a brain-driven mob (Villager, Piglin,
-Warden and 17 others), and structure undo restores block states only, not
-block-entity contents.
+session: `behave` may not hold on a brain-driven mob (Villager, Piglin, Warden
+and 17 others) because it competes with a Brain rather than replacing it, and
+structure undo restores block states only, not block-entity contents.
+
+## Buttons, without asking anyone to install anything
+
+With Standards 1.6.0 or newer, the Storyteller's five most-used tools —
+possess, release, drift, return, next — are registered as actions: a drawn bar
+for anyone running the Standards client, and a row of clickable chat buttons
+for anyone who is not. **A vanilla client gets working buttons.** That is why
+they exist here at all; a control surface that required a client mod would be
+one this mod could not use, given only the server and the Storyteller are meant
+to need anything.
+
+An action carries a **command string**, not a payload — a button sends
+`/st possess` exactly as if it had been typed. So the buttons cannot drift ahead
+of the commands, and permissions and refusals behave identically whichever way
+the command arrives. The commands stay the interface.
+
+They report **state**, not just availability: possess lights up while you are
+wearing something and names it, drift lights up while you are out of your body.
+A Storyteller who can see *you are wearing a cow* notices a possession that has
+silently ended, instead of finding out three commands later.
 
 ## Permissions
 
@@ -104,7 +146,7 @@ scheme LegendQuest uses.
 | Node | Grants |
 |---|---|
 | `storyteller.storyteller` | `/st` at all: drift, goto, next, who |
-| `storyteller.reward` | handing out XP, karma and money |
+| `storyteller.reward` | handing out XP, karma, reputation and money |
 
 **Both default to false, ops included.** LegendQuest lets op level 2 satisfy
 `legendquest.admin`; this does not follow that. An op is someone who can fix
@@ -114,7 +156,8 @@ possess a player's rival mid-session.
 ## Optional: Standards
 
 With [Standards](https://github.com/Sablednah/SableCraft-Standards) present,
-money rewards use its economy API. Without it, `money` on a reward reports
+money rewards use its economy API, and reputation its reputation API.
+Without it, `money` on a reward reports
 plainly that the server has no economy and everything else still lands.
 Standards being *installed* and the server *having an economy provider* are
 asked as two separate questions, because they are two separate things.

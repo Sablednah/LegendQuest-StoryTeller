@@ -5,6 +5,7 @@ import net.minecraft.world.entity.Mob;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
  * Lifecycle handling: making sure no Storyteller is ever left stuck, and no
@@ -62,6 +63,18 @@ public final class STServerEvents {
             Feedback.chat(possessor, "&c" + mob.getName().getString()
                     + " dies, and you are cast out of it. &f/st return&c brings you back to your body.");
         });
+    }
+
+    /**
+     * Walks every worn NPC body to its wearer.
+     *
+     * <p>Costs nothing when nobody is wearing an NPC — and nobody can be
+     * unless Cast is installed, which is what keeps this tick from ever
+     * naming a Cast class on a server without one.</p>
+     */
+    @SubscribeEvent
+    static void onServerTick(ServerTickEvent.Post event) {
+        Possession.tick(event.getServer());
     }
 
     private STServerEvents() {}

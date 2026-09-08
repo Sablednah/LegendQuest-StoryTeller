@@ -24,17 +24,33 @@ import net.minecraft.world.entity.Mob;
  * without a single goal being removed. Releasing is one
  * {@code removeGoal} call and the mob is exactly what it was.</p>
  *
- * <p><b>Driving, on a vanilla client.</b> While possessing, the Storyteller is
- * a spectator with their camera bound to the mob — a vanilla client honours
- * both. Their own invisible body still flies on WASD, so the mob is steered by
- * walking it toward wherever that body has drifted to. It is leading rather
- * than driving, and it is deliberately the version that needs no client mod at
- * all; one-to-one input control is what the Storyteller's own mod adds later.</p>
+ * <p><b>Steering, on a vanilla client.</b> The Storyteller drifts as a
+ * spectator and this goal walks the creature to wherever they have flown, so
+ * the mob is led rather than driven. It is deliberately the version that needs
+ * no client mod at all; one-to-one input control is what the Storyteller's own
+ * mod adds later.
+ *
+ * <p><b>This goal is used only when the camera is NOT bound to the mob</b>,
+ * and that is not a preference. A vanilla client stops sending movement
+ * entirely while spectating an entity — {@code LocalPlayer.sendPosition} is
+ * gated on {@code isControlledCamera()}, which is
+ * {@code getCameraEntity() == this} — and {@code ServerPlayer} snaps the
+ * spectator onto its camera entity, rotation included, every single tick.
+ * Binding the camera therefore costs the Storyteller every input they have:
+ * they cannot walk, and they cannot even look. Eyes or control, never both.
+ * An earlier version of this class claimed both worked; it was never true, and
+ * the first person to try steering a cow found out.</p>
  */
 public class PossessionGoal extends Goal {
 
-    /** Close enough that following would only jitter the mob on the spot. */
-    private static final double ARRIVED = 1.6D;
+    /**
+     * Close enough that following would only jitter the mob on the spot.
+     *
+     * <p>Was 1.6, which a GM reported as trailing too far behind to feel worn.
+     * Not much lower than this: at contact range the creature spends its time
+     * shouldering the Storyteller aside instead of standing with them.</p>
+     */
+    static final double ARRIVED = 1.1D;
 
     private final Mob mob;
     private final ServerPlayer possessor;
@@ -76,22 +92,21 @@ public class PossessionGoal extends Goal {
 
     @Override
     public void tick() {
-        // Mirror the Storyteller's rotation onto the creature, every tick.
-        //
-        // This is what gives mouse-look while possessing, and it works on a
-        // vanilla client: binding the camera to an entity renders from that
-        // entity's eyes AND its orientation, so the only way to look around is
-        // to turn the thing you are wearing.
+        // Turn the creature's head to where the Storyteller is looking, so it
+        // reads as attending to what they attend to.
         //
         // Deliberately NOT the look control. setLookAt(possessor) aims the
-        // creature at whoever is possessing it -- which, with the camera in its
-        // head, points the view straight back at your own drifting body. The
-        // two together fight each other every tick, which is what the first
-        // draft of this did.
+        // creature at whoever is possessing it, so it stares at the person
+        // leading it rather than where they are going.
+        // HEAD only. Setting the body rotation as well is what made a led cow
+        // spin on the spot: pathfinding turns the body toward the next node,
+        // and forcing yBodyRot to the Storyteller's facing every tick took
+        // that away, so a creature asked to walk backwards could never orient
+        // to walk at all. The head follows your gaze; the body follows its
+        // feet. Reported live: "it cant walk a direction it is not facing, so
+        // it sort of spins".
         float yaw = possessor.getYRot();
-        mob.setYRot(yaw);
         mob.setYHeadRot(yaw);
-        mob.yBodyRot = yaw;
         mob.setXRot(possessor.getXRot());
 
         if (possessor.level() != mob.level()) return; // mid-teleport; wait
@@ -99,6 +114,18 @@ public class PossessionGoal extends Goal {
         double distance = mob.distanceToSqr(possessor);
         if (distance <= ARRIVED * ARRIVED) {
             mob.getNavigation().stop();
+            // Standing still: turn the BODY to face where the Storyteller
+            // faces as well.
+            //
+            // Head-only was right while walking and wrong while stopped.
+            // Vanilla clamps a head to within getMaxHeadYRot() of its body
+            // every tick, so a head held at an angle the body never adopts
+            // drifts back and is re-forced here -- which is exactly the "they
+            // look around before snapping back to my view" that was reported.
+            // Aligning the body when there is no path to fight removes the
+            // disagreement instead of losing it every other tick.
+            mob.setYRot(yaw);
+            mob.yBodyRot = yaw;
             return;
         }
         // Path rather than teleport, so the mob is bound by its own legs: a

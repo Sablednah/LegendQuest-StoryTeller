@@ -13,7 +13,8 @@ mod. A tool that cannot be perceived by a vanilla client is not a tool.
   anchor is gone.
 - Goto / next: look in on the table.
 - Roster: who, what, how hurt, where, and in whose party.
-- Rewards: XP, karma, money — singly or party-wide, with the recipient always
+- Rewards: XP, levels, skill points, karma, reputation, money and items —
+  singly or party-wide, with the recipient always
   told at the moment it lands.
 
 Closed since: the drift anchor is now a persisted attachment, so a crash
@@ -29,6 +30,24 @@ saved presets rather than one currency per command.
 
 Take over a creature, wear it, speak as it, give it back. Works on a vanilla
 Storyteller client: camera binding and spectator mode are both server-driven.
+
+**Two forms, because a vanilla client cannot give both.** `/st possess` steers
+— you keep your own grounded body and the creature walks to where you walk.
+`/st possess eyes` binds
+the camera and you ride along seeing what it sees, while it lives its own
+life. You cannot have eyes and control at once: a client stops sending
+movement entirely while spectating an entity (`LocalPlayer.sendPosition` is
+gated on `isControlledCamera()`), and `ServerPlayer` snaps a spectator onto
+its camera entity — rotation included — every tick, so a bound camera costs
+the Storyteller both walking and looking.
+
+This was found the hard way. The first version bound the camera *and* expected
+the drifting body to steer, which the code asserted confidently in three
+places and which was never possible; the first attempt to steer a cow did
+nothing at all. Vanilla also ends a bound camera silently when the player
+sneaks (`wantsToStopRiding` → `setCamera(this)`), so possession now watches
+for that and releases cleanly rather than leaving a Storyteller speaking
+through a creature they can no longer see.
 
 **The prior art turned out to be a warning, not a template.** ZombieMod clears
 a mob's goals outright (`removeAllGoals(g -> true)`), which is right for
@@ -80,9 +99,16 @@ what they cannot do is make it *say something*.
 - `/st cast save|use|list` — a `SavedData` store, one per world save, mirroring
   LegendQuest's own `Parties`.
 
-**Known limitation:** `behave` does nothing on a *brain-driven* mob. It held a
-plain Pig inside its radius every time tested; a Villager wandered off on its
-own schedule.
+**`behave` warns on a brain-driven mob** rather than refusing it. It briefly
+refused them; a play test showed that was too coarse. A brain-driven mob still
+ticks its goalSelector and targetSelector, so the goal does run — it competes
+with a Brain issuing movement of its own, and who wins depends on how busy that
+Brain is. Observed: a Villager ignores GUARD outright, goats and frogs flee
+well enough to read as fleeing, a camel does not care. A plain Pig held its
+radius every time.
+
+So it applies the behaviour and says it may not hold. The defect was never that
+it ran — it was that it claimed success it had not earned.
 
 The reason is not priority. `Villager.java` contains **no references to
 `goalSelector` at all** and ticks its `Brain` in `customServerAiStep()`. Goal
@@ -98,16 +124,62 @@ PiglinBrute, Sniffer, Tadpole, Villager, Warden, Zoglin and ZombieNautilus.
 a hardcoded exclusion list would rot. Detect at runtime instead.
 
 This also makes `/st cast citizen` the awkward case: a Villager is the obvious
-body for a person and the one body `behave` cannot hold. Reserve GUARD/PATROL
-for non-villager cast members until the Brain is handled, and note that parking
-a Brain is *harder to undo* than parking goals — a `Brain` is built by
+body for a person and the one that ignores a post most completely. Cast handles it
+properly on its own bodies by stripping the behaviours outright, which it can
+do because it owns them from spawn; note that parking a Brain is *harder to
+undo* than parking goals — a `Brain` is built by
 `brainProvider()` at construction, so gutting one has the same one-way problem
 as `removeAllGoals`.
+
+**A slime cannot be led**, and says so when you take one. It does not walk: it
+moves by jumping, driven by its own goals through a move control that is
+package-private and cannot be steered from outside. Possession starves those
+goals of their flags, which stops the jumping without replacing it, so the
+slime just sits. Magma cubes are the same. Eyes and voice both still work —
+only the leading is impossible, so only the leading is refused.
 
 **Untested, predicted from the above:** possessing a Villager should fight
 itself — `PossessionGoal`'s `navigation.moveTo` against the brain's own
 movement, and our rotation mirroring against the brain's look behaviour. Not
 yet observed; flagged rather than assumed.
+
+**Spectator is for surveying, not for steering.** Possession used to drop the
+Storyteller into spectator; a play test showed that is the wrong tool. A
+spectator flies, so the led body gets walked into the air and bounces on the
+way; it noclips, so the body follows it underground; and vanilla repurposes a
+spectator's own inputs — clicking an entity re-binds the camera, sneaking
+unbinds it — so the mode fights the feature continuously.
+
+The division now is that spectator (`/st drift`) keeps the godlike survey it is
+good at — through walls, over rooftops, jumping between players — and
+possession leaves the Storyteller grounded so the creature is following
+somewhere it can actually go. Being *unseen* is vanish's job rather than
+spectator's, and possession now hides the Storyteller through Standards for as
+long as they wear a body.
+
+It takes a **keyed hold** (`storyteller:possess`) rather than setting a
+boolean. A player stays hidden while any hold stands and each caller releases
+only its own key, so this never reads the state first and never reasons about
+who else is involved — and a Storyteller who typed `/vanish` before the scene
+is still hidden after it, because the command is itself a holder under its own
+key. The read-then-set version would have revealed them; the shape removes that
+bug rather than avoiding it. Releasing reports whether they are genuinely back
+in view, so "you are still hidden — that is your own /vanish, not this" is said
+when it is true rather than assumed either way.
+
+Vanish guarantees, asked rather than assumed: hidden from players, not
+pushable, no item pickup, not targeted by mobs, still solid against blocks and
+still subject to gravity. Mob targeting was **not** covered until this was
+asked. Vanishing also clears the target of anything already hunting within 64
+blocks, so it is not only new targeting that is refused. What remains is
+narrow: a blow already in flight lands, and a lit creeper still goes off.
+
+Hiding needs **Standards 1.6.0 or newer**. It is not declared as a version
+floor: Standards is an optional dependency, and a floor on an optional
+dependency makes FML refuse to load this mod outright when an older one is
+present — turning a feature that should quietly degrade into a server that
+will not start. `VanishSupport` catches the `LinkageError` instead, says so
+once in the log, and possession carries on without hiding anyone.
 
 **Merchant/quest-giver/ambusher presets** are not built — they would need
 actual interaction (trading, dialogue, an aggro trigger) beyond a movement
@@ -132,6 +204,46 @@ goal, which is GUI/story-planner territory more than a command-line preset.
   dressing empty ground; not a promise for placing over someone's base.
 - CityWorld-aware placement is done for its schematic library; plot-aware
   placement (asking CityWorld where a plot's boundary is) is not attempted.
+
+## Buttons — DONE (Standards actions)
+
+Five actions registered with Standards 1.6.0: possess, release, drift, return,
+next. Standards draws them as a bar for its client half and as clickable chat
+components for anyone without it, so **a vanilla Storyteller gets working
+buttons** — which is the only reason this mod could adopt them.
+
+Each carries a command string rather than a payload, so a button is
+indistinguishable from typing, and each reports *state* as well as
+availability. The state half was asked for specifically: most of a day of
+play-testing went on this mod and the game disagreeing about what was
+happening, and a bar that shows "you are wearing a cow" catches that in the
+moment.
+
+Keybinds are the client half's to register and are unambiguously client-side —
+a `KeyMapping` is registered before anything knows which server it is talking
+to. `ClientActions.run(id)` gives a key handler the availability check and a
+silent no-op when the action is not offered, so none of that is reimplemented
+here. Silent is right: a key brushed on a server that does not offer the action
+should do nothing, because the player may not know it is bound.
+
+**StoryTeller has no client half yet** — it is server-only today, which is why
+the buttons had to work through clickable chat. Three things are already
+decided for when one is built:
+
+- **Register keys UNBOUND by default.** A mod claiming keys on install is how
+  conflicts start, and anyone installing this will bind them deliberately.
+  Standards registers its own the same way, as a worked example.
+- **Keep everything that touches a rendering type in ONE small class.** 26.x
+  reworked GUI rendering wholesale — `GuiGraphics` became
+  `GuiGraphicsExtractor`, `renderItem` became `item`, `drawString` became
+  `text`, and a screen's `render` became `extractRenderState`; `fill` survived.
+  Standards ported its whole client half by touching a single file, because
+  only one file drew anything. Spread thinner than that and every version drop
+  becomes a hunt.
+- **The drawn bar is not proof.** Standards' bar compiles and its server half
+  is self-tested, but nobody has seen it rendered — there is no display on that
+  machine. First sight of it being wrong is likelier to be their layout than
+  our registration, and is worth reporting rather than working around.
 
 ## 5. The GUI, and the planner
 

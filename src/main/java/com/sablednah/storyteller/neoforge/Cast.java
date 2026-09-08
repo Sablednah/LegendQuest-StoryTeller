@@ -159,12 +159,41 @@ public final class Cast {
     public enum BehaviourRefusal { NONE, NOT_A_PATHFINDER }
 
     /**
+     * Is this creature steered by a Brain rather than by goals?
+     *
+     * <p>Vanilla's own test, so it cannot drift as more mobs are converted:
+     * {@code isBrainDead()} is true when a Brain has no memories, sensors or
+     * behaviours, which is the state every goal-driven mob's inherited Brain is
+     * in. Twenty classes fail it in 21.11 — Villager, Piglin, Warden and the
+     * rest — and the list grows every few versions, which is exactly why this
+     * asks the mob instead of consulting a list.</p>
+     *
+     * <p>Deliberately not Cast's {@code isBrainDriven}: this has to answer for
+     * wild creatures on servers with no Cast at all.</p>
+     */
+    public static boolean brainDriven(Mob mob) {
+        return !mob.getBrain().isBrainDead();
+    }
+
+    /**
      * Apply a preset behaviour to a mob, replacing any this mod applied
      * before it — re-issuing {@code /st cast behave} switches a cast member's
      * role rather than layering a second goal underneath the first.
      */
     public static BehaviourRefusal behave(Mob mob, Behaviour behaviour, ServerPlayer follow) {
         if (!(mob instanceof PathfinderMob pathfinder)) return BehaviourRefusal.NOT_A_PATHFINDER;
+        // NOT refused, though an earlier version of this refused it.
+        //
+        // A brain-driven mob still ticks its goalSelector and targetSelector,
+        // so a goal added here does run -- it just competes with a Brain that
+        // is issuing movement of its own, and who wins depends on how busy that
+        // Brain is. Tested live: a Villager ignores GUARD entirely, but goats
+        // and frogs flee well enough to read as fleeing, and a camel does not
+        // care. Refusing all of them would have taken away something that
+        // demonstrably works on some of them.
+        //
+        // So it is applied and the caller warns instead. The defect was never
+        // that this ran; it was that it claimed to have worked when it had not.
 
         mob.goalSelector.getAvailableGoals().stream()
                 .filter(w -> w.getGoal() instanceof AnchoredWanderGoal || w.getGoal() instanceof FollowPlayerGoal)
