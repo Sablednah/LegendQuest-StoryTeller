@@ -85,6 +85,23 @@ public final class CastSupport {
         return Cast.byId(server, npcId).map(Npc::pos);
     }
 
+    /**
+     * Dress a body.
+     *
+     * @param slot one of mainhand, offhand, head, chest, legs, feet.
+     * @param item written the way {@code /give} takes it, components and all;
+     *             blank clears the slot.
+     * @return false if Cast refused the slot or could not read the item.
+     */
+    static boolean equip(MinecraftServer server, UUID npcId, String slot, String item) {
+        return Cast.equip(server, npcId, slot, item);
+    }
+
+    /** What the body is wearing, slot name to item string. */
+    static java.util.Map<String, String> equipment(MinecraftServer server, UUID npcId) {
+        return Cast.equipment(server, npcId);
+    }
+
     static Optional<String> nameOf(MinecraftServer server, UUID npcId) {
         return Cast.byId(server, npcId).map(Npc::name);
     }
