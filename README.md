@@ -118,6 +118,17 @@ session: `behave` may not hold on a brain-driven mob (Villager, Piglin, Warden
 and 17 others) because it competes with a Brain rather than replacing it, and
 structure undo restores block states only, not block-entity contents.
 
+## Dressing the cast
+
+With Cast installed, `/st cast equip <slot> <item>` puts something on the NPC in
+your sights — slots are `mainhand offhand head chest legs feet`, and the item is
+written exactly as `/give` takes it, components and all, so a named sword or a
+tipped arrow works. Leave the item off to strip the slot. `/st cast worn` lists
+what an NPC has on, in a fixed slot order so two of them read the same way.
+
+Cast NPCs only. A wild creature's gear is its own, and this mod could neither
+undo nor remember putting a helmet on a passing zombie.
+
 ## Buttons, without asking anyone to install anything
 
 With Standards 1.6.0 or newer, the Storyteller's five most-used tools —
