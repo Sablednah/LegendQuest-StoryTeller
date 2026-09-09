@@ -181,6 +181,13 @@ present — turning a feature that should quietly degrade into a server that
 will not start. `VanishSupport` catches the `LinkageError` instead, says so
 once in the log, and possession carries on without hiding anyone.
 
+**Costume — DONE.** `/st cast equip <slot> <item>` dresses a cast NPC and
+`/st cast worn` reads it back. The item is a greedy string rather than an item
+argument, because Cast takes it exactly as `/give` writes it and a component
+blob contains the brackets and quotes an item argument would eat. Cast NPCs
+only: a wild creature's gear is its own, and dressing one would be a change this
+mod could neither remember nor undo.
+
 **Merchant/quest-giver/ambusher presets** are not built — they would need
 actual interaction (trading, dialogue, an aggro trigger) beyond a movement
 goal, which is GUI/story-planner territory more than a command-line preset.

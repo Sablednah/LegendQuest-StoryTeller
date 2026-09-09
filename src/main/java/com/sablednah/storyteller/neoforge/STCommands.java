@@ -545,6 +545,19 @@ public final class STCommands {
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .executes(ctx -> castBehave(ctx, Cast.Behaviour.FOLLOW,
                                                 EntityArgument.getPlayer(ctx, "player"))))))
+                // Costume. The item is a greedy string rather than an item
+                // argument because Cast takes it exactly as /give writes it,
+                // components and all -- and a component blob contains the
+                // brackets and quotes an item argument would eat.
+                .then(Commands.literal("equip")
+                        .then(Commands.argument("slot", StringArgumentType.word())
+                                .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                                        EQUIP_SLOTS, b))
+                                .executes(ctx -> castEquip(ctx, ""))
+                                .then(Commands.argument("item", StringArgumentType.greedyString())
+                                        .executes(ctx -> castEquip(ctx,
+                                                StringArgumentType.getString(ctx, "item"))))))
+                .then(Commands.literal("worn").executes(STCommands::castWorn))
                 .then(Commands.literal("save")
                         .then(Commands.argument("name", StringArgumentType.word())
                                 .executes(STCommands::castSave)))
@@ -671,6 +684,70 @@ public final class STCommands {
                     + "and may not hold.");
         }
         return 1;
+    }
+
+    /** Cast's slot names, for completion. Not an enum on their side, so this is
+     *  the one place the list is written down here. */
+    private static final List<String> EQUIP_SLOTS =
+            List.of("mainhand", "offhand", "head", "chest", "legs", "feet");
+
+    /**
+     * Dress the cast NPC in the Storyteller's sights.
+     *
+     * <p>Only cast NPCs: a wild creature's gear is its own, and putting a helmet
+     * on a passing zombie would be a change nothing in this mod could undo or
+     * even remember afterwards.</p>
+     *
+     * @param item blank to strip the slot, which is Cast's own convention.
+     */
+    private static int castEquip(CommandContext<CommandSourceStack> ctx, String item)
+            throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        String slot = StringArgumentType.getString(ctx, "slot").toLowerCase(java.util.Locale.ROOT);
+        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        if (sighted.isEmpty() || !sighted.get().isNpc()) {
+            Feedback.chat(player, "&7Look straight at a cast NPC to dress it. "
+                    + "&8Wild creatures keep their own gear.");
+            return 0;
+        }
+        if (!EQUIP_SLOTS.contains(slot)) {
+            Feedback.chat(player, "&cNo such slot. &7Slots are &f"
+                    + String.join("&7, &f", EQUIP_SLOTS) + "&7.");
+            return 0;
+        }
+        var server = ctx.getSource().getServer();
+        if (!CastSupport.equip(server, sighted.get().npcId(), slot, item)) {
+            // Cast refuses a slot it cannot parse or an item it cannot read, and
+            // only it knows which -- so say what was rejected rather than guess.
+            Feedback.chat(player, "&cCast would not take that: &f" + slot + "&c = &f"
+                    + (item.isBlank() ? "(nothing)" : item)
+                    + "&c. &7Write the item as &f/give&7 takes it.");
+            return 0;
+        }
+        Feedback.chat(player, item.isBlank()
+                ? "&a" + sighted.get().name() + "&a's &f" + slot + "&a is empty now."
+                : "&a" + sighted.get().name() + "&a wears &f" + item + "&a on its &f" + slot + "&a.");
+        return 1;
+    }
+
+    /** What the NPC in the Storyteller's sights has on. */
+    private static int castWorn(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        if (sighted.isEmpty() || !sighted.get().isNpc()) {
+            Feedback.chat(player, "&7Look straight at a cast NPC to see what it is wearing.");
+            return 0;
+        }
+        var worn = CastSupport.equipment(ctx.getSource().getServer(), sighted.get().npcId());
+        if (worn.isEmpty()) {
+            Feedback.chat(player, "&7" + sighted.get().name() + " &7is wearing nothing of its own.");
+            return 1;
+        }
+        // Cast's own slot order, not the map's, so two NPCs read the same way.
+        Feedback.chat(player, "&6" + sighted.get().name() + " &6wears:");
+        EQUIP_SLOTS.stream().filter(worn::containsKey).forEach(slot ->
+                Feedback.chat(player, "  &7" + slot + ": &f" + worn.get(slot)));
+        return worn.size();
     }
 
     private static int castSave(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
