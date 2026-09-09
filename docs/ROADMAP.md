@@ -321,6 +321,20 @@ the camera goes home on every path, not only the one this mod already handles.
 when Cast is absent this mod keeps its own copy. **The check may live twice;
 the parking never does.**
 
+**Gravity on a cast body belongs to Cast, and must not be touched here.** Cast
+holds an anchored body up with `setNoGravity(true)`, so that one whose block is
+mined out hangs, looks down, and only then drops. Suspending the anchor restores
+gravity in the same call, which is why a possessed body walks and falls
+normally, and why this mod's once-a-second re-assertion of that suspension also
+keeps a worn body's gravity honest for free.
+
+Releasing re-anchors wherever the body ended up, **including in mid-air** — walk
+one off a rooftop and let go and it falls the rest of the way, because Cast
+leaves gravity on until it lands and adopts the landing as the anchor. So never
+wait for a body to be grounded before releasing it, and never set or clear
+`noGravity` from this side: two mods deciding whether an entity falls is a fight
+with no visible cause.
+
 ### Identity
 
 Every NPC has an `npcId`, in a `SavedData` store (`Identifier` id on 26.x).
