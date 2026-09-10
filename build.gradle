@@ -132,7 +132,7 @@ dependencies {
     // CityWorld supplies its schematic library (legacy .schematic, WorldEdit
     // .schem, Litematica .litematic, vanilla .nbt) as a second pool for the
     // Storyteller's set-dressing tools. Soft dependency, same reasoning and
-    // same version-matched lookup as Standards above -- StructureSupport is
+    // same version-matched lookup as Standards above -- CityWorldSupport is
     // the only class that imports it.
     compileOnly files(provider {
         def pattern = ~/cityworld-.*\+mc${minecraft_version}\.jar/
