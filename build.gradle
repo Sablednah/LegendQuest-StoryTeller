@@ -181,12 +181,36 @@ def legendQuestJar = provider {
             .sort { -it.lastModified() }
             .take(1)
 }
+
+// ...and LegendQuest's OWN hard dependency has to come with it. Since
+// LegendQuest 2.5.0 its mods.toml declares `standards [1.8.0,)` as required,
+// so staging LegendQuest alone produces a run that dies at load with "Mod
+// legendquest requires standards 1.8.0 or above" -- a message that names two
+// other mods and never mentions this one, which is a poor thing to hand
+// somebody who just cloned the repo and typed runClientBuddy.
+//
+// This is a runtime staging concern only, and does NOT make Standards a hard
+// dependency of StoryTeller: it stays `optional` in our mods.toml, and the
+// list below is a `take(1)` on whatever happens to be there, so a machine
+// without a Standards build simply stages nothing extra. It is a transitive
+// requirement of LegendQuest, not one of ours.
+def standardsJar = provider {
+    def pattern = ~/standards-.*\+mc${minecraft_version}\.jar/
+    [file('libs'), file('../SableCraft-Standards/build/libs')]
+            .findAll { it.isDirectory() }
+            .collectMany { (it.listFiles() ?: []) as List }
+            .findAll { it.name ==~ pattern }
+            .sort { -it.lastModified() }
+            .take(1)
+}
 tasks.register('stageLegendQuestServer', Copy) {
     from(legendQuestJar)
+    from(standardsJar)
     into file('run/mods')
 }
 tasks.register('stageLegendQuestBuddy', Copy) {
     from(legendQuestJar)
+    from(standardsJar)
     into file('runBuddy/mods')
 }
 tasks.matching { it.name == 'runServer' }.configureEach { dependsOn 'stageLegendQuestServer' }
