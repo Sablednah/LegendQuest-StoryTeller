@@ -416,6 +416,17 @@ node.
   structure overwrote comes back as an empty chest of the right kind. Fine for
   dressing empty ground; not a promise for placing over someone's base. Stated
   in the README rather than hidden.
+- **Commit before `git checkout`, and verify per branch — never from a loop's
+  output.** Twice in one session a port loop edited branch one, failed to
+  switch to branch two because the working tree was dirty, silently carried on
+  in branch one, and printed a second success line that looked like branch two.
+  Git makes this quiet on purpose: a modified file whose *committed* content is
+  identical in both branches is carried across a checkout without complaint, so
+  the edit follows you and nothing warns. An earlier session lost a completed
+  port to the same shape. Commit each branch before leaving it, and read the
+  state back per branch (`git show origin/<branch>:<file> | grep -c ...`) rather
+  than trusting what the loop said.
+
 - **After a rewrite, grep for the name of the thing you removed**, not the thing
   you added. `build.gradle` carried a comment naming a `StructureSupport` class
   that has never existed under that name.
