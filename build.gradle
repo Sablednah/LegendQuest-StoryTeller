@@ -183,6 +183,29 @@ tasks.register('stageLegendQuest', Copy) {
 }
 tasks.matching { it.name == 'runServer' }.configureEach { dependsOn 'stageLegendQuest' }
 
+// ---------------------------------------------------------------------------
+// Build stamp -- shared format across Sable's mods; LegendQuest main carries
+// the reference. The COMMIT's time, not the wall clock: a wall-clock stamp
+// changes every Gradle invocation, so nothing downstream is ever up to date.
+// Tolerant of git being absent: an unknown stamp must never fail a build.
+static String gitOut(File dir, String... args) {
+    try {
+        var proc = new ProcessBuilder(args).directory(dir).redirectErrorStream(true).start()
+        var out = proc.inputStream.text.trim()
+        return proc.waitFor() == 0 && !out.isEmpty() ? out : null
+    } catch (Exception ignored) {
+        return null
+    }
+}
+var buildCommit = gitOut(projectDir, "git", "rev-parse", "--short=8", "HEAD") ?: "unknown"
+var buildBranch = gitOut(projectDir, "git", "rev-parse", "--abbrev-ref", "HEAD") ?: "unknown"
+if (gitOut(projectDir, "git", "status", "--porcelain")) buildCommit += "-dirty"
+var commitEpoch = gitOut(projectDir, "git", "show", "-s", "--format=%ct", "HEAD")
+var buildTime = commitEpoch
+        ? new Date(commitEpoch.toLong() * 1000L).format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone("UTC"))
+        : "unknown"
+logger.lifecycle("Build stamp: ${buildCommit} on ${buildBranch} at ${buildTime}")
+
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
     var replaceProperties = [
             minecraft_version      : minecraft_version,
@@ -196,6 +219,9 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_version            : mod_version,
             mod_authors            : mod_authors,
             mod_description        : mod_description,
+            build_commit           : buildCommit,
+            build_branch           : buildBranch,
+            build_time             : buildTime,
             lq_version_range       : lq_version_range,
     ]
     inputs.properties replaceProperties
@@ -209,4 +235,16 @@ neoForge.ideSyncTask generateModMetadata
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+tasks.named('jar', Jar) {
+    manifest {
+        attributes([
+                "Implementation-Title"  : mod_name,
+                "Implementation-Version": mod_version,
+                "Build-Commit"          : buildCommit,
+                "Build-Branch"          : buildBranch,
+                "Build-Time"            : buildTime,
+        ])
+    }
 }
