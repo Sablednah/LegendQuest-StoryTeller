@@ -165,23 +165,68 @@ dependencies {
     })
 }
 
-// The dev server needs LegendQuest present at runtime, not just at compile
-// time -- StoryTeller does nothing without it. Drop the same jar into
-// run/mods before `runServer`, so a fresh checkout cannot start a server that
-// is missing its own dependency.
-tasks.register('stageLegendQuest', Copy) {
-    from(provider {
-        def pattern = ~/legendquest-.*\+mc${minecraft_version}\.jar/
-        [file('libs'), file('../LegendQuest-ReForged/build/libs')]
-                .findAll { it.isDirectory() }
-                .collectMany { (it.listFiles() ?: []) as List }
-                .findAll { it.name ==~ pattern }
-                .sort { -it.lastModified() }
-                .take(1)
-    })
+// LegendQuest is a HARD, required dependency (see the mods.toml template) --
+// FML refuses to load StoryTeller at all without it, on client or server
+// alike. Drop the same jar into both run directories before launch, so a
+// fresh checkout cannot start either half missing its own dependency.
+def legendQuestJar = provider {
+    def pattern = ~/legendquest-.*\+mc${minecraft_version}\.jar/
+    [file('libs'), file('../LegendQuest-ReForged/build/libs')]
+            .findAll { it.isDirectory() }
+            .collectMany { (it.listFiles() ?: []) as List }
+            .findAll { it.name ==~ pattern }
+            .sort { -it.lastModified() }
+            .take(1)
+}
+
+// ...and LegendQuest's OWN hard dependency has to come with it. Since
+// LegendQuest 2.5.0 its mods.toml declares `standards [1.8.0,)` as required,
+// so staging LegendQuest alone produces a run that dies at load with "Mod
+// legendquest requires standards 1.8.0 or above" -- a message that names two
+// other mods and never mentions this one, which is a poor thing to hand
+// somebody who just cloned the repo and typed runClientBuddy.
+//
+// This is a runtime staging concern only, and does NOT make Standards a hard
+// dependency of StoryTeller: it stays `optional` in our mods.toml, and the
+// list below is a `take(1)` on whatever happens to be there, so a machine
+// without a Standards build simply stages nothing extra. It is a transitive
+// requirement of LegendQuest, not one of ours.
+def standardsJar = provider {
+    def pattern = ~/standards-.*\+mc${minecraft_version}\.jar/
+    [file('libs'), file('../SableCraft-Standards/build/libs')]
+            .findAll { it.isDirectory() }
+            .collectMany { (it.listFiles() ?: []) as List }
+            .findAll { it.name ==~ pattern }
+            .sort { -it.lastModified() }
+            .take(1)
+}
+// Sweep first, because Copy adds and never removes -- and run/ and runBuddy/
+// are gitignored, so they do NOT follow a branch switch. Staging onto a
+// directory left behind by another branch leaves two Minecraft versions of the
+// same mod side by side (observed: four jars, 1.21.11 and 26.1.2 together), and
+// FML then refuses to load against the wrong one. The failure names a version
+// mismatch rather than a stale directory, which is a bad place to start
+// debugging from. Only our own two mods are swept; anything else a person put
+// there on purpose is left alone.
+def sweepStaged = { File dir ->
+    (dir.listFiles() ?: []).findAll {
+        it.name ==~ ~/(legendquest|standards)-.*\.jar/ && !it.name.contains("+mc${minecraft_version}.")
+    }.each { it.delete() }
+}
+tasks.register('stageLegendQuestServer', Copy) {
+    doFirst { sweepStaged(file('run/mods')) }
+    from(legendQuestJar)
+    from(standardsJar)
     into file('run/mods')
 }
-tasks.matching { it.name == 'runServer' }.configureEach { dependsOn 'stageLegendQuest' }
+tasks.register('stageLegendQuestBuddy', Copy) {
+    doFirst { sweepStaged(file('runBuddy/mods')) }
+    from(legendQuestJar)
+    from(standardsJar)
+    into file('runBuddy/mods')
+}
+tasks.matching { it.name == 'runServer' }.configureEach { dependsOn 'stageLegendQuestServer' }
+tasks.matching { it.name == 'runClientBuddy' }.configureEach { dependsOn 'stageLegendQuestBuddy' }
 
 // ---------------------------------------------------------------------------
 // Build stamp -- shared format across Sable's mods; LegendQuest main carries
