@@ -36,7 +36,7 @@ import net.minecraft.server.level.ServerPlayer;
  * {@code children} is not required — so reading out what is being worn is safe
  * to rely on again.</p>
  *
- * <p><b>Three buttons, not five, because the commands toggle.</b> There is no
+ * <p><b>Four buttons, not seven, because the commands toggle.</b> There is no
  * separate Release or Return: {@code /st possess} while wearing something lets
  * it go, and {@code /st drift} while drifting brings you back. Two buttons for
  * one idea reads as clunky, and the state is already on the screen — a lit
@@ -56,7 +56,7 @@ public final class ActionsSupport {
 
     /** Higher sits nearer the anchor; possession is what a Storyteller reaches
      *  for most, so it leads. */
-    private static final int POSSESS = 50, DRIFT = 45, NEXT = 43;
+    private static final int POSSESS = 50, LOCK = 48, DRIFT = 45, NEXT = 43;
 
     /**
      * Whether this Standards has the hint constructor.
@@ -96,6 +96,20 @@ public final class ActionsSupport {
                         "action.storyteller.possess", "st possess",
                         STPermissions::isStoryteller, Possession::isPossessing));
 
+        // Beside possession because it is what feeds it, and lit with the name
+        // it is holding: a lock is otherwise invisible sticky state, and the
+        // next command doing something unexpected is the whole failure mode.
+        Actions.register(hints
+                ? new Action("storyteller:lock", LOCK,
+                        Identifier.parse("minecraft:target"),
+                        "action.storyteller.lock", "st lock",
+                        STPermissions::isStoryteller, Sights::isLocked,
+                        player -> Sights.lockedName(player).orElse(null))
+                : new Action("storyteller:lock", LOCK,
+                        Identifier.parse("minecraft:target"),
+                        "action.storyteller.lock", "st lock",
+                        STPermissions::isStoryteller, Sights::isLocked));
+
         Actions.register(hints
                 ? new Action("storyteller:drift", DRIFT,
                         Identifier.parse("minecraft:elytra"),
@@ -112,8 +126,13 @@ public final class ActionsSupport {
                 "action.storyteller.next", "st next",
                 Presence::isDrifting));
 
-        StoryTeller.LOGGER.info("Registered 3 Storyteller actions with Standards");
+        StoryTeller.LOGGER.info("Registered 4 Storyteller actions with Standards");
     }
+
+    // Deliberately the remembered name rather than a fresh resolve. Standards
+    // asks a hint whenever it draws, and resolving a lock has consequences --
+    // it clears a dead one and says so -- so a hint that resolved would make
+    // the bar's own repaint emit chat. State seams must be pure to be safe.
 
     /** What they are wearing, for the hint — the whole point of the state seam
      *  is that this reads "a cow" rather than merely "on". */
