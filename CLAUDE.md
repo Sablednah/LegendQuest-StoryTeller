@@ -170,8 +170,24 @@ different questions, and only the second one is the bug report.
   in-game frame at all.
 - The tutorial toast ("Move with W, A, S and D") sits top-right and **does not
   expire**. Crop around it rather than waiting it out.
-- Kill the buddy via PowerShell `Get-CimInstance Win32_Process` filtered on
-  `*runBuddy*` — plain `pgrep` cannot see it.
+- **Kill the buddy on `*TestClient*`, `*runClientBuddy*` and `*StoryTeller-buddy*`
+  — not on `*runBuddy*`.** LegendQuest's CLAUDE.md says `*runBuddy*` and that is
+  right *there*, because its game directory is literally `runBuddy`; here the
+  launcher is `TestClient.cmd`, the Gradle task is `runClientBuddy` and the
+  worktree is `LegendQuest-StoryTeller-buddy`, so the borrowed filter matches
+  nothing. It fails silently — `Stop-Process` on an empty pipeline is not an
+  error — so "cleaned up" reads exactly like success. Nine orphaned processes
+  and three cmd windows accumulated across one session that way, over the top
+  of whatever the owner was doing, and each new client then kicked the last one
+  off the server with "You logged in from another location", which looks like a
+  networking fault rather than a stale process. **Verify the kill by listing
+  survivors**, never by the absence of an error. Plain `pgrep` cannot see any
+  of them.
+- The Gradle daemon is a separate process and outlives the client. The buddy's
+  is identifiable by `.gradle-win` in its command line (`TestClient.cmd` passes
+  `--project-cache-dir .gradle-win`); daemons without it belong to another
+  project, and the standing rule applies — never kill a process without finding
+  out whose it is.
 - `stop` over RCON shuts the server down cleanly.
 
 ### NEVER copy a jar into a running instance
