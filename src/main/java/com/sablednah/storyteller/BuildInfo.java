@@ -25,8 +25,17 @@ import java.util.Properties;
  */
 public final class BuildInfo {
 
-    /** Namespaced: a bare {@code /build.properties} would collide with every
-     *  other mod doing the same thing on a shared classpath. */
+    /**
+     * Namespaced: a bare {@code /build.properties} would collide with every
+     * other mod doing the same thing on a shared classpath.
+     *
+     * <p><b>Keep this a literal.</b> Being a compile-time constant is what lets
+     * javac inline it, so this class ends up with no reference to any mod class
+     * at all and can be compiled and run standalone to exercise the failure
+     * paths. Build the path from a field, a method call or config and the
+     * dependency comes back silently — no compile error, the standalone test
+     * just stops working. ZombieMod found that one.</p>
+     */
     private static final String RESOURCE = "/storyteller/build.properties";
 
     /** One stamp, read as a unit. A record so a caller cannot be handed a
