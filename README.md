@@ -2,8 +2,8 @@
 
 **Run a live story for a server of LegendQuest characters.** One player is the
 Storyteller — the Dungeon Master — and gets the tools to stage a session:
-drift unseen through a scene, look in on any player, spawn a cast, possess a
-mob and speak as it, place a set, and hand out the spoils.
+drift unseen through a scene, look in on any player, spawn a cast, lock on to a
+creature, possess it and speak as it, place a set, and hand out the spoils.
 
 An expansion for [LegendQuest ReForged](https://github.com/Sablednah/LegendQuest-ReForged),
 not a standalone mod. An NPC here *is* a LegendQuest character sheet; a reward
@@ -40,6 +40,8 @@ Working today:
   where everyone is standing, with health coloured because it is the one
   number you have to react to mid-scene.
 - `/st reward <player> xp|levels|sp|karma|money <n> [reason]`
+- `/st reward <player> item <item> [count]` — hand over the actual thing, from
+  the item registry, so modded items work as well as vanilla ones.
 - `/st reward <player> reputation <track> <n> [reason]` — standing with a
   faction or town, via Standards. Not the same thing as karma: karma is
   LegendQuest's own moral axis and drives titles, reputation is standing on a
@@ -59,8 +61,8 @@ operator, because a GM should be able to lay a curse without also being handed
 same reason: vanilla's answer is `@a[...]` selectors, and those need operator
 level 2 to parse at all.
 
-- `/st lock` — make the creature in your sights *the* target, until you say it
-  again. Possess, say, dress, behave and save all mean it after that, wherever
+- `/st lock` · `/st unlock` — make the creature in your sights *the* target,
+  until you say `/st lock` again (or `/st unlock`, the unambiguous form). Possess, say, dress, behave and save all mean it after that, wherever
   you happen to be looking. Pointing at a thing is the right default, but it
   wants your head still — and walking a possessed cow across a room means
   looking where it should go, which is not at it.
@@ -129,7 +131,9 @@ structure undo restores block states only, not block-entity contents.
 ## Dressing the cast
 
 With Cast installed, `/st cast equip <slot> <item>` puts something on the NPC in
-your sights — slots are `mainhand offhand head chest legs feet`, and the item is
+your sights — or the one you have locked, which is what makes dressing bearable,
+since a costume is four commands and each one otherwise wants your head still.
+Slots are `mainhand offhand head chest legs feet`, and the item is
 written exactly as `/give` takes it, components and all, so a named sword or a
 tipped arrow works. Leave the item off to strip the slot. `/st cast worn` lists
 what an NPC has on, in a fixed slot order so two of them read the same way.
@@ -139,23 +143,30 @@ undo nor remember putting a helmet on a passing zombie.
 
 ## Buttons, without asking anyone to install anything
 
-With Standards 1.6.0 or newer, the Storyteller's five most-used tools —
-possess, release, drift, return, next — are registered as actions: a drawn bar
-for anyone running the Standards client, and a row of clickable chat buttons
-for anyone who is not. **A vanilla client gets working buttons.** That is why
-they exist here at all; a control surface that required a client mod would be
-one this mod could not use, given only the server and the Storyteller are meant
-to need anything.
+With Standards 1.6.0 or newer, the Storyteller's most-used tools — **possess,
+lock, drift, next** — are registered as actions: a drawn bar for anyone running
+the Standards client, and a row of clickable chat buttons for anyone who is not.
+**A vanilla client gets working buttons.** That is why they exist here at all; a
+control surface that required a client mod would be one this mod could not use,
+given only the server and the Storyteller are meant to need anything.
 
 An action carries a **command string**, not a payload — a button sends
 `/st possess` exactly as if it had been typed. So the buttons cannot drift ahead
 of the commands, and permissions and refusals behave identically whichever way
 the command arrives. The commands stay the interface.
 
+**Four buttons, not seven, because the commands toggle.** There is no separate
+Release or Return button: `/st possess` while wearing something lets it go,
+`/st drift` while drifting brings you back, `/st lock` while locked lets go.
+Two buttons for one idea reads as clunky, and the state is already on the
+screen — a lit Possess button is telling you what the click will do.
+
 They report **state**, not just availability: possess lights up while you are
-wearing something and names it, drift lights up while you are out of your body.
-A Storyteller who can see *you are wearing a cow* notices a possession that has
-silently ended, instead of finding out three commands later.
+wearing something and names it, lock lights up naming what it holds, drift
+lights up while you are out of your body, and next only offers itself while you
+are drifting. A Storyteller who can see *you are wearing a cow* notices a
+possession that has silently ended, instead of finding out three commands
+later.
 
 ## Permissions
 

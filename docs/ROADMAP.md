@@ -23,8 +23,11 @@ reward packet, on the back of new LegendQuest API
 (`CharacterService.addLevels`, `PlayerCharacter.grantSkillPoints`); and
 effects can be applied to a player or a party.
 
-**Still open here:** item and loot-table rewards, and reward *packets* as
-saved presets rather than one currency per command.
+Items landed too: `/st reward <player> item <item> [count]` takes anything in
+the item registry, so modded loot works without this mod knowing about it.
+
+**Still open here:** loot-table rewards, and reward *packets* as saved presets
+rather than one currency per command.
 
 ## 2. Possession and voice — DONE (the core of it)
 
@@ -63,6 +66,31 @@ possession releases the creature (otherwise it is frozen forever following
 somebody who is not there), and a possessed creature that dies hands back the
 camera (otherwise they are watching through a corpse, which on a vanilla
 client is a black screen they cannot escape from inside the game).
+
+**Targeting — DONE (`/st lock`).** Every creature command resolved its target
+from the crosshair, which is the right default — no names, no ids, no selectors,
+and pointing at a thing is the most natural gesture a GM has. It is also fragile
+exactly when a scene gets busy: a costume is four commands and each wants the
+head still, two mobs a block apart trade places under the crosshair as they
+breathe, and walking a possessed cow across a room means looking where it should
+go, which is by definition not at it. `/st lock` takes what is in the sights and
+makes it the answer to "that one" until it is let go; the five places that asked
+the crosshair now ask `Sights`, which asks the crosshair when no lock is held.
+
+Three things it is careful about. It stores an **id, never the entity** — holding
+the `Mob` would keep a removed one reachable and hand back a corpse as a target,
+where resolving from an id means a target that has gone is *discovered* to have
+gone. It **never fails silently**: death, unload, dimension change and Cast's own
+removal all clear it and say which, because a lock left pointing at something
+dead would redirect the next command to whatever the crosshair happened to find.
+Cast's `REBODY` deliberately does *not* clear it — that keeps the `npcId` and
+builds a new body under it, so the lock is still on the right character.
+
+`/st say` resolves the lock but **does not** fall back to the crosshair: lending
+your voice to whatever you happen to be looking at would put words in the mouth
+of a creature nobody chose, and a line cannot be unread by the table. It does now
+work without possession, so a locked shopkeeper can hold a conversation while
+keeping its own behaviour — a whole scene run without taking an NPC's AI away.
 
 **Still to do here:**
 
@@ -214,10 +242,19 @@ goal, which is GUI/story-planner territory more than a command-line preset.
 
 ## Buttons — DONE (Standards actions)
 
-Five actions registered with Standards 1.6.0: possess, release, drift, return,
-next. Standards draws them as a bar for its client half and as clickable chat
+Four actions registered with Standards 1.6.0: possess, lock, drift, next.
+Standards draws them as a bar for its client half and as clickable chat
 components for anyone without it, so **a vanilla Storyteller gets working
 buttons** — which is the only reason this mod could adopt them.
+
+It was five, paired: possess/release and drift/return, each pair spending two
+slots on one idea and each second button only ever clickable when its partner
+was not. Sable called that clunky and was right — the lit state already tells
+you what the click will do. **So the commands toggle instead**, and the seam
+needed nothing for it: an action still carries exactly one command string, and
+the command is the thing that knows which direction it means. `/st release` and
+`/st return` stay as the unambiguous forms for anyone typing deliberately and
+for a macro that must not flip.
 
 Each carries a command string rather than a payload, so a button is
 indistinguishable from typing, and each reports *state* as well as
