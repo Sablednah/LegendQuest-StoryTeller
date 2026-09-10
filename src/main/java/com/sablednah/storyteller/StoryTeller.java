@@ -65,6 +65,8 @@ public class StoryTeller {
             NeoForge.EVENT_BUS.register(CastSupport.class);
             LOGGER.info("Cast found — NPC bodies can be possessed and spoken through");
         }
-        LOGGER.info("LegendQuest StoryTeller initialising");
+        // The build, not just the version: says what RAN when somebody reports
+        // a bug. Shared format across Sable's mods.
+        LOGGER.info("LegendQuest StoryTeller {} initialising", BuildInfo.describe());
     }
 }
