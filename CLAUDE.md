@@ -219,10 +219,15 @@ client runs on a **private X display** where nothing competes for focus, and
   `/mnt/d/Repos/sable/`. Copying just the repo is not enough — its sibling jar
   directories have to exist too.
 - **Displays `:0` and `:1` belong to gnome-shell** (the desktop and its
-  Xwayland), even with nobody logged in. StoryTeller uses **`:10`**. The rule is
-  `display = game port - 25560`, which gives every project a number without
-  collisions and without anyone choosing one — `:7` was taken here first and
-  handed back, because under any sane rule it belongs to ZombieMod.
+  Xwayland), even with nobody logged in. StoryTeller uses **`:10`**, Standards
+  `:9`, and `:2`-`:8` are free. Displays are **claimed in `~/dev/README.md` on
+  Vivo, not derived from the port table.** The first version of that write-up
+  proposed `display = game port - 25560`, which is arithmetic dressed over an
+  unreliable input: three repos declare a `dev_server_port`, two of those
+  disagree with the `run/server.properties` their server actually boots from,
+  and Standards and LegendQuest are both sitting on 25565 right now. `run/` is
+  gitignored, so the port is applied by hand per checkout and drifts — the port
+  table is an allocation, not a reading of anything. Standards caught it.
 - **Ubuntu 26.04 has no X11 session at all** — GNOME 50 dropped it, so
   `/usr/share/xsessions/` is empty and "log in on Xorg" is not an option. It
   does not matter: `Xvfb :7` is an X server for one process, which is all
