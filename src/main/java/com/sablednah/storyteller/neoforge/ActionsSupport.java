@@ -36,6 +36,14 @@ import net.minecraft.server.level.ServerPlayer;
  * {@code children} is not required — so reading out what is being worn is safe
  * to rely on again.</p>
  *
+ * <p><b>Three buttons, not five, because the commands toggle.</b> There is no
+ * separate Release or Return: {@code /st possess} while wearing something lets
+ * it go, and {@code /st drift} while drifting brings you back. Two buttons for
+ * one idea reads as clunky, and the state is already on the screen — a lit
+ * Possess button is telling you what the click will do. The seam needs nothing
+ * for this: an action still carries exactly one command string, and the command
+ * is what knows which direction it means.</p>
+ *
  * <p><b>Why each one reports state and not just availability.</b> Most of a day
  * of play-testing went on the game and this mod disagreeing about what was
  * happening — a camera bound to something that had been released, a possession
@@ -48,7 +56,7 @@ public final class ActionsSupport {
 
     /** Higher sits nearer the anchor; possession is what a Storyteller reaches
      *  for most, so it leads. */
-    private static final int POSSESS = 50, RELEASE = 49, DRIFT = 45, RETURN = 44, NEXT = 43;
+    private static final int POSSESS = 50, DRIFT = 45, NEXT = 43;
 
     /**
      * Whether this Standards has the hint constructor.
@@ -88,13 +96,6 @@ public final class ActionsSupport {
                         "action.storyteller.possess", "st possess",
                         STPermissions::isStoryteller, Possession::isPossessing));
 
-        Actions.register(new Action("storyteller:release", RELEASE,
-                Identifier.parse("minecraft:feather"),
-                "action.storyteller.release", "st release",
-                // Only offered when there is something to let go of: a release
-                // with nothing worn is a button that can only ever say no.
-                Possession::isPossessing));
-
         Actions.register(hints
                 ? new Action("storyteller:drift", DRIFT,
                         Identifier.parse("minecraft:elytra"),
@@ -106,17 +107,12 @@ public final class ActionsSupport {
                         "action.storyteller.drift", "st drift",
                         STPermissions::isStoryteller, Presence::isDrifting));
 
-        Actions.register(new Action("storyteller:return", RETURN,
-                Identifier.parse("minecraft:compass"),
-                "action.storyteller.return", "st return",
-                Presence::isDrifting));
-
         Actions.register(new Action("storyteller:next", NEXT,
                 Identifier.parse("minecraft:spyglass"),
                 "action.storyteller.next", "st next",
                 Presence::isDrifting));
 
-        StoryTeller.LOGGER.info("Registered 5 Storyteller actions with Standards");
+        StoryTeller.LOGGER.info("Registered 3 Storyteller actions with Standards");
     }
 
     /** What they are wearing, for the hint — the whole point of the state seam
