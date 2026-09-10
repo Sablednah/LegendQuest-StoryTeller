@@ -318,6 +318,11 @@ public final class STCommands {
         // One gesture, both kinds of body: a wild creature found by our own
         // ray, or a cast NPC found by Cast. Whichever was nearer is the one
         // they were looking at.
+        // Already wearing something? Then this is the way out of it. Same
+        // reasoning as /st drift: one button, and the command knows which
+        // direction it means. /st release remains the unambiguous form.
+        if (Possession.isPossessing(player)) return release(ctx);
+
         var looked = Possession.lookingAt(player, POSSESS_REACH);
         if (looked.isEmpty()) {
             Feedback.chat(player, "&7Nothing in your sights to take over. Look straight at a creature.");
@@ -367,6 +372,8 @@ public final class STCommands {
             }
             case ALREADY_HELD -> Feedback.chat(player,
                     "&7You are already wearing something. &f/st release&7 first.");
+            // (unreachable from /st possess, which now releases instead --
+            //  kept because possessNpc is callable from elsewhere)
             case TAKEN -> Feedback.chat(player, "&7Another Storyteller is already wearing that one.");
             case NOT_LOADED -> Feedback.chat(player,
                     "&7" + sighted.name() + " &7has no body loaded right now — nothing to step into.");
@@ -462,14 +469,25 @@ public final class STCommands {
 
     // --- presence ----------------------------------------------------------
 
+    /**
+     * Drift out, or come back if already out — one word, both directions.
+     *
+     * <p>It used to refuse when already drifting and point at {@code /st return}.
+     * Two commands for one idea meant two buttons for one idea, which Sable
+     * called clunky and was right about: the state is on the screen, so the
+     * thing that put you in it should take you out of it.</p>
+     *
+     * <p>Done in the command rather than by teaching the button seam about
+     * pairs. A button carries one command string and that stays true — the
+     * command is what knows. {@code /st return} still exists for anyone who
+     * wants to say it unambiguously, and for a macro that must not toggle.</p>
+     */
     private static int drift(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        if (Presence.drift(player)) {
-            Feedback.chat(player, "&7You drift out of your body. &f/st return&7 brings you back.");
-            return 1;
-        }
-        Feedback.chat(player, "&7You are already drifting. &f/st return&7 brings you back.");
-        return 0;
+        if (Presence.isDrifting(player)) return returnToBody(ctx);
+        Presence.drift(player);
+        Feedback.chat(player, "&7You drift out of your body. &f/st drift&7 again brings you back.");
+        return 1;
     }
 
     private static int returnToBody(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

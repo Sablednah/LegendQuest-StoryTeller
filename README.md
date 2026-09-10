@@ -32,8 +32,9 @@ rule sets.
 
 Working today:
 
-- `/st drift` · `/st return` — spectate a scene and get your body back
-  (dimension, position, facing and game mode all restored).
+- `/st drift` — spectate a scene, and say it again to get your body back
+  (dimension, position, facing and game mode all restored). `/st return` is
+  the unambiguous form for a macro that must not toggle.
 - `/st goto <player>` · `/st next` — look in on someone, or cycle the table.
 - `/st who` — the roster: race, class, level, karma, health, mana, party and
   where everyone is standing, with health coloured because it is the one
@@ -58,10 +59,10 @@ operator, because a GM should be able to lay a curse without also being handed
 same reason: vanilla's answer is `@a[...]` selectors, and those need operator
 level 2 to parse at all.
 
-- `/st possess` — take over the creature you are looking at. Your camera
-  becomes its eyes and its own AI stops deciding things.
+- `/st possess` — take over the creature you are looking at, and say it again
+  to let it go. Its own AI stops deciding things while you wear it.
 - `/st say <words>` — speak as it, to anyone close enough to hear.
-- `/st release` — give it back to itself, exactly as it was.
+- `/st release` — the unambiguous way to give it back, exactly as it was.
 - `/st cast spawn <entity> [name]` · `/st cast citizen [race] [class]` — put a
   named mob in the scene; citizen rolls a race and class by weighted
   `frequency` for a Villager's name (flavour, not a character — LegendQuest
