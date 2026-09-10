@@ -190,6 +190,80 @@ different questions, and only the second one is the bug report.
   out whose it is.
 - `stop` over RCON shuts the server down cleanly.
 
+### Vivo — the second machine, and the better test loop
+
+`sable@192.168.7.102` (wifi; `192.168.137.154` on the Windows ICS subnet while
+docked) is an 8-core / 18GB Ubuntu 26.04 laptop that exists to run servers and
+clients so they are not competing with the owner's desktop. Key at
+`~/.ssh/vivo_ed25519`, passwordless sudo, and any session on this WSL box can
+use it.
+
+**Why it matters more than "spare capacity".** On Windows, Claude cannot drive a
+Minecraft client: `SetForegroundWindow` is refused to a background process,
+`AppActivate` fails the same way, and `PostMessage` does not reach GLFW — so
+synthetic keystrokes land in whatever window the owner is actually using. A
+whole day went into testing a keybind that could not be tested. On Vivo the
+client runs on a **private X display** where nothing competes for focus, and
+`xdotool` drives it completely.
+
+| Path | What |
+|---|---|
+| `~/mc/<project>-<mcversion>/` | a plain NeoForge server: installer output, `mods/`, `server.properties` |
+| `~/dev/` | the repo checkouts, and the sibling jar dirs their `build.gradle` looks for |
+| `~/dev/xstart.sh` | brings up display `:7` |
+| `~/dev/buddy.sh` | launches `runClientBuddy` on `:7` |
+| `~/bin/mcrcon.py` (on WSL) | `mcrcon.py <host[:port]> <password> "cmd" ...` |
+
+- **Repos must share one parent.** Every `build.gradle` here finds dependencies
+  by relative path (`../SableCraft-Standards/build/libs`), so `~/dev/` mirrors
+  `/mnt/d/Repos/sable/`. Copying just the repo is not enough — its sibling jar
+  directories have to exist too.
+- **Displays `:0` and `:1` belong to gnome-shell** (the desktop and its
+  Xwayland), even with nobody logged in. StoryTeller uses **`:7`**, matching the
+  port table's last digit; other projects should take theirs the same way.
+- **Ubuntu 26.04 has no X11 session at all** — GNOME 50 dropped it, so
+  `/usr/share/xsessions/` is empty and "log in on Xorg" is not an option. It
+  does not matter: `Xvfb :7` is an X server for one process, which is all
+  `xdotool` needs, and GNOME never knows about it.
+- Rendering is **llvmpipe** (software GL), so a client burns ~5 cores and runs
+  at a few frames per second. Fine for pressing keys and taking screenshots,
+  useless for judging anything about smooth rendering. RAM is the real ceiling:
+  roughly three server+client pairs at once, not six.
+- The server runs as a systemd **user** service
+  (`systemctl --user start|stop mc-storyteller-1.21.11`) with lingering enabled,
+  so it survives logout. It is not enabled at boot.
+- Its permission handler is Standards, and the nodes are granted to a `default`
+  rank. **A rank must be `create`d before it can be `set`** — `/perm group
+  default set ...` on a fresh server answers "No rank called default", which
+  reads like a syntax error and is not one.
+- Screenshots: `import -window root /tmp/x.png` on `:7`, then `scp` it back.
+  First launch stops on the accessibility/narrator prompt, which blocks the
+  quick-play auto-connect — click Continue with `xdotool`, or set
+  `onboardAccessibility:false` in `runBuddy/options.txt`.
+- Bind keys by writing `key_key.<mod>.<name>:key.keyboard.<k>` into
+  `runBuddy/options.txt` **while the client is stopped** — it rewrites that file
+  on exit and will overwrite an edit made while it runs.
+
+### NEVER ask pgrep or pkill about a pattern that is in your own command line
+
+Three times in one session, in three different shapes:
+
+- `pkill -f "fml.startup.Client"` over SSH killed **its own shell**, so the
+  command produced no output and looked like a connection drop.
+- `pgrep -f "Xvfb :7"` inside a `bash -c` whose text contained `Xvfb :7`
+  answered "running" about the shell asking the question — so a server that had
+  never started was reported up.
+- On Windows, `Get-CimInstance ... -like '*runBuddy*'` matched nothing at all
+  here (this project's paths say `TestClient`, `runClientBuddy` and
+  `StoryTeller-buddy`), and `Stop-Process` on an empty pipeline is not an error,
+  so nine orphaned processes survived every "cleanup".
+
+The shapes differ; the lesson does not. **Ask the thing itself, not a process
+list**: `xdpyinfo -display :7` for a display, an RCON `list` for a server, a
+window id for a client. When you must use a process list, kill by **PID** you
+have already printed, and verify by listing survivors rather than by the absence
+of an error.
+
 ### NEVER copy a jar into a running instance
 
 Windows does not lock it, so the copy silently succeeds — and the live JVM dies
