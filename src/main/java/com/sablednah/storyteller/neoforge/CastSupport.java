@@ -159,10 +159,27 @@ public final class CastSupport {
     @SubscribeEvent
     static void onNpcRemoved(NpcRemovedEvent event) {
         Possession.npcWentAway(event.npcId(), reasonWording(event.reason()));
+        // A REBODY deliberately keeps the npcId and builds a new body under it,
+        // so a lock held on that id is still pointing at the right character
+        // and must survive. Every other reason means the character is gone.
+        if (event.reason() != NpcRemovedEvent.Reason.REBODY) {
+            Sights.npcWentAway(event.npcId(), lockWording(event.reason()));
+        }
     }
 
     /** Said to the Storyteller at the moment the body goes, because a view
      *  that changes on its own needs explaining as it happens. */
+    /** The same events said for a lock, which loses a target rather than a
+     *  camera — "you are cast out of it" is about a view nobody had here. */
+    private static String lockWording(NpcRemovedEvent.Reason reason) {
+        return switch (reason) {
+            case DEATH -> "dies";
+            case UNLOAD -> "is no longer loaded";
+            case DIMENSION_CHANGE -> "is gone from this world";
+            case REMOVED, REBODY -> "was removed";
+        };
+    }
+
     private static String reasonWording(NpcRemovedEvent.Reason reason) {
         return switch (reason) {
             case DEATH -> "dies, and you are cast out of it";

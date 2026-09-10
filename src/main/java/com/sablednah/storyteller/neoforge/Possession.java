@@ -309,10 +309,25 @@ public final class Possession {
      */
     private static Optional<Sighted> asNpcIfCastOwnsIt(Optional<Sighted> wild, Optional<MobHit> mob) {
         if (mob.isEmpty()) return wild;
-        Optional<UUID> owned = CastSupport.npcIdOf(mob.get().mob());
-        if (owned.isEmpty()) return wild;
-        return Optional.of(new Sighted(null, owned.get(),
-                mob.get().mob().getName().getString(), true));
+        return Optional.of(sightedOf(mob.get().mob()));
+    }
+
+    /**
+     * What a creature <i>is</i>, independent of how it was found.
+     *
+     * <p>{@link Sights} resolves a locked creature from an id rather than a
+     * ray, and if it applied the Cast-ownership rule itself there would be two
+     * copies of that rule to keep in step. There is one, here, and both callers
+     * go through it.</p>
+     */
+    public static Sighted sightedOf(Mob mob) {
+        if (castAvailable()) {
+            Optional<UUID> owned = CastSupport.npcIdOf(mob);
+            if (owned.isPresent()) {
+                return new Sighted(null, owned.get(), mob.getName().getString(), true);
+            }
+        }
+        return new Sighted(mob, null, mob.getName().getString(), true);
     }
 
     /**
@@ -451,6 +466,12 @@ public final class Possession {
     /** Set once the server is up, so a removal event can find a player without
      *  a level to ask. */
     private static MinecraftServer SERVER;
+
+    /** The running server, once a tick has happened. {@link Sights} needs it to
+     *  resolve a locked id and to reach a player who is not the caller. */
+    static MinecraftServer server() {
+        return SERVER;
+    }
 
 
 

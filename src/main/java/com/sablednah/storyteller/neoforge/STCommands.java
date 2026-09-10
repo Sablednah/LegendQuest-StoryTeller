@@ -90,6 +90,8 @@ public final class STCommands {
                         .executes(ctx -> possess(ctx, false))
                         .then(Commands.literal("eyes").executes(ctx -> possess(ctx, true))))
                 .then(Commands.literal("release").executes(STCommands::release))
+                .then(Commands.literal("lock").executes(STCommands::lock))
+                .then(Commands.literal("unlock").executes(STCommands::unlock))
                 .then(Commands.literal("say")
                         .then(Commands.argument("text", StringArgumentType.greedyString())
                                 .executes(STCommands::sayAs)))
@@ -323,7 +325,7 @@ public final class STCommands {
         // direction it means. /st release remains the unambiguous form.
         if (Possession.isPossessing(player)) return release(ctx);
 
-        var looked = Possession.lookingAt(player, POSSESS_REACH);
+        var looked = Sights.target(player, POSSESS_REACH);
         if (looked.isEmpty()) {
             Feedback.chat(player, "&7Nothing in your sights to take over. Look straight at a creature.");
             return 0;
@@ -454,17 +456,68 @@ public final class STCommands {
             heard = Possession.speakAsNpc(player, npc.get(), text, SPEAK_RADIUS);
         } else {
             var mob = Possession.heldBy(player);
-            if (mob.isEmpty()) {
-                Feedback.chat(player,
-                        "&7You are not wearing anything to speak through. &f/st possess&7 first.");
-                return 0;
+            if (mob.isPresent()) {
+                heard = Possession.speak(player, mob.get(), text, SPEAK_RADIUS);
+            } else {
+                // Nothing worn, but the sights may be locked -- and lending a
+                // creature your voice is a far smaller thing than wearing it.
+                // A whole conversation can be run this way without ever taking
+                // an NPC's own behaviour away from it, which for a shopkeeper
+                // standing at their stall is exactly what you want.
+                //
+                // Worn beats locked, deliberately: you are inside one of them,
+                // and a Storyteller wearing a body means that body's voice.
+                var locked = Sights.locked(player);
+                if (locked.isEmpty()) {
+                    Feedback.chat(player, "&7You are not wearing anything to speak through. "
+                            + "&f/st possess&7 it, or &f/st lock&7 on to it to lend it your voice.");
+                    return 0;
+                }
+                heard = locked.get().isNpc()
+                        ? Possession.speakAsNpc(player, locked.get().npcId(), text, SPEAK_RADIUS)
+                        : Possession.speak(player, locked.get().mob(), text, SPEAK_RADIUS);
             }
-            heard = Possession.speak(player, mob.get(), text, SPEAK_RADIUS);
         }
         // Told how many heard it, because a line delivered to an empty clearing
         // is a beat the Storyteller needs to know landed nowhere.
         if (heard == 0) Feedback.chat(player, "&8(nobody was close enough to hear that)");
         return heard;
+    }
+
+    // --- sights ------------------------------------------------------------
+
+    /**
+     * Lock the sights on what is in them, or let go if they are already locked.
+     *
+     * <p>Toggles, like {@code /st drift} and {@code /st possess}, and for the
+     * same reason: the state is already on the screen, so the thing that put you
+     * in it takes you out of it. {@code /st unlock} is the unambiguous form.</p>
+     */
+    private static int lock(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        if (Sights.isLocked(player)) return unlock(ctx);
+        var locked = Sights.lock(player, POSSESS_REACH);
+        if (locked.isEmpty()) {
+            Feedback.chat(player, "&7Nothing in your sights to lock on to. Look straight at a creature.");
+            return 0;
+        }
+        Feedback.chat(player, "&bLocked on &f" + locked.get()
+                + "&b. &7Possess, dress, behave and save all mean it now, wherever you look. "
+                + "&f/st lock&7 again lets go.");
+        return 1;
+    }
+
+    private static int unlock(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var name = Sights.lockedName(player);
+        if (name.isEmpty()) {
+            Feedback.chat(player, "&7Your sights are not locked on anything.");
+            return 0;
+        }
+        Sights.unlock(player);
+        Feedback.chat(player, "&7You let &f" + name.get()
+                + "&7 go. &8Back to whatever you are looking at.");
+        return 1;
     }
 
     // --- presence ----------------------------------------------------------
@@ -615,12 +668,12 @@ public final class STCommands {
     private static int castBehave(CommandContext<CommandSourceStack> ctx, Cast.Behaviour behaviour,
             ServerPlayer followTarget) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        // lookingAt, not lookedAt: a Cast NPC with a human body is a phantom —
+        // Sights.target, not lookedAt: a Cast NPC with a human body is a phantom —
         // not a Mob, and in no level — so the plain gaze ray cannot see one and
         // reported "nothing in your sights" at something standing in front of
         // the Storyteller. Seeing it is the first half; the second is saying
         // something truer than "no target".
-        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        var sighted = Sights.target(player, POSSESS_REACH);
         if (sighted.isEmpty()) {
             Feedback.chat(player, "&7Nothing in your sights. Look straight at a creature.");
             return 0;
@@ -722,7 +775,7 @@ public final class STCommands {
             throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         String slot = StringArgumentType.getString(ctx, "slot").toLowerCase(java.util.Locale.ROOT);
-        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        var sighted = Sights.target(player, POSSESS_REACH);
         if (sighted.isEmpty() || !sighted.get().isNpc()) {
             Feedback.chat(player, "&7Look straight at a cast NPC to dress it. "
                     + "&8Wild creatures keep their own gear.");
@@ -751,7 +804,7 @@ public final class STCommands {
     /** What the NPC in the Storyteller's sights has on. */
     private static int castWorn(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        var sighted = Sights.target(player, POSSESS_REACH);
         if (sighted.isEmpty() || !sighted.get().isNpc()) {
             Feedback.chat(player, "&7Look straight at a cast NPC to see what it is wearing.");
             return 0;
@@ -770,7 +823,7 @@ public final class STCommands {
 
     private static int castSave(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        var sighted = Possession.lookingAt(player, POSSESS_REACH);
+        var sighted = Sights.target(player, POSSESS_REACH);
         if (sighted.isEmpty()) {
             Feedback.chat(player, "&7Nothing in your sights to save. Look straight at a creature.");
             return 0;

@@ -1,5 +1,6 @@
 {
   "action.storyteller.possess": "Possess what you are looking at, or let it go",
+  "action.storyteller.lock": "Lock the sights on what you are looking at, or let go",
   "action.storyteller.drift": "Drift out of your body, or return to it",
   "action.storyteller.next": "Jump to the next player"
 }

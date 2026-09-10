@@ -43,7 +43,10 @@ public final class STServerEvents {
      */
     @SubscribeEvent
     static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) Possession.forget(player);
+        if (event.getEntity() instanceof ServerPlayer player) {
+            Possession.forget(player);
+            Sights.forget(player);
+        }
     }
 
     /**
@@ -58,6 +61,11 @@ public final class STServerEvents {
     @SubscribeEvent
     static void onDeath(LivingDeathEvent event) {
         if (!(event.getEntity() instanceof Mob mob)) return;
+        // Before the possession handling, and unconditionally: a lock on this
+        // creature is wrong now whether or not anybody was wearing it, and a
+        // lock left pointing at a corpse would silently redirect the next
+        // command to whatever the crosshair happened to find.
+        Sights.mobWentAway(mob, "dies");
         Possession.possessorOf(mob).ifPresent(possessor -> {
             Possession.release(possessor);
             Feedback.chat(possessor, "&c" + mob.getName().getString()
