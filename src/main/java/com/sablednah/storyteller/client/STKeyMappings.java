@@ -152,9 +152,9 @@ public final class STKeyMappings {
         // delta rather than reflected around: it is one line, in the one file
         // that names client types, which is the arrangement that makes a
         // version drop cheap.
-        mc.player.displayClientMessage(Component.literal(
+        mc.player.sendSystemMessage(Component.literal(
                 "§7StoryTeller keys are unbound. Bind possess, lock, drift and next in "
-                + "§fOptions → Controls → StoryTeller§7 to use them while aiming."), false);
+                + "§fOptions → Controls → StoryTeller§7 to use them while aiming."));
     }
 
     /** Reset per connection, so switching servers says it again where it applies. */
