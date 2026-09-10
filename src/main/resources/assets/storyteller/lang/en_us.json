@@ -1,7 +1,5 @@
 {
-  "action.storyteller.possess": "Possess what you are looking at",
-  "action.storyteller.release": "Let the creature go",
-  "action.storyteller.drift": "Drift out of your body",
-  "action.storyteller.return": "Return to your body",
+  "action.storyteller.possess": "Possess what you are looking at, or let it go",
+  "action.storyteller.drift": "Drift out of your body, or return to it",
   "action.storyteller.next": "Jump to the next player"
 }
