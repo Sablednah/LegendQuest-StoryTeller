@@ -78,19 +78,33 @@ because they are the whole shape of the mod:
 
 ## Artwork
 
-Not made yet. Three files, and the mods.toml keys for them are already written
-and commented out in `src/main/templates/META-INF/neoforge.mods.toml` — drop the
-images into `src/main/resources/` and uncomment.
+**Done** — delivered 2026-09-10 and in the repo. The mods.toml keys are live.
 
-| File | Where it shows | Shape |
+| File | Where it shows | Size |
 |---|---|---|
-| `storyteller-icon.png` | the small icon beside the name in the 26.2+ mod list, and the CurseForge project avatar | **square** |
-| `storyteller.png` | the wide info-panel image (26.2+), and `logoFile` for 1.21.x and 26.1 | wide |
-| banner | first line of `CURSEFORGE.md`, so it survives description edits | wide |
+| `src/main/resources/storyteller-icon.png` | the small icon beside the name in the 26.2+ mod list; also the CurseForge project avatar | 512×512, 108KB |
+| `src/main/resources/storyteller.png` | the wide info-panel image (26.2+), and `logoFile` for 1.21.x and 26.1 | 1024×512, 160KB |
+| `docs/store/storyteller-banner-850.png` | **upload this one to CurseForge**, then paste its forgecdn URL as the first line of `CURSEFORGE.md` | 850×425 |
 
-LegendQuest's square icon is its wordmark **padded** to a square rather than
-resampled; the same trick works here and needs no other change if bespoke square
-art arrives later.
+The 850px width is not arbitrary: CurseForge limits description image width, so
+that is the version that renders without being scaled by the browser.
+
+Both jar images were resized from the originals (1254² and 1774×887) and
+quantised with `pngquant --quality=70-95`, which took 748KB down to 268KB with
+no visible banding on the gold. Worth keeping in mind if the art is ever
+replaced: the raw exports would have made the jar six times larger than the
+code in it, for two pictures nobody sees at full size.
+
+`logoBlur` and `iconBlur` are both **true**. These are illustrations being
+scaled down to a list row, and nearest-neighbour on a gold bevel reads as
+jagged rather than as deliberate pixel art.
+
+**One thing to watch.** The square icon is a detailed scene — wizard, DM screen,
+castle, two adventurers. At mod-list size only the gold shield outline and the
+wordmark will read; the figures will be mush. That is true of most detailed
+icons and may be fine. LegendQuest went the other way, padding its wordmark to a
+square, so if the row ever looks muddy beside it, a simplified square is the
+fix and needs no code change — just replace the file.
 
 ---
 
