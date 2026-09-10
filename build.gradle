@@ -203,12 +203,27 @@ def standardsJar = provider {
             .sort { -it.lastModified() }
             .take(1)
 }
+// Sweep first, because Copy adds and never removes -- and run/ and runBuddy/
+// are gitignored, so they do NOT follow a branch switch. Staging onto a
+// directory left behind by another branch leaves two Minecraft versions of the
+// same mod side by side (observed: four jars, 1.21.11 and 26.1.2 together), and
+// FML then refuses to load against the wrong one. The failure names a version
+// mismatch rather than a stale directory, which is a bad place to start
+// debugging from. Only our own two mods are swept; anything else a person put
+// there on purpose is left alone.
+def sweepStaged = { File dir ->
+    (dir.listFiles() ?: []).findAll {
+        it.name ==~ ~/(legendquest|standards)-.*\.jar/ && !it.name.contains("+mc${minecraft_version}.")
+    }.each { it.delete() }
+}
 tasks.register('stageLegendQuestServer', Copy) {
+    doFirst { sweepStaged(file('run/mods')) }
     from(legendQuestJar)
     from(standardsJar)
     into file('run/mods')
 }
 tasks.register('stageLegendQuestBuddy', Copy) {
+    doFirst { sweepStaged(file('runBuddy/mods')) }
     from(legendQuestJar)
     from(standardsJar)
     into file('runBuddy/mods')
