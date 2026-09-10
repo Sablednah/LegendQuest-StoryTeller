@@ -36,6 +36,14 @@ public final class BuildInfo {
 
     static {
         String commit = "unknown", branch = "unknown", time = "unknown", version = "unknown";
+        // ALL-OR-NOTHING, and the ordering below is what makes it so: every
+        // field is read only AFTER load() has returned. Properties.load parses
+        // line by line and can throw part-way -- a file whose first line is
+        // valid and whose second carries a bad backslash-u escape loads
+        // `commit` and then fails. Read fields as you go, or reuse a partly-filled
+        // Properties from the catch, and a corrupt stamp reports a real-looking
+        // commit with the rest missing, which is worse than no stamp because it
+        // looks like an answer. Verified by running it, not by reading it.
         try (InputStream in = BuildInfo.class.getResourceAsStream(RESOURCE)) {
             if (in != null) {
                 Properties p = new Properties();
@@ -63,6 +71,22 @@ public final class BuildInfo {
         return BRANCH;
     }
 
+    /**
+     * <b>The commit's timestamp, not the build's.</b> This is the moment the
+     * code was committed, and a jar built weeks later carries the same value.
+     *
+     * <p>Deliberate: a wall-clock stamp changes on every Gradle invocation, so
+     * nothing downstream is ever up to date — measured at 25-31s for a no-op
+     * build against 8s. It also makes the build reproducible, which a wall
+     * clock actively prevents.</p>
+     *
+     * <p>Nothing is lost by it. The commit answers "which bytes"; the jar's own
+     * mtime answers "when was this written"; and on a {@code -dirty} build the
+     * commit's time is honest precisely because {@code -dirty} has already said
+     * the bytes are not the commit's. Documented here as well as in
+     * {@code build.gradle} because this accessor is where somebody reads
+     * "time", assumes build time, and files a stale-timestamp bug.</p>
+     */
     public static String time() {
         return TIME;
     }
