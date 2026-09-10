@@ -210,8 +210,8 @@ client runs on a **private X display** where nothing competes for focus, and
 |---|---|
 | `~/mc/<project>-<mcversion>/` | a plain NeoForge server: installer output, `mods/`, `server.properties` |
 | `~/dev/` | the repo checkouts, and the sibling jar dirs their `build.gradle` looks for |
-| `~/dev/xstart.sh` | brings up display `:7` |
-| `~/dev/buddy.sh` | launches `runClientBuddy` on `:7` |
+| `~/dev/xstart.sh` | brings up display `:10` |
+| `~/dev/buddy.sh` | launches `runClientBuddy` on `:10` |
 | `~/bin/mcrcon.py` (on WSL) | `mcrcon.py <host[:port]> <password> "cmd" ...` |
 
 - **Repos must share one parent.** Every `build.gradle` here finds dependencies
@@ -219,8 +219,10 @@ client runs on a **private X display** where nothing competes for focus, and
   `/mnt/d/Repos/sable/`. Copying just the repo is not enough — its sibling jar
   directories have to exist too.
 - **Displays `:0` and `:1` belong to gnome-shell** (the desktop and its
-  Xwayland), even with nobody logged in. StoryTeller uses **`:7`**, matching the
-  port table's last digit; other projects should take theirs the same way.
+  Xwayland), even with nobody logged in. StoryTeller uses **`:10`**. The rule is
+  `display = game port - 25560`, which gives every project a number without
+  collisions and without anyone choosing one — `:7` was taken here first and
+  handed back, because under any sane rule it belongs to ZombieMod.
 - **Ubuntu 26.04 has no X11 session at all** — GNOME 50 dropped it, so
   `/usr/share/xsessions/` is empty and "log in on Xorg" is not an option. It
   does not matter: `Xvfb :7` is an X server for one process, which is all
@@ -236,7 +238,7 @@ client runs on a **private X display** where nothing competes for focus, and
   rank. **A rank must be `create`d before it can be `set`** — `/perm group
   default set ...` on a fresh server answers "No rank called default", which
   reads like a syntax error and is not one.
-- Screenshots: `import -window root /tmp/x.png` on `:7`, then `scp` it back.
+- Screenshots: `import -window root /tmp/x.png` on `:10`, then `scp` it back.
   First launch stops on the accessibility/narrator prompt, which blocks the
   quick-play auto-connect — click Continue with `xdotool`, or set
   `onboardAccessibility:false` in `runBuddy/options.txt`.
@@ -257,6 +259,11 @@ Three times in one session, in three different shapes:
   here (this project's paths say `TestClient`, `runClientBuddy` and
   `StoryTeller-buddy`), and `Stop-Process` on an empty pipeline is not an error,
   so nine orphaned processes survived every "cleanup".
+
+It then happened a **fourth** time, an hour after that paragraph was written:
+`pkill -f "Xvfb .10"` over SSH, killing its own shell again. Knowing the trap
+is not the countermeasure — the countermeasure is not reaching for `pgrep -f`
+or `pkill -f` at all.
 
 The shapes differ; the lesson does not. **Ask the thing itself, not a process
 list**: `xdpyinfo -display :7` for a display, an RCON `list` for a server, a
