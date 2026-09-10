@@ -19,11 +19,14 @@ displayURL="https://sablecraft.co.uk/legendquest-reforged/"
 # info-panel image (26.2+), logoFile what 1.21.x and 26.1 show. See
 # LegendQuest's CLAUDE.md -- and note logoFile alone raises a dev-only
 # deprecation warning on 26.2, suppressed by declaring the other two.
-#iconFile="storyteller-icon.png"
-#bannerFile="storyteller.png"
-#logoFile="storyteller.png"
-#logoBlur=true
-#iconBlur=true
+iconFile="storyteller-icon.png"
+bannerFile="storyteller.png"
+logoFile="storyteller.png"
+# Smoothed, both of them, for the same reason LegendQuest smooths its own: these
+# are 512px and 1024px pieces of art being scaled down to a row in a list, and
+# nearest-neighbour on a gold bevel reads as jagged rather than as pixel art.
+logoBlur=true
+iconBlur=true
 
 [[dependencies.${mod_id}]]
     modId="neoforge"
