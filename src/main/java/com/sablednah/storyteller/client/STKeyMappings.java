@@ -75,27 +75,30 @@ public final class STKeyMappings {
 
         hintOnce(mc);
 
-        // A screen open means the crosshair is not aimed at anything, which is
-        // the one situation every command here has no answer for.
-        boolean free = mc.screen == null;
-        drain(mc, POSSESS, "st possess", free);
-        drain(mc, LOCK, "st lock", free);
-        drain(mc, DRIFT, "st drift", free);
-        drain(mc, NEXT, "st next", free);
+        drain(mc, POSSESS, "st possess");
+        drain(mc, LOCK, "st lock");
+        drain(mc, DRIFT, "st drift");
+        drain(mc, NEXT, "st next");
     }
 
     /**
-     * Consume every queued press, and send one command per press only while the
-     * game is accepting them.
+     * One command per queued press.
      *
-     * <p>The queue is drained either way. Leaving presses in it while a screen
-     * is open means they all fire the instant it closes, which for a toggle is
-     * worse than losing them: an even number cancels out and an odd number
-     * lands somewhere the Storyteller was not looking.</p>
+     * <p><b>There is deliberately no "is a screen open" check.</b> The first
+     * draft had one, to stop presses queueing behind an open inventory and all
+     * firing at once when it closed — which for a toggle is worse than losing
+     * them, since an odd number lands somewhere the Storyteller was not
+     * looking. It cannot happen: {@code KeyboardHandler} only calls
+     * {@code KeyMapping.click} when the game itself is handling input, so a
+     * press during a screen never reaches the queue at all. The check was
+     * guarding against something vanilla already prevents — and it was the one
+     * line in this class that did not survive 26.2, which moved the screen to
+     * {@code minecraft.gui.screen()}. Removing it is both simpler and the
+     * reason this file ports untouched.</p>
      */
-    private static void drain(Minecraft mc, KeyMapping key, String command, boolean free) {
+    private static void drain(Minecraft mc, KeyMapping key, String command) {
         while (key.consumeClick()) {
-            if (free) send(mc, command);
+            send(mc, command);
         }
     }
 
@@ -142,6 +145,13 @@ public final class STKeyMappings {
         for (KeyMapping key : ALL) {
             if (!key.isUnbound()) return;
         }
+        // THE one line in this class that differs per branch. 1.21.11 has
+        // displayClientMessage and no sendSystemMessage on LocalPlayer; 26.x
+        // has the reverse, and moved chat to Hud.getChat() as well, so there
+        // is no single call that compiles on both. Left as a plain per-branch
+        // delta rather than reflected around: it is one line, in the one file
+        // that names client types, which is the arrangement that makes a
+        // version drop cheap.
         mc.player.displayClientMessage(Component.literal(
                 "§7StoryTeller keys are unbound. Bind possess, lock, drift and next in "
                 + "§fOptions → Controls → StoryTeller§7 to use them while aiming."), false);
