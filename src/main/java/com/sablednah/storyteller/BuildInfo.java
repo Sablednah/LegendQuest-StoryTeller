@@ -29,46 +29,68 @@ public final class BuildInfo {
      *  other mod doing the same thing on a shared classpath. */
     private static final String RESOURCE = "/storyteller/build.properties";
 
-    private static final String COMMIT;
-    private static final String BRANCH;
-    private static final String TIME;
-    private static final String VERSION;
+    /** One stamp, read as a unit. A record so a caller cannot be handed a
+     *  half-filled one. */
+    public record Stamp(String commit, String branch, String time, String version) {
+        static final Stamp UNKNOWN = new Stamp("unknown", "unknown", "unknown", "unknown");
+    }
 
-    static {
-        String commit = "unknown", branch = "unknown", time = "unknown", version = "unknown";
-        // ALL-OR-NOTHING, and the ordering below is what makes it so: every
-        // field is read only AFTER load() has returned. Properties.load parses
-        // line by line and can throw part-way -- a file whose first line is
-        // valid and whose second carries a bad backslash-u escape loads
-        // `commit` and then fails. Read fields as you go, or reuse a partly-filled
-        // Properties from the catch, and a corrupt stamp reports a real-looking
-        // commit with the rest missing, which is worse than no stamp because it
-        // looks like an answer. Verified by running it, not by reading it.
-        try (InputStream in = BuildInfo.class.getResourceAsStream(RESOURCE)) {
-            if (in != null) {
-                Properties p = new Properties();
-                p.load(in);
-                commit = p.getProperty("commit", commit);
-                branch = p.getProperty("branch", branch);
-                time = p.getProperty("time", time);
-                version = p.getProperty("version", version);
-            }
-        } catch (Exception ignored) {
-            // A missing or unreadable stamp must never stop the mod loading:
-            // it is diagnostic information, not a dependency.
+    private static final Stamp STAMP = read();
+
+    /**
+     * Parse a stamp from a stream, or {@link Stamp#UNKNOWN} if it cannot be.
+     *
+     * <p><b>Public and taking a stream deliberately</b>, so the failure paths
+     * can be driven directly by a test rather than through classpath games —
+     * which is how four of us ended up verifying this awkwardly, by building
+     * throwaway class directories to control what was on the path. Copied from
+     * Chronicler, which got there first.</p>
+     *
+     * <p><b>ALL-OR-NOTHING, and that is the whole point of returning a record
+     * built after {@code load} returns.</b> {@code Properties.load} parses line
+     * by line and throws part-way on a bad escape — <em>having already
+     * populated the earlier keys</em>. CityWorld confirmed that by printing
+     * {@code stringPropertyNames()} from the catch and finding
+     * {@code [commit, branch, version]} sitting there fully formed. So the
+     * parser will hand you a half-stamp; only the throw stops you using it, and
+     * only building the record afterwards stops the throw being ignored into a
+     * lie. A stamp reporting a real commit with everything else missing looks
+     * like an answer and is not.</p>
+     *
+     * <p>The catch is {@code Exception}, not {@code IOException}, and that is
+     * load-bearing: {@code Properties.load} throws
+     * {@code IllegalArgumentException} on a bad unicode escape. Narrowing it
+     * would compile, read correctly, pass review, and take the mod down at
+     * class-init as an {@code ExceptionInInitializerError} — failing to load
+     * over a diagnostic. Found by Standards, testing a fallback they had
+     * documented and never run.</p>
+     */
+    public static Stamp parse(InputStream in) {
+        if (in == null) return Stamp.UNKNOWN;
+        try {
+            Properties p = new Properties();
+            p.load(in);
+            return new Stamp(p.getProperty("commit", "unknown"), p.getProperty("branch", "unknown"),
+                    p.getProperty("time", "unknown"), p.getProperty("version", "unknown"));
+        } catch (Exception malformed) {
+            return Stamp.UNKNOWN;
         }
-        COMMIT = commit;
-        BRANCH = branch;
-        TIME = time;
-        VERSION = version;
+    }
+
+    private static Stamp read() {
+        try (InputStream in = BuildInfo.class.getResourceAsStream(RESOURCE)) {
+            return parse(in);
+        } catch (Exception unreadable) {
+            return Stamp.UNKNOWN;
+        }
     }
 
     public static String commit() {
-        return COMMIT;
+        return STAMP.commit();
     }
 
     public static String branch() {
-        return BRANCH;
+        return STAMP.branch();
     }
 
     /**
@@ -88,7 +110,7 @@ public final class BuildInfo {
      * "time", assumes build time, and files a stale-timestamp bug.</p>
      */
     public static String time() {
-        return TIME;
+        return STAMP.time();
     }
 
     /** The one-line form for the startup log: {@code 2.5.0 (build a1b2c3d4 on
@@ -96,7 +118,8 @@ public final class BuildInfo {
      *  means it was built with uncommitted changes, which is worth seeing in
      *  somebody's log before you spend an hour reproducing against a tag. */
     public static String describe() {
-        return VERSION + " (build " + COMMIT + " on " + BRANCH + ", " + TIME + ")";
+        return STAMP.version() + " (build " + STAMP.commit()
+                + " on " + STAMP.branch() + ", " + STAMP.time() + ")";
     }
 
     private BuildInfo() {}
