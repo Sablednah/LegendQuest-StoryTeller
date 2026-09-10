@@ -212,7 +212,14 @@ static String gitOut(File dir, String... args) {
 var buildCommit = gitOut(projectDir, "git", "rev-parse", "--short=8", "HEAD") ?: "unknown"
 var buildBranch = gitOut(projectDir, "git", "rev-parse", "--abbrev-ref", "HEAD") ?: "unknown"
 if (gitOut(projectDir, "git", "status", "--porcelain")) buildCommit += "-dirty"
-var buildTime = new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone("UTC"))
+// The COMMIT's time, not the wall clock: a wall-clock stamp changes every
+// Gradle invocation, so nothing downstream is ever up to date (measured at
+// ~25s for a no-op build, against ~8s). A pure function of the commit caches
+// properly and builds reproducibly.
+var commitEpoch = gitOut(projectDir, "git", "show", "-s", "--format=%ct", "HEAD")
+var buildTime = commitEpoch
+        ? new Date(commitEpoch.toLong() * 1000L).format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone("UTC"))
+        : "unknown"
 logger.lifecycle("Build stamp: ${buildCommit} on ${buildBranch} at ${buildTime}")
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
