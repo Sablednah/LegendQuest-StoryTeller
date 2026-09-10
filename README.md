@@ -59,9 +59,16 @@ operator, because a GM should be able to lay a curse without also being handed
 same reason: vanilla's answer is `@a[...]` selectors, and those need operator
 level 2 to parse at all.
 
+- `/st lock` — make the creature in your sights *the* target, until you say it
+  again. Possess, say, dress, behave and save all mean it after that, wherever
+  you happen to be looking. Pointing at a thing is the right default, but it
+  wants your head still — and walking a possessed cow across a room means
+  looking where it should go, which is not at it.
 - `/st possess` — take over the creature you are looking at, and say it again
   to let it go. Its own AI stops deciding things while you wear it.
-- `/st say <words>` — speak as it, to anyone close enough to hear.
+- `/st say <words>` — speak as it, to anyone close enough to hear. Works on a
+  locked creature without possessing it, so a shopkeeper can hold a whole
+  conversation while keeping its own behaviour.
 - `/st release` — the unambiguous way to give it back, exactly as it was.
 - `/st cast spawn <entity> [name]` · `/st cast citizen [race] [class]` — put a
   named mob in the scene; citizen rolls a race and class by weighted
