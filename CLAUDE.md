@@ -424,10 +424,19 @@ node.
   from this side: two mods deciding whether an entity falls is a fight with no
   visible cause. Releasing re-anchors wherever the body ended up, mid-air
   included, so never wait for a body to be grounded before letting go.
-- **Undo restores block states only, not block-entity contents.** A chest a
-  structure overwrote comes back as an empty chest of the right kind. Fine for
-  dressing empty ground; not a promise for placing over someone's base. Stated
-  in the README rather than hidden.
+- **Undo restores block states only, not block-entity contents — and that is
+  about UNDO, not about placement.** The two are different code with different
+  owners, and conflating them gets the risk exactly backwards. Placement is not
+  ours at all: `Structures.place` and `CityWorldSupport.place` snapshot the
+  footprint and then hand the actual placing to `StructureTemplate.placeInWorld`
+  or CityWorld's `Clipboard.paste`, so whatever those carry, arrives — a
+  schematic whose chests are stocked places stocked. What is ours is
+  `ExternalSnap(BlockPos, BlockState)`, and `undo` does `setBlock(pos, state)`.
+  So the contents that can be lost are the ones that were there **before**: place
+  a structure over somebody's full chest, undo it, and their chest comes back
+  empty of the right kind. Fine for dressing empty ground; not a promise for
+  placing over someone's base. Fixing it would mean the snapshot carrying
+  block-entity NBT beside the state, which is a real change rather than a tweak.
 - **Commit before `git checkout`, and verify per branch — never from a loop's
   output.** Twice in one session a port loop edited branch one, failed to
   switch to branch two because the working tree was dirty, silently carried on

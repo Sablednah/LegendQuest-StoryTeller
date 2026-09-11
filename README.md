@@ -126,7 +126,10 @@ Not built yet: the story planner and the GUI. See `docs/ROADMAP.md` — it also
 has two known limitations worth reading before relying on this in a real
 session: `behave` may not hold on a brain-driven mob (Villager, Piglin, Warden
 and 17 others) because it competes with a Brain rather than replacing it, and
-structure undo restores block states only, not block-entity contents.
+structure undo restores block states only, not block-entity contents — so a
+chest that was there *before* a placement comes back empty, while a schematic's
+own stocked chests place normally, because the placing is done by vanilla and
+CityWorld rather than by this mod.
 
 ## Dressing the cast
 
