@@ -360,6 +360,20 @@ about types and nothing else. What it proved:
 - `st undo` cleanly removes it: 4/4 chests gone, every sampled point back to
   air. The documented limit is unchanged and is about what was there *before*.
 
+**But expect empty containers, and it is not a fault.** CityWorld fills chests
+from its `LootProvider` in *lot* code (`chunk.setChest(..., lootProvider,
+LootLocation...)` in `Plats/`), while decorating a generated city. Its
+`Clipboard/` package contains no loot code at all, so a schematic's containers
+arrive exactly as whoever saved the file left them — and nearly all of the
+bundled set were saved empty. `chayats-bank` is the outlier, not the rule. A
+Storyteller dropping a CityWorld building gets the building, not the loot the
+same building would have if CityWorld had generated it in a city.
+
+That is also why the subject had to be chosen by decoding the NBT first.
+`winchester` looks ideal — 17 "Chest" markers — and every one holds nothing, so
+testing with it would have shown an empty chest arrive empty and survive undo
+empty, with every step passing and nothing proven.
+
 Test it in **mid-air** if you repeat this. Clearing ground first does not work —
 a 40×61×40 `/fill` is ~98,000 blocks against a 32,768 limit, so it fails and
 leaves you placing into terrain you cannot tell apart from the structure.

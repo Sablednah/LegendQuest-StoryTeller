@@ -83,6 +83,10 @@ level 2 to parse at all.
   loaded datapack declares, undo-able.
 - `/st struct library list|place` — CityWorld's schematic library
   (`.schematic`/`.schem`/`.litematic`/`.nbt`) as a second pool, when installed.
+  You get the building, not its loot: CityWorld stocks containers while
+  generating a city, not from the schematic, so a placed build's chests arrive
+  as they were saved — which for most of the bundled set is empty. An authored
+  schematic that *does* carry contents keeps them.
 - `/st narrate [radius <n>|party <player>] <text>` · `/st title <text>` · `/st
   whisper <player> <text>` — the Storyteller's own voice.
 - `/st undo` · `/st scene clear` — take back the last scene action, or every
