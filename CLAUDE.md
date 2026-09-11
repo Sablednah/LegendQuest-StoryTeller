@@ -345,6 +345,25 @@ the support class, because reaching the guard would already have loaded it.
 
 Adding a seam means adding a class, not adding an import to an existing one.
 
+**The CityWorld seam has now actually been run**, on Vivo, 2026-09-11 — before
+that both mods had only ever compiled against each other, which is evidence
+about types and nothing else. What it proved:
+
+- `st struct library list` returns CityWorld's 40 bundled schematics.
+- Placement carries **block-entity contents**. `chayats-bank` placed with all
+  four of its chests stocked (gold nuggets and ingots, as authored). That was
+  the open question, since a stocked build arriving with every chest empty
+  would be a silent degradation nobody notices until they open one. It does not
+  happen, and the reason is structural: `CityWorldSupport.place` does not place
+  anything itself — it snapshots the footprint, calls `clip.paste`, and records
+  the snapshot. Whatever their paste carries, arrives.
+- `st undo` cleanly removes it: 4/4 chests gone, every sampled point back to
+  air. The documented limit is unchanged and is about what was there *before*.
+
+Test it in **mid-air** if you repeat this. Clearing ground first does not work —
+a 40×61×40 `/fill` is ~98,000 blocks against a 32,768 limit, so it fails and
+leaves you placing into terrain you cannot tell apart from the structure.
+
 Two details that surprise people: **CityWorld's API package is
 `me.daddychurchill.CityWorld`**, not `com.sablednah.cityworld` — it carries the
 original plugin's namespace, so a grep for `com.sablednah` will tell you nothing
