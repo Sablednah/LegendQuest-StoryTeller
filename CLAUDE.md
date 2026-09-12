@@ -116,6 +116,40 @@ somewhere new. `./deploy-all.sh --check <dir>` audits and copies nothing.
 - **Stamp times are the COMMIT's time, not the build's.** Deliberate, and
   confusing exactly once when reading one as "when was this built".
 
+## Porting forward does not delete anything
+
+`git checkout main -- src/` is how a version branch is brought up to main here,
+and it **only ever adds and overwrites**. A file main has deleted stays on the
+version branch for ever, because a path absent from the source tree is not a
+path to update — it is simply not mentioned. `git add -A src/` afterwards sees
+nothing to stage, so the port looks clean and commits clean.
+
+Verified rather than assumed, in a throwaway repo: delete a class on `main`,
+port with `git checkout main -- src/`, and the deleted file is still sitting
+there with an empty staged diff. Prune first and it goes:
+
+```bash
+git rm -rq --ignore-unmatch src && git checkout <source-branch> -- src/
+```
+
+Or check afterwards — this lists anything living on a version branch that main
+no longer has, and should always be empty:
+
+```bash
+git diff --name-status main mc26.2 -- src/ | awk '$1=="A"'
+```
+
+- **Cast hit exactly this**, one repo over, from a cherry-pick whose conflict was
+  resolved with `git add -A`: that resurrects a deletion as a kept file. Their
+  `Proxies` class survived on both 26.x branches and shipped in the jars as dead
+  code, while `main` had deleted it. Nothing called it, so nothing misbehaved —
+  which is the danger, because the next person to read it has no way to know it
+  is a corpse.
+- **The first test of this was invalid and nearly went in the notes as fact.**
+  `git init` makes `master`, so `git checkout main -- src/` failed with "invalid
+  reference", the file was untouched for that reason, and the run looked exactly
+  like a confirmed leak. `git init -b main` and read the error line.
+
 ## Worktrees and the test loop
 
 | Path | Purpose |
