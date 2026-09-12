@@ -92,11 +92,24 @@ level 2 to parse at all.
 - `/st undo` · `/st scene clear` — take back the last scene action, or every
   one this session (a spawn, a placed structure).
 
-Possession works on a **vanilla Storyteller client**, and comes in two forms
-because on a vanilla client you can have a creature's eyes or control over it,
-never both.
+Possession works on a **vanilla Storyteller client**, and `/st possess` picks
+the best form your client can render, without asking you which that is.
 
-`/st possess` **steers**. You keep your own body and your own view, and the
+With the StoryTeller mod on your client it **drives**: you *are* the creature.
+You move exactly as you always do — your own controls, your own mouse, your own
+jumping — and the creature goes where you go, hidden from your first-person
+view and standing where your body would be in third. The room sees only it. It
+also works on a **cast NPC**, human or mob, because Cast moves its own bodies
+and takes a position from us to move them to.
+
+On a vanilla client, driving would fill the screen with the inside of a cow —
+only a client can decide not to draw something — so `/st possess` **steers**
+instead and says so, naming the mod as the way to the better one. The choice is
+made by asking the *connection* whether it negotiated our channel, so nobody
+has to remember which client they are on. Either half is still reachable by
+name: `/st possess drive` and `/st possess steer`.
+
+`/st possess steer` **steers**. You keep your own body and your own view, and the
 creature walks to wherever you walk — led rather than driven, bound by its own
 legs, so a possessed cow will not scale a cliff the audience can see it could
 not climb.

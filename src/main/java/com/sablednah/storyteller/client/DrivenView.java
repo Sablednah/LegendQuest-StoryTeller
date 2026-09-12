@@ -7,6 +7,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 /**
  * Not drawing the creature you are standing inside.
@@ -112,6 +113,62 @@ public final class DrivenView {
         if (dx * dx + dy * dy + dz * dz > 0.12D) return;
 
         event.setCanceled(true);
+    }
+
+    /**
+     * Put the creature exactly where the camera is, every tick, on this client.
+     *
+     * <p><b>The other half of "I seem to sort of drift".</b> An entity moved by
+     * the server is rendered by lerping toward each position update over
+     * several ticks, because that is what makes ordinary mobs look smooth over
+     * a network. Your own body is not — the client predicts it immediately. So
+     * a creature the server is snapping onto you renders a few ticks <em>behind
+     * you</em>, and in third person, where the creature is the only thing on
+     * screen, that reads as sliding around on ice.</p>
+     *
+     * <p>No amount of server-side care fixes that: the lag is added after the
+     * position arrives, by the client, on purpose. The client is therefore the
+     * only place it can be removed — and it can be removed completely, because
+     * this client already knows where the creature is going to be. It is going
+     * where the player is.</p>
+     *
+     * <p>The previous positions are copied too, not just the current one. The
+     * renderer interpolates between them for sub-tick smoothness, so copying
+     * only the current position would leave the creature interpolating from
+     * where it used to be — the same smear, one tick long instead of three.</p>
+     *
+     * <p>Purely local. Nothing is sent, and no other client is affected: to the
+     * rest of the room this is an ordinary mob moving at ordinary network
+     * smoothness, which is exactly right, because they are not standing in
+     * it.</p>
+     */
+    @SubscribeEvent
+    static void onClientTick(ClientTickEvent.Post event) {
+        if (driven == DrivenPayload.NONE) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null) return;
+
+        var entity = mc.level.getEntity(driven);
+        if (entity == null || entity == mc.player) return;
+
+        entity.setPos(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+        entity.xOld = mc.player.xOld;
+        entity.yOld = mc.player.yOld;
+        entity.zOld = mc.player.zOld;
+        entity.setYRot(mc.player.getYRot());
+        entity.setXRot(mc.player.getXRot());
+        entity.yRotO = mc.player.yRotO;
+        entity.xRotO = mc.player.xRotO;
+
+        // Body and head follow the look direction rather than a steered facing:
+        // when you ARE the creature, where you look is where it faces, and a
+        // body lagging its own head is the tell that something is driving it.
+        if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+            living.setYBodyRot(mc.player.getYRot());
+            living.setYHeadRot(mc.player.getYRot());
+            living.yBodyRotO = mc.player.yRotO;
+            living.yHeadRotO = mc.player.yRotO;
+        }
     }
 
     @SubscribeEvent

@@ -42,18 +42,28 @@ buttons work — see below.
 
 ---
 
-## Wear a creature and speak as it
+## Be a creature and speak as it
 
-`/st possess` takes over the creature in your sights. Its own AI stops deciding
-things, it walks where you walk, and `/st say <words>` gives it your voice to
-anyone close enough to hear. Say `/st possess` again and it is itself, exactly as
-it was — nothing is destroyed, nothing is rebuilt, a released goblin is still a
-goblin.
+`/st possess` takes over the creature in your sights, and `/st say <words>`
+gives it your voice to anyone close enough to hear. Say `/st possess` again and
+it is itself, exactly as it was — nothing is destroyed, nothing is rebuilt, a
+released goblin is still a goblin.
+
+**With the StoryTeller mod on your client, you *are* it.** Your own controls,
+your own mouse, your own jump: the creature goes where you go, invisible from
+inside and standing where your body would be when you look at yourself from
+behind. The room sees only the creature. It works on a **cast NPC** just as well
+as a wild animal, human bodies included.
+
+On a vanilla client that would fill the screen with the inside of a cow, so
+`/st possess` **leads** the creature instead — it walks where you walk, bound by
+its own legs. You are not asked which client you are on; the mod works it out
+and tells you which one you got.
 
 `/st possess eyes` does the opposite trade: the camera binds to the creature and
-you see what it sees while it carries on living its own life. You cannot have
-both — that is Minecraft's limit rather than a shortcut, and the mod says so
-plainly instead of pretending.
+you see what it sees while it carries on living its own life. On a vanilla
+client you cannot have eyes and control at once — that is Minecraft's limit
+rather than a shortcut, and the mod says so plainly instead of pretending.
 
 You are **hidden automatically** while you wear a body (with Standards
 installed), and given back to the world when you let go — unless you had hidden

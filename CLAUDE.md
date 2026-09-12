@@ -411,6 +411,40 @@ node.
 
 ## Known traps
 
+- **A convincing wrong cause, measured.** "I keep moving when I stop, like I'm
+  on ice" while driving looked exactly like entity push: a mob in the player's
+  own block calls `pushEntities` at it every tick. Tested directly — an
+  ordinary undriven cow summoned into the player's block — and the player did
+  not move a thousandth of a block in nine seconds. A server-side push on a
+  *player* only sets delta movement; nothing sends it, and the client reports
+  its own position back regardless. The real cause was the creature coasting:
+  `noPhysics` plus the player's delta copied in meant it travelled on after the
+  player stopped and was hauled back the next tick. Cancelling its tick
+  (`EntityTickEvent.Pre`, server side only) removes the coasting entirely.
+- **A server-driven entity is rendered several ticks behind you, by design.**
+  The client lerps toward each position update, while predicting its own player
+  immediately — so a creature the server snaps onto you trails you, and in third
+  person, where the creature is the only thing on screen, that reads as
+  sliding. No amount of server-side care fixes it, because the lag is added
+  after the position arrives. `DrivenView` puppets the driven entity onto the
+  local player each client tick, copying `xOld`/`yRotO` too so the sub-tick
+  interpolation matches rather than smearing one tick instead of three.
+- **Ask the connection, not the player, what their client can do.**
+  `NetworkRegistry.hasChannel(player.connection, DrivenPayload.TYPE.id())` is
+  true exactly when the StoryTeller client half negotiated our optional channel,
+  so `/st possess` picks driving or leading by itself. Verified live both ways
+  round on Vivo: a modded client got "You are Cow" from bare `/st possess` with
+  no `drive` typed.
+- **Cast owning its own bodies was a boundary, not a limit.** Driving a cast NPC
+  was refused for a while on the grounds that it works by snapping a body and
+  Cast moves its own. `Cast.drive(server, npcId, pos, yaw, pitch)` takes a
+  position and decides for itself whether to step or snap, so the two kinds of
+  body differ only in *who* does the moving. Proven live: a driven Bartender
+  tracked the player to identical coordinates through a fall off a platform.
+- **Step into the body; do not drag it to you.** The creature flying across the
+  room reads as a glitch, and the first tick then has a delta to correct. Hide
+  the Storyteller first, *then* move them — the other order puts a visible
+  player inside the creature for a frame, in front of the room.
 - **Eyes or control, never both.** A vanilla client stops sending movement
   entirely while spectating an entity (`LocalPlayer.sendPosition` is gated on
   `isControlledCamera()`), and `ServerPlayer` snaps a spectator onto its camera

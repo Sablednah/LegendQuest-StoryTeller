@@ -96,13 +96,16 @@ public final class STCommands {
 
                 // --- possession ---
                 .then(Commands.literal("possess")
-                        .executes(ctx -> possess(ctx, Mode.STEER))
+                        // Bare /st possess asks the CONNECTION what it can do
+                        // rather than asking the Storyteller to remember. See
+                        // Mode.AUTO.
+                        .executes(ctx -> possess(ctx, Mode.AUTO))
                         .then(Commands.literal("eyes").executes(ctx -> possess(ctx, Mode.EYES)))
-                        // The full takeover. Third verb rather than a flag on
-                        // the other two, because it is a different bargain:
-                        // exact control in exchange for a creature that goes
-                        // wherever you can go rather than wherever IT can.
-                        .then(Commands.literal("drive").executes(ctx -> possess(ctx, Mode.DRIVE))))
+                        // Both halves of the automatic choice stay reachable by
+                        // name -- a Storyteller who wants the other one should
+                        // not have to uninstall something to get it.
+                        .then(Commands.literal("drive").executes(ctx -> possess(ctx, Mode.DRIVE)))
+                        .then(Commands.literal("steer").executes(ctx -> possess(ctx, Mode.STEER))))
                 .then(Commands.literal("release").executes(STCommands::release))
                 .then(Commands.literal("lock").executes(STCommands::lock))
                 .then(Commands.literal("unlock").executes(STCommands::unlock))
@@ -328,13 +331,32 @@ public final class STCommands {
      *        onto the camera entity every tick regardless. Eyes or control,
      *        never both, until a client mod supplies the input.
      */
-    /** The three bargains possession can strike. */
-    private enum Mode { STEER, EYES, DRIVE }
+    /**
+     * The bargains possession can strike, plus the one that picks for you.
+     *
+     * <p><b>{@link #AUTO} is what bare {@code /st possess} means</b>, and it
+     * resolves to {@link #DRIVE} when the Storyteller's client can render it and
+     * {@link #STEER} when it cannot. Driving is the better experience by a long
+     * way — you <i>are</i> the creature rather than towing it — but it needs the
+     * client half to stop drawing the body the camera is inside, and without
+     * that the Storyteller spends the scene looking at the inside of a cow.</p>
+     *
+     * <p>The question is asked of the <em>connection</em>, not of a setting and
+     * not of the player: our payload channel is optional, so NeoForge already
+     * knows whether the client negotiated it. Nobody has to remember which
+     * client they are on, which is the only version of this that is actually
+     * "don't make me think".</p>
+     */
+    private enum Mode { AUTO, STEER, EYES, DRIVE }
 
     private static int possess(CommandContext<CommandSourceStack> ctx, Mode mode)
             throws CommandSyntaxException {
-        boolean throughItsEyes = mode == Mode.EYES;
         ServerPlayer player = ctx.getSource().getPlayerOrException();
+        boolean chosenForThem = mode == Mode.AUTO;
+        if (chosenForThem) {
+            mode = Possession.canDrive(player) ? Mode.DRIVE : Mode.STEER;
+        }
+        boolean throughItsEyes = mode == Mode.EYES;
         // One gesture, both kinds of body: a wild creature found by our own
         // ray, or a cast NPC found by Cast. Whichever was nearer is the one
         // they were looking at.
@@ -365,19 +387,19 @@ public final class STCommands {
         // Steering wants a grounded body, so the creature is following
         // somewhere it can actually go. Spectator keeps its own job: the
         // godlike survey of a scene, which is what /st drift is for.
-        // Driving is a mob-only trick: it works by snapping the creature onto
-        // the player every tick, and a Cast NPC is moved by Cast rather than by
-        // us. Said plainly rather than silently downgraded.
-        if (mode == Mode.DRIVE && sighted.isNpc()) {
-            Feedback.chat(player, "&7" + sighted.name() + " &7is a cast NPC — Cast moves its body, "
-                    + "so it cannot be driven. &f/st possess&7 steers it instead.");
-            return 0;
-        }
+        // Driving a cast NPC used to be refused here, on the grounds that it
+        // works by snapping the body every tick and Cast owns its own bodies.
+        // That was a boundary, not a limit: Cast exposes drive(), which takes a
+        // position and decides for itself whether to step or snap -- so the two
+        // kinds of body differ only in who does the moving, and this side does
+        // not need to know which.
         var refusal = sighted.isNpc()
-                ? Possession.possessNpc(player, sighted.npcId(), throughItsEyes)
-                : mode == Mode.DRIVE
+                ? (mode == Mode.DRIVE
+                        ? Possession.driveNpc(player, sighted.npcId())
+                        : Possession.possessNpc(player, sighted.npcId(), throughItsEyes))
+                : (mode == Mode.DRIVE
                         ? Possession.drive(player, sighted.mob())
-                        : Possession.possess(player, sighted.mob(), false);
+                        : Possession.possess(player, sighted.mob(), false));
         switch (refusal) {
             case NONE -> {
                 // Say which of the two this is, at the moment it happens. A
@@ -388,9 +410,21 @@ public final class STCommands {
                             + "&5. Move as you always do — it goes where you go, and the room "
                             + "sees only it. &f/st say <words>&5 speaks as it, &f/st release&5 "
                             + "gives it back.");
-                    Feedback.chat(player, "&8Third person shows the creature where your body "
-                            + "would be. Without the StoryTeller client mod you will see it from "
-                            + "the inside — it still works, it just looks wrong.");
+                    // Only warn about the view when it is actually going to be
+                    // wrong. Chosen automatically, drive is only ever picked
+                    // when the client half is present, so the warning would be
+                    // both wrong and the only thing they were told to worry
+                    // about. Asked for by name on a vanilla client, it is the
+                    // single most useful sentence on screen.
+                    if (!chosenForThem && !Possession.canDrive(player)) {
+                        Feedback.chat(player, "&8Your client has no StoryTeller half, so you will "
+                                + "see this creature from the inside. It still works — &f/st "
+                                + "possess steer&8 tows it from outside instead.");
+                    }
+                    if (sighted.isNpc() && !castBodyVisible(player, sighted.npcId())) {
+                        Feedback.chat(player, "&8This one has no creature body of its own, so it "
+                                + "cannot be hidden from your view — you may see it around you.");
+                    }
                     return 1;
                 }
                 Feedback.chat(player, throughItsEyes
@@ -402,6 +436,13 @@ public final class STCommands {
                                 + "&5. Walk, and it walks with you. &f/st say <words>&5 speaks as it, "
                                 + "&f/st release&5 lets it go. "
                                 + "&8(/st possess eyes to see through it instead — you cannot do both)");
+                // Steering was CHOSEN for them only when the client cannot
+                // render driving. Naming the mod is the remedy, and a remedy
+                // beats a symptom.
+                if (chosenForThem) {
+                    Feedback.chat(player, "&8Install the StoryTeller mod on your client and "
+                            + "&f/st possess&8 becomes the creature outright, instead of leading it.");
+                }
                 if (!throughItsEyes && !sighted.isNpc() && Possession.cannotBeLed(sighted.mob())) {
                     Feedback.chat(player, "&7It will not follow you — a slime moves by jumping, "
                             + "and that cannot be steered. &f/st say&7 still speaks as it, and "
@@ -419,6 +460,19 @@ public final class STCommands {
                     "&7" + sighted.name() + " &7has no body loaded right now — nothing to step into.");
         }
         return 0;
+    }
+
+    /**
+     * Whether a cast NPC has a real entity we can ask the client not to draw.
+     *
+     * <p>A MOB-bodied NPC does; a human phantom may not, and then the
+     * Storyteller drives it with it still on screen around them. Alarming and
+     * harmless is the worst combination, so it is said out loud at the moment
+     * it happens rather than discovered mid-scene.</p>
+     */
+    private static boolean castBodyVisible(ServerPlayer player, java.util.UUID npcId) {
+        var server = player.level().getServer();
+        return server != null && CastSupport.entityOf(server, npcId).isPresent();
     }
 
     /**
