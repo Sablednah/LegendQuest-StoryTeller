@@ -433,6 +433,15 @@ node.
   builds these as solid "contact boxes" for its phantoms, so that premise wants
   rechecking on their side; and a driver standing inside one is not what makes
   them stick.
+- **"Stuck until I jump" means a player is inside terrain.** It never means
+  something is holding them: nothing in vanilla holds a player, and almost
+  nothing is even solid to them (see the armour stand entry). Measured on flat
+  stone with its surface top at y=71 — feet at 71.0 walked 4.3 blocks in two
+  seconds; feet at 70.9 were placed by the server at y=70.0 and moved 0.2
+  blocks before stopping. A player below the surface can shuffle a fraction
+  inside their own cell and is blocked on all four sides by the neighbouring
+  ground, which is why Sable described it as "a 1x1 pit - on surface". Jumping
+  is the only way out, and that detail is the whole diagnosis.
 - **A body's recorded position is not always somewhere a player can stand.** A
   cast NPC's position comes out of Cast's store after gravity settling, and feet
   can sit inside the surface. Teleporting a player into a block does not fail
