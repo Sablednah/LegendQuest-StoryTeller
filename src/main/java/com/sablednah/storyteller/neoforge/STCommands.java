@@ -555,9 +555,12 @@ public final class STCommands {
         Feedback.chat(player, "&d" + came + " &7" + (came == 1 ? "player" : "players")
                 + " brought to you."
                 + (missing > 0 ? " &8(" + missing + " offline)" : ""));
+        // Only the ones worth reading about. "already here" is the Storyteller
+        // themselves and says nothing; an offline member is the whole reason
+        // this report exists.
         for (var a : arrivals) {
-            if (!"arrived".equals(a.what())) {
-                Feedback.chat(player, "  &8" + a.who() + ": " + a.what());
+            if ("offline".equals(a.what())) {
+                Feedback.chat(player, "  &8" + a.who() + ": could not be reached");
             }
         }
         return (int) came;
