@@ -42,6 +42,10 @@ public class StoryTeller {
 
     public StoryTeller(IEventBus modEventBus, ModContainer container) {
         STAttachments.register(modEventBus);
+        // One packet, registered optional() so a vanilla client still connects.
+        // See STNetwork for why it exists at all when everything else here is
+        // a command string.
+        modEventBus.addListener(com.sablednah.storyteller.network.STNetwork::register);
         NeoForge.EVENT_BUS.register(STCommands.class);
         NeoForge.EVENT_BUS.register(STPermissions.class);
         NeoForge.EVENT_BUS.register(STServerEvents.class);
@@ -65,6 +69,8 @@ public class StoryTeller {
             NeoForge.EVENT_BUS.register(CastSupport.class);
             LOGGER.info("Cast found — NPC bodies can be possessed and spoken through");
         }
-        LOGGER.info("LegendQuest StoryTeller initialising");
+        // The build, not just the version: says what RAN when somebody reports
+        // a bug. Shared format across Sable's mods.
+        LOGGER.info("LegendQuest StoryTeller {} initialising", BuildInfo.describe());
     }
 }

@@ -41,6 +41,10 @@ public final class Possession {
      *  NPC body is driven rather than steered: it has no goalSelector to hold
      *  a goal, and a human body has no navigation at all. */
     private static final Map<UUID, UUID> HELD_NPC = new HashMap<>();
+    /** Possessors DRIVING a mob: the creature is snapped onto them every tick
+     *  rather than pathfinding after them, so it goes exactly where they go.
+     *  See {@link #drive}. */
+    private static final java.util.Set<UUID> DRIVING = new java.util.HashSet<>();
     /** Possessors who chose the mob's eyes over control of it. Kept apart
      *  because a bound camera is the thing that costs them their input, and
      *  because vanilla lets them leave it by sneaking without telling us. */
@@ -157,6 +161,203 @@ public final class Possession {
      * possessing and drifting are separately undoable and conflating them
      * makes "release" ambiguous.
      */
+    /**
+     * Take a creature over completely: you move, it moves with you, exactly.
+     *
+     * <p><b>The trick is to invert the problem.</b> The obvious way to do this
+     * is to bind the camera and plumb the keyboard to the server, and that
+     * fights vanilla at every step — a client stops sending movement entirely
+     * while spectating an entity, and the server snaps a spectator's rotation
+     * from its camera target every tick, so mirroring rotation back is a closed
+     * loop and the view never turns. That is why {@code eyes} mode cannot look
+     * around, and no amount of input plumbing fixes it cleanly.</p>
+     *
+     * <p>So instead: <b>the player walks, and the creature is dragged onto
+     * them.</b> Movement, mouse-look, sprinting, jumping and swimming are all
+     * vanilla and all correct, because they are the player's own — not a single
+     * input byte crosses the wire. Other players see the creature, because the
+     * creature really is where the player is. The player is hidden by vanish,
+     * so the room sees a wolf walking and nobody behind it.</p>
+     *
+     * <p><b>What it trades.</b> {@code possess} (steer) has the creature
+     * pathfind, so it is bound by its own legs and a cow cannot follow you
+     * somewhere a cow could not go. Driving gives that up for exactness: the
+     * creature goes wherever the player goes, ladders included. Both modes are
+     * kept because both answers are right for different scenes — a chase wants
+     * exact control, a crowd wants a creature that moves like one.</p>
+     *
+     * <p>Needs the StoryTeller client mod to look right, and says so: only a
+     * client can decline to draw the creature standing in its own camera. On a
+     * vanilla client it still works and you see the inside of the mob, which is
+     * ugly rather than broken.</p>
+     */
+    /**
+     * Whether this player's client can render driving properly.
+     *
+     * <p>Asked of the connection, not guessed: our payload channel is
+     * {@code optional()}, and NeoForge tracks which channels a client
+     * negotiated. So the server knows, for certain, whether the StoryTeller
+     * client half is on the other end — which is what lets {@code /st possess}
+     * pick the better mode by itself instead of making the Storyteller
+     * remember which one their client supports.</p>
+     */
+    public static boolean canDrive(ServerPlayer player) {
+        return net.neoforged.neoforge.network.registration.NetworkRegistry.hasChannel(
+                player.connection,
+                com.sablednah.storyteller.network.DrivenPayload.TYPE.id());
+    }
+
+    /**
+     * Step INTO the creature rather than yanking it to you.
+     *
+     * <p>Sable's note, and he is right: the creature being pulled across the
+     * room to the Storyteller is the wrong way round and reads as a glitch. The
+     * Storyteller is the one taking something over, so the Storyteller is the
+     * one who moves — and by the time anything is snapped, both are already in
+     * the same place, so the first tick has nothing to correct.</p>
+     *
+     * <p>Order matters: hidden first, then moved. The other way round puts a
+     * visible player inside the creature for a frame, in front of whoever is
+     * watching.</p>
+     */
+    private static void stepInto(ServerPlayer player, double x, double y, double z,
+            float yaw, float pitch) {
+        player.teleportTo(player.level(), x, y, z, java.util.Set.of(), yaw, pitch, false);
+    }
+
+    public static Refusal drive(ServerPlayer player, Mob mob) {
+        Refusal refusal = possess(player, mob, false);
+        if (refusal != Refusal.NONE) return refusal;
+        DRIVING.add(player.getUUID());
+        DRIVEN_BODIES.add(mob.getUUID());
+        stepInto(player, mob.getX(), mob.getY(), mob.getZ(), mob.getYRot(), mob.getXRot());
+        // The steer goal would fight the snapping -- pathfinding toward a
+        // target it is already standing on produces a jitter. Starve the mob's
+        // own AI instead and leave the moving entirely to the tick below.
+        PossessionGoal goal = GOALS.remove(player.getUUID());
+        if (goal != null) {
+            mob.goalSelector.removeGoal(goal);
+            mob.getNavigation().stop();
+        }
+        mob.setNoAi(true);
+        // noPhysics, or the pair shove each other across the room. The mob is
+        // snapped onto the player every tick, so the two occupy one space and
+        // vanilla's collision resolution pushes them apart -- then the snap
+        // puts them back together, and the cycle repeats. Measured live: player
+        // and cow slid five blocks across a flat platform without a key being
+        // touched.
+        //
+        // Safe to switch off here precisely BECAUSE of how driving works: the
+        // creature never moves under its own power, so it has no collision to
+        // resolve. What constrains it is the PLAYER's collision -- they cannot
+        // walk through a wall, so it does not either. Restored on release.
+        mob.noPhysics = true;
+        com.sablednah.storyteller.network.STNetwork.sendDriven(player, mob.getId());
+        return Refusal.NONE;
+    }
+
+    /**
+     * The same takeover, on a Cast body.
+     *
+     * <p>Possible because Cast exposes {@code drive} — it moves its own bodies
+     * and picks a relative step or a snap by how far the delta is, so this side
+     * does not have to know which kind of body it is holding. That is the
+     * boundary working as designed: Cast owns the body, we own the intent.</p>
+     *
+     * <p>A human phantom has no navigation and no physics of any kind, which
+     * for driving is an advantage rather than a limitation — nothing has to be
+     * suppressed, because nothing was moving it but Cast.</p>
+     */
+    public static Refusal driveNpc(ServerPlayer player, UUID npcId) {
+        Refusal refusal = possessNpc(player, npcId, false);
+        if (refusal != Refusal.NONE) return refusal;
+        DRIVING.add(player.getUUID());
+
+        MinecraftServer server = player.level().getServer();
+        if (server != null) {
+            CastSupport.positionOf(server, npcId).ifPresent(at ->
+                    stepInto(player, at.x, at.y, at.z, player.getYRot(), player.getXRot()));
+            // Hide it in first person if we can name an entity for it. A MOB
+            // body is a real entity and has an id; a HUMAN phantom may not, and
+            // then the Storyteller sees it from inside -- ugly, and said so by
+            // the command rather than left as a surprise.
+            CastSupport.entityOf(server, npcId).ifPresent(e -> {
+                DRIVEN_BODIES.add(e.getUUID());
+                com.sablednah.storyteller.network.STNetwork.sendDriven(player, e.getId());
+            });
+        }
+        return Refusal.NONE;
+    }
+
+    /**
+     * The bodies currently being driven, by entity UUID.
+     *
+     * <p>Kept as its own set rather than derived from {@link #HELD}, for two
+     * reasons. It is asked once per entity per tick, so it has to be a hash
+     * lookup behind an empty check; and a cast NPC's body is not in {@code HELD}
+     * at all, so deriving it would have quietly covered wild creatures and not
+     * cast ones — the kind of gap that shows up as "it only does it to NPCs".</p>
+     */
+    private static final java.util.Set<UUID> DRIVEN_BODIES = new java.util.HashSet<>();
+
+    /** Is this the body somebody is driving? */
+    public static boolean isDrivenBody(net.minecraft.world.entity.Entity entity) {
+        return !DRIVEN_BODIES.isEmpty() && DRIVEN_BODIES.contains(entity.getUUID());
+    }
+
+    public static boolean isDriving(ServerPlayer player) {
+        return DRIVING.contains(player.getUUID());
+    }
+
+    /**
+     * Put a driven creature exactly where its driver is, every tick.
+     *
+     * <p>Position AND both rotations, so the creature faces what the player
+     * faces — a mob that walks correctly but stares north is worse than one
+     * that does neither, because the audience reads a face before it reads
+     * feet.</p>
+     */
+    private static void driveTick(MinecraftServer server) {
+        if (DRIVING.isEmpty()) return;
+        for (UUID id : java.util.List.copyOf(DRIVING)) {
+            ServerPlayer possessor = server.getPlayerList().getPlayer(id);
+            Mob mob = HELD.get(id);
+            if (possessor == null || mob == null || !mob.isAlive()) continue;
+            // setPos + setOldPosAndRot, NOT snapTo. snapTo sends a teleport
+            // packet, and a client LERPS an entity toward a teleport over
+            // several ticks -- so snapping every tick leaves the render
+            // permanently a few ticks behind the real position, which is
+            // exactly the "keeps moving when I stop, like I'm on ice" Sable
+            // reported. Clearing the old position removes the gap the
+            // interpolation was smoothing across.
+            mob.setPos(possessor.getX(), possessor.getY(), possessor.getZ());
+            mob.setYRot(possessor.getYRot());
+            mob.setXRot(possessor.getXRot());
+            mob.setOldPosAndRot();
+            // yBodyRot and yHeadRot are separate from yRot and are what the
+            // renderer actually uses for a mob; setting only yRot leaves the
+            // body facing wherever it last walked.
+            mob.setYBodyRot(possessor.getYRot());
+            mob.setYHeadRot(possessor.getYRot());
+            mob.setDeltaMovement(possessor.getDeltaMovement());
+            mob.setOnGround(possessor.onGround());
+        }
+        driveNpcTick(server);
+    }
+
+    /** The same, for a Cast body: Cast does the moving, we say where. */
+    private static void driveNpcTick(MinecraftServer server) {
+        if (DRIVING.isEmpty() || HELD_NPC.isEmpty()) return;
+        for (UUID id : java.util.List.copyOf(DRIVING)) {
+            UUID npcId = HELD_NPC.get(id);
+            if (npcId == null) continue;
+            ServerPlayer possessor = server.getPlayerList().getPlayer(id);
+            if (possessor == null) continue;
+            CastSupport.drive(server, npcId, possessor.position(),
+                    possessor.getYRot(), possessor.getXRot());
+        }
+    }
+
     public static Refusal possess(ServerPlayer player, Mob mob, boolean throughItsEyes) {
         if (HELD.containsKey(player.getUUID()) || HELD_NPC.containsKey(player.getUUID())) {
             return Refusal.ALREADY_HELD;
@@ -187,7 +388,50 @@ public final class Possession {
      *
      * @return the mob that was released, if any.
      */
+    /**
+     * Stop driving, whichever kind of body it was.
+     *
+     * <p>Shared by both release paths on purpose. The client half is the part
+     * that must not be forgotten: a client left hiding an entity id keeps
+     * hiding whatever entity inherits that number next, which presents as
+     * randomly invisible mobs long after the scene ended — a bug nobody would
+     * connect back to possession.</p>
+     */
+    private static void stopDriving(ServerPlayer player) {
+        stopDriving(player, true);
+    }
+
+    /**
+     * @param tellClient false on the logout path. The connection is on its way
+     *        out, and there is nothing to un-hide on a client that is about to
+     *        stop existing -- {@link com.sablednah.storyteller.client.DrivenView}
+     *        clears itself on disconnect for exactly this reason.
+     */
+    private static void stopDriving(ServerPlayer player, boolean tellClient) {
+        if (!DRIVING.remove(player.getUUID())) return;
+        // Its own mind back, and its own tick. A mob left with NoAI is a
+        // statue, and one left in DRIVEN_BODIES never ticks again -- which
+        // would be a creature frozen in place forever, in a world, with
+        // nothing left pointing at the cause.
+        Mob driven = HELD.get(player.getUUID());
+        if (driven != null) {
+            driven.setNoAi(false);
+            driven.noPhysics = false;
+            DRIVEN_BODIES.remove(driven.getUUID());
+        }
+        UUID npcId = HELD_NPC.get(player.getUUID());
+        MinecraftServer server = player.level().getServer();
+        if (npcId != null && server != null) {
+            CastSupport.entityOf(server, npcId).ifPresent(e -> DRIVEN_BODIES.remove(e.getUUID()));
+        }
+        if (tellClient) {
+            com.sablednah.storyteller.network.STNetwork.sendDriven(
+                    player, com.sablednah.storyteller.network.DrivenPayload.NONE);
+        }
+    }
+
     public static Optional<Mob> release(ServerPlayer player) {
+        stopDriving(player);
         EYES.remove(player.getUUID());
         revealWearer(player);
         Mob mob = HELD.remove(player.getUUID());
@@ -237,6 +481,11 @@ public final class Possession {
     /** Drop a possession without touching the player — for logout, where the
      *  player object is on its way out. */
     public static void forget(ServerPlayer player) {
+        // Hand the body back its mind and its tick BEFORE dropping the hold.
+        // A driver who disconnects mid-scene would otherwise leave a creature
+        // with no AI that never ticks again -- a statue in somebody's world,
+        // with the only thing that knew why now logged out.
+        stopDriving(player, false);
         EYES.remove(player.getUUID());
         // Standards drops our hold on logout by itself, but releasing is
         // harmless and keeps every exit from possession identical.
@@ -413,6 +662,7 @@ public final class Possession {
 
     /** @return the name of the NPC that was released, if any. */
     public static Optional<String> releaseNpc(ServerPlayer player) {
+        stopDriving(player);
         EYES.remove(player.getUUID());
         revealWearer(player);
         UUID npcId = HELD_NPC.remove(player.getUUID());
@@ -442,6 +692,14 @@ public final class Possession {
                 .forEach(possessor -> {
                     HELD_NPC.remove(possessor);
                     EYES.remove(possessor);
+                    DRIVING.remove(possessor);
+                    // The body is already gone, so there is nothing to unfreeze
+                    // -- but a UUID left in the set is a body that never ticks
+                    // if Cast ever rebuilds one under the same identity.
+                    if (SERVER != null) {
+                        CastSupport.entityOf(SERVER, npcId)
+                                .ifPresent(e -> DRIVEN_BODIES.remove(e.getUUID()));
+                    }
                     DRIVEN_TO.remove(possessor);
                     DRIVEN_YAW.remove(possessor);
                     // Re-anchor first, and regardless of whether the wearer
@@ -458,8 +716,14 @@ public final class Possession {
                     CastSupport.unpin(player, npcId);
                     player.setCamera(player);
                     revealWearer(player);
-                    Feedback.chat(player, "&cThe body you were wearing " + wording
-                            + ". &f/st return&c brings you back to your body.");
+                    com.sablednah.storyteller.network.STNetwork.sendDriven(
+                            player, com.sablednah.storyteller.network.DrivenPayload.NONE);
+                    // Only mention /st return if they are actually out of their
+                    // body. A driver never left it, so telling them how to come
+                    // back is an instruction to fix something that is not wrong.
+                    boolean away = Presence.isDrifting(player);
+                    Feedback.chat(player, "&cThe body you were wearing " + wording + "."
+                            + (away ? " &f/st return&c brings you back to your body." : ""));
                 });
     }
 
@@ -490,6 +754,7 @@ public final class Possession {
 
     public static void tick(MinecraftServer server) {
         SERVER = server;
+        driveTick(server);
         if (!HELD.isEmpty() || !HELD_NPC.isEmpty()) noticeCameraDrift(server);
         if (HELD_NPC.isEmpty()) return;
 

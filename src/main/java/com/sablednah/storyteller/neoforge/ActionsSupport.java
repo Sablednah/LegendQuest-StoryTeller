@@ -36,7 +36,7 @@ import net.minecraft.server.level.ServerPlayer;
  * {@code children} is not required — so reading out what is being worn is safe
  * to rely on again.</p>
  *
- * <p><b>Four buttons, not seven, because the commands toggle.</b> There is no
+ * <p><b>Five buttons, not nine, because the commands toggle.</b> There is no
  * separate Release or Return: {@code /st possess} while wearing something lets
  * it go, and {@code /st drift} while drifting brings you back. Two buttons for
  * one idea reads as clunky, and the state is already on the screen — a lit
@@ -56,7 +56,7 @@ public final class ActionsSupport {
 
     /** Higher sits nearer the anchor; possession is what a Storyteller reaches
      *  for most, so it leads. */
-    private static final int POSSESS = 50, LOCK = 48, DRIFT = 45, NEXT = 43;
+    private static final int POSSESS = 50, LOCK = 48, DRIFT = 45, NEXT = 43, SUMMON = 42;
 
     /**
      * Whether this Standards has the hint constructor.
@@ -121,12 +121,20 @@ public final class ActionsSupport {
                         "action.storyteller.drift", "st drift",
                         STPermissions::isStoryteller, Presence::isDrifting));
 
+        // Bringing the table to a prepared scene is a whole-session gesture
+        // rather than an aimed one, so it needs no state: it is always
+        // available and always means the same thing.
+        Actions.register(new Action("storyteller:summon", SUMMON,
+                Identifier.parse("minecraft:bell"),
+                "action.storyteller.summon", "st summon",
+                STPermissions::isStoryteller));
+
         Actions.register(new Action("storyteller:next", NEXT,
                 Identifier.parse("minecraft:spyglass"),
                 "action.storyteller.next", "st next",
                 Presence::isDrifting));
 
-        StoryTeller.LOGGER.info("Registered 4 Storyteller actions with Standards");
+        StoryTeller.LOGGER.info("Registered 5 Storyteller actions with Standards");
     }
 
     // Deliberately the remembered name rather than a fresh resolve. Standards

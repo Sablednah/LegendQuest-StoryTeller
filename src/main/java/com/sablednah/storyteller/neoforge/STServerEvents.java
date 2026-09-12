@@ -5,6 +5,7 @@ import net.minecraft.world.entity.Mob;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
@@ -12,6 +13,42 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * creature is ever left held by nobody.
  */
 public final class STServerEvents {
+
+    /**
+     * A body being driven does not tick.
+     *
+     * <p>Half of the fix for "I keep moving when I stop, like I'm on ice". The
+     * creature had {@code noPhysics} set and the player's own delta movement
+     * copied into it every tick, so between snaps it <em>coasted</em> under its
+     * own {@code travel()} — moved on after the player stopped, and was hauled
+     * back the following tick. On screen that is a creature sliding and
+     * snapping, which is what ice looks like. With no tick there is nothing to
+     * coast with: the position comes from the Storyteller, full stop.</p>
+     *
+     * <p><b>The obvious explanation was measured and was wrong.</b> Entity
+     * push looked like the culprit — a mob in the same block as a player calls
+     * {@code pushEntities} at it every tick — so it was tested directly, with
+     * an ordinary undriven cow summoned into the player's own block. The player
+     * did not move a thousandth of a block in nine seconds. A server-side push
+     * on a player sets delta movement and nothing sends it, and the client
+     * reports its own position back regardless. Worth keeping written down,
+     * because it is a genuinely convincing wrong answer.</p>
+     *
+     * <p>{@code setNoAi} was never going to be enough on its own: it stops the
+     * <em>goals</em>, not the living tick that travels, falls, drowns and
+     * burns. Cancelling the tick is the honest statement of what driving
+     * already means, and it costs nothing — every one of those side effects
+     * would otherwise have to be suppressed one at a time.</p>
+     *
+     * <p>Server side only. The client must keep ticking it or the creature
+     * stops animating — legs frozen mid-stride is exactly the thing driving is
+     * for.</p>
+     */
+    @SubscribeEvent
+    static void onEntityTick(EntityTickEvent.Pre event) {
+        if (event.getEntity().level().isClientSide()) return;
+        if (Possession.isDrivenBody(event.getEntity())) event.setCanceled(true);
+    }
 
     /**
      * The drift anchor is persisted, so logging out mid-scene and back in
@@ -68,8 +105,14 @@ public final class STServerEvents {
         Sights.mobWentAway(mob, "dies");
         Possession.possessorOf(mob).ifPresent(possessor -> {
             Possession.release(possessor);
+            // Only mention /st return if they are actually out of their body.
+            // A driver never left it -- they were walking the creature around
+            // from inside their own skin -- so telling them how to come back
+            // is an instruction to fix something that is not wrong.
+            boolean away = Presence.isDrifting(possessor);
             Feedback.chat(possessor, "&c" + mob.getName().getString()
-                    + " dies, and you are cast out of it. &f/st return&c brings you back to your body.");
+                    + " dies, and you are cast out of it."
+                    + (away ? " &f/st return&c brings you back to your body." : ""));
         });
     }
 
