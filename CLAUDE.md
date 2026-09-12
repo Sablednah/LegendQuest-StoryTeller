@@ -411,6 +411,36 @@ node.
 
 ## Known traps
 
+- **Avatar render states carry an `id`; mob ones do not.** A Cast human body is
+  itself a player-shaped entity, and driving stands it exactly where the driver
+  stands — so "hide the avatar at my position" hid the driver *and* the
+  character they had become, and third person showed an empty world with a
+  shadow in it. Two things in one place cannot be told apart by where they are.
+  `AvatarRenderState.id` is set from `entity.getId()`, so `RenderPlayerEvent`
+  can ask the only question with a right answer: is this me, or the body I am
+  wearing? `LivingEntityRenderState` still has no identity, so mobs stay on
+  position matching — the difference is worth knowing before designing around
+  either.
+- **`RenderPlayerEvent` is a subclass of `RenderLivingEvent`**, so a listener on
+  the latter also hears every avatar render. Two handlers with opinions about
+  the same render is a fight; `DrivenView.onRenderLiving` returns early on an
+  `AvatarRenderState` and leaves avatars to the handler that has an id.
+- **An armour stand does not block a player in 1.21.11.** Its private
+  `hasPhysics()` (`!isMarker() && !isNoGravity()`) governs `noPhysics` and
+  `travel` — whether the *stand* collides with blocks — and nothing consults it
+  for collisions *against* the stand. Measured: a player walked straight through
+  an invisible gravity-having stand at 4 blocks' run-up without slowing. Cast
+  builds these as solid "contact boxes" for its phantoms, so that premise wants
+  rechecking on their side; and a driver standing inside one is not what makes
+  them stick.
+- **A body's recorded position is not always somewhere a player can stand.** A
+  cast NPC's position comes out of Cast's store after gravity settling, and feet
+  can sit inside the surface. Teleporting a player into a block does not fail
+  and does not trap them — vanilla shoves them sideways out, and the measured
+  result was a driver landing **1.5 blocks from the creature they had just
+  become**, which breaks the illusion at the exact moment it should start.
+  `Possession.clearY` searches up to 1.25 blocks upward for a box that fits
+  before teleporting.
 - **A convincing wrong cause, measured.** "I keep moving when I stop, like I'm
   on ice" while driving looked exactly like entity push: a mob in the player's
   own block calls `pushEntities` at it every tick. Tested directly — an

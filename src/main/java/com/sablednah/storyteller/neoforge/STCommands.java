@@ -421,10 +421,6 @@ public final class STCommands {
                                 + "see this creature from the inside. It still works — &f/st "
                                 + "possess steer&8 tows it from outside instead.");
                     }
-                    if (sighted.isNpc() && !castBodyVisible(player, sighted.npcId())) {
-                        Feedback.chat(player, "&8This one has no creature body of its own, so it "
-                                + "cannot be hidden from your view — you may see it around you.");
-                    }
                     return 1;
                 }
                 Feedback.chat(player, throughItsEyes
@@ -460,19 +456,6 @@ public final class STCommands {
                     "&7" + sighted.name() + " &7has no body loaded right now — nothing to step into.");
         }
         return 0;
-    }
-
-    /**
-     * Whether a cast NPC has a real entity we can ask the client not to draw.
-     *
-     * <p>A MOB-bodied NPC does; a human phantom may not, and then the
-     * Storyteller drives it with it still on screen around them. Alarming and
-     * harmless is the worst combination, so it is said out loud at the moment
-     * it happens rather than discovered mid-scene.</p>
-     */
-    private static boolean castBodyVisible(ServerPlayer player, java.util.UUID npcId) {
-        var server = player.level().getServer();
-        return server != null && CastSupport.entityOf(server, npcId).isPresent();
     }
 
     /**
