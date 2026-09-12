@@ -41,6 +41,10 @@ public final class Possession {
      *  NPC body is driven rather than steered: it has no goalSelector to hold
      *  a goal, and a human body has no navigation at all. */
     private static final Map<UUID, UUID> HELD_NPC = new HashMap<>();
+    /** Possessors DRIVING a mob: the creature is snapped onto them every tick
+     *  rather than pathfinding after them, so it goes exactly where they go.
+     *  See {@link #drive}. */
+    private static final java.util.Set<UUID> DRIVING = new java.util.HashSet<>();
     /** Possessors who chose the mob's eyes over control of it. Kept apart
      *  because a bound camera is the thing that costs them their input, and
      *  because vanilla lets them leave it by sneaking without telling us. */
@@ -157,6 +161,95 @@ public final class Possession {
      * possessing and drifting are separately undoable and conflating them
      * makes "release" ambiguous.
      */
+    /**
+     * Take a creature over completely: you move, it moves with you, exactly.
+     *
+     * <p><b>The trick is to invert the problem.</b> The obvious way to do this
+     * is to bind the camera and plumb the keyboard to the server, and that
+     * fights vanilla at every step — a client stops sending movement entirely
+     * while spectating an entity, and the server snaps a spectator's rotation
+     * from its camera target every tick, so mirroring rotation back is a closed
+     * loop and the view never turns. That is why {@code eyes} mode cannot look
+     * around, and no amount of input plumbing fixes it cleanly.</p>
+     *
+     * <p>So instead: <b>the player walks, and the creature is dragged onto
+     * them.</b> Movement, mouse-look, sprinting, jumping and swimming are all
+     * vanilla and all correct, because they are the player's own — not a single
+     * input byte crosses the wire. Other players see the creature, because the
+     * creature really is where the player is. The player is hidden by vanish,
+     * so the room sees a wolf walking and nobody behind it.</p>
+     *
+     * <p><b>What it trades.</b> {@code possess} (steer) has the creature
+     * pathfind, so it is bound by its own legs and a cow cannot follow you
+     * somewhere a cow could not go. Driving gives that up for exactness: the
+     * creature goes wherever the player goes, ladders included. Both modes are
+     * kept because both answers are right for different scenes — a chase wants
+     * exact control, a crowd wants a creature that moves like one.</p>
+     *
+     * <p>Needs the StoryTeller client mod to look right, and says so: only a
+     * client can decline to draw the creature standing in its own camera. On a
+     * vanilla client it still works and you see the inside of the mob, which is
+     * ugly rather than broken.</p>
+     */
+    public static Refusal drive(ServerPlayer player, Mob mob) {
+        Refusal refusal = possess(player, mob, false);
+        if (refusal != Refusal.NONE) return refusal;
+        DRIVING.add(player.getUUID());
+        // The steer goal would fight the snapping -- pathfinding toward a
+        // target it is already standing on produces a jitter. Starve the mob's
+        // own AI instead and leave the moving entirely to the tick below.
+        PossessionGoal goal = GOALS.remove(player.getUUID());
+        if (goal != null) {
+            mob.goalSelector.removeGoal(goal);
+            mob.getNavigation().stop();
+        }
+        mob.setNoAi(true);
+        // noPhysics, or the pair shove each other across the room. The mob is
+        // snapped onto the player every tick, so the two occupy one space and
+        // vanilla's collision resolution pushes them apart -- then the snap
+        // puts them back together, and the cycle repeats. Measured live: player
+        // and cow slid five blocks across a flat platform without a key being
+        // touched.
+        //
+        // Safe to switch off here precisely BECAUSE of how driving works: the
+        // creature never moves under its own power, so it has no collision to
+        // resolve. What constrains it is the PLAYER's collision -- they cannot
+        // walk through a wall, so it does not either. Restored on release.
+        mob.noPhysics = true;
+        com.sablednah.storyteller.network.STNetwork.sendDriven(player, mob.getId());
+        return Refusal.NONE;
+    }
+
+    public static boolean isDriving(ServerPlayer player) {
+        return DRIVING.contains(player.getUUID());
+    }
+
+    /**
+     * Put a driven creature exactly where its driver is, every tick.
+     *
+     * <p>Position AND both rotations, so the creature faces what the player
+     * faces — a mob that walks correctly but stares north is worse than one
+     * that does neither, because the audience reads a face before it reads
+     * feet.</p>
+     */
+    private static void driveTick(MinecraftServer server) {
+        if (DRIVING.isEmpty()) return;
+        for (UUID id : java.util.List.copyOf(DRIVING)) {
+            ServerPlayer possessor = server.getPlayerList().getPlayer(id);
+            Mob mob = HELD.get(id);
+            if (possessor == null || mob == null || !mob.isAlive()) continue;
+            mob.snapTo(possessor.getX(), possessor.getY(), possessor.getZ(),
+                    possessor.getYRot(), possessor.getXRot());
+            // yBodyRot and yHeadRot are separate from yRot and are what the
+            // renderer actually uses for a mob; setting only yRot leaves the
+            // body facing wherever it last walked.
+            mob.setYBodyRot(possessor.getYRot());
+            mob.setYHeadRot(possessor.getYRot());
+            mob.setDeltaMovement(possessor.getDeltaMovement());
+            mob.setOnGround(possessor.onGround());
+        }
+    }
+
     public static Refusal possess(ServerPlayer player, Mob mob, boolean throughItsEyes) {
         if (HELD.containsKey(player.getUUID()) || HELD_NPC.containsKey(player.getUUID())) {
             return Refusal.ALREADY_HELD;
@@ -188,6 +281,18 @@ public final class Possession {
      * @return the mob that was released, if any.
      */
     public static Optional<Mob> release(ServerPlayer player) {
+        if (DRIVING.remove(player.getUUID())) {
+            // Its own mind back, and the client told to draw it again. Both
+            // matter: a mob left with NoAI is a statue, and a client left
+            // hiding an entity id would hide whatever reuses that id next.
+            Mob driven = HELD.get(player.getUUID());
+            if (driven != null) {
+                driven.setNoAi(false);
+                driven.noPhysics = false;
+            }
+            com.sablednah.storyteller.network.STNetwork.sendDriven(
+                    player, com.sablednah.storyteller.network.DrivenPayload.NONE);
+        }
         EYES.remove(player.getUUID());
         revealWearer(player);
         Mob mob = HELD.remove(player.getUUID());
@@ -237,6 +342,7 @@ public final class Possession {
     /** Drop a possession without touching the player — for logout, where the
      *  player object is on its way out. */
     public static void forget(ServerPlayer player) {
+        DRIVING.remove(player.getUUID());
         EYES.remove(player.getUUID());
         // Standards drops our hold on logout by itself, but releasing is
         // harmless and keeps every exit from possession identical.
@@ -490,6 +596,7 @@ public final class Possession {
 
     public static void tick(MinecraftServer server) {
         SERVER = server;
+        driveTick(server);
         if (!HELD.isEmpty() || !HELD_NPC.isEmpty()) noticeCameraDrift(server);
         if (HELD_NPC.isEmpty()) return;
 

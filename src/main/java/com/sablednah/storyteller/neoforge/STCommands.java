@@ -96,8 +96,13 @@ public final class STCommands {
 
                 // --- possession ---
                 .then(Commands.literal("possess")
-                        .executes(ctx -> possess(ctx, false))
-                        .then(Commands.literal("eyes").executes(ctx -> possess(ctx, true))))
+                        .executes(ctx -> possess(ctx, Mode.STEER))
+                        .then(Commands.literal("eyes").executes(ctx -> possess(ctx, Mode.EYES)))
+                        // The full takeover. Third verb rather than a flag on
+                        // the other two, because it is a different bargain:
+                        // exact control in exchange for a creature that goes
+                        // wherever you can go rather than wherever IT can.
+                        .then(Commands.literal("drive").executes(ctx -> possess(ctx, Mode.DRIVE))))
                 .then(Commands.literal("release").executes(STCommands::release))
                 .then(Commands.literal("lock").executes(STCommands::lock))
                 .then(Commands.literal("unlock").executes(STCommands::unlock))
@@ -323,8 +328,12 @@ public final class STCommands {
      *        onto the camera entity every tick regardless. Eyes or control,
      *        never both, until a client mod supplies the input.
      */
-    private static int possess(CommandContext<CommandSourceStack> ctx, boolean throughItsEyes)
+    /** The three bargains possession can strike. */
+    private enum Mode { STEER, EYES, DRIVE }
+
+    private static int possess(CommandContext<CommandSourceStack> ctx, Mode mode)
             throws CommandSyntaxException {
+        boolean throughItsEyes = mode == Mode.EYES;
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         // One gesture, both kinds of body: a wild creature found by our own
         // ray, or a cast NPC found by Cast. Whichever was nearer is the one
@@ -356,14 +365,34 @@ public final class STCommands {
         // Steering wants a grounded body, so the creature is following
         // somewhere it can actually go. Spectator keeps its own job: the
         // godlike survey of a scene, which is what /st drift is for.
+        // Driving is a mob-only trick: it works by snapping the creature onto
+        // the player every tick, and a Cast NPC is moved by Cast rather than by
+        // us. Said plainly rather than silently downgraded.
+        if (mode == Mode.DRIVE && sighted.isNpc()) {
+            Feedback.chat(player, "&7" + sighted.name() + " &7is a cast NPC — Cast moves its body, "
+                    + "so it cannot be driven. &f/st possess&7 steers it instead.");
+            return 0;
+        }
         var refusal = sighted.isNpc()
                 ? Possession.possessNpc(player, sighted.npcId(), throughItsEyes)
-                : Possession.possess(player, sighted.mob(), throughItsEyes);
+                : mode == Mode.DRIVE
+                        ? Possession.drive(player, sighted.mob())
+                        : Possession.possess(player, sighted.mob(), false);
         switch (refusal) {
             case NONE -> {
                 // Say which of the two this is, at the moment it happens. A
                 // Storyteller who expected to steer and cannot would otherwise
                 // be left pressing keys at a creature that ignores them.
+                if (mode == Mode.DRIVE) {
+                    Feedback.chat(player, "&5You &lare&r&5 &f" + sighted.name()
+                            + "&5. Move as you always do — it goes where you go, and the room "
+                            + "sees only it. &f/st say <words>&5 speaks as it, &f/st release&5 "
+                            + "gives it back.");
+                    Feedback.chat(player, "&8Third person shows the creature where your body "
+                            + "would be. Without the StoryTeller client mod you will see it from "
+                            + "the inside — it still works, it just looks wrong.");
+                    return 1;
+                }
                 Feedback.chat(player, throughItsEyes
                         ? "&5You are seeing through &f" + sighted.name()
                                 + "&5. &f/st say <words>&5 speaks as it, &f/st release&5 lets it go. "

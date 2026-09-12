@@ -35,6 +35,8 @@ public class STClient {
 
     public STClient(ModContainer container, IEventBus modEventBus) {
         modEventBus.addListener(STKeyMappings::register);
+        // Declines to draw the creature you are driving, in first person only.
+        NeoForge.EVENT_BUS.register(DrivenView.class);
         NeoForge.EVENT_BUS.addListener(
                 (ClientTickEvent.Post event) -> STKeyMappings.onClientTick());
         // Per-connection state, so the "your keys are unbound" notice belongs to

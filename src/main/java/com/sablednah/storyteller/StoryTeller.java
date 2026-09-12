@@ -42,6 +42,10 @@ public class StoryTeller {
 
     public StoryTeller(IEventBus modEventBus, ModContainer container) {
         STAttachments.register(modEventBus);
+        // One packet, registered optional() so a vanilla client still connects.
+        // See STNetwork for why it exists at all when everything else here is
+        // a command string.
+        modEventBus.addListener(com.sablednah.storyteller.network.STNetwork::register);
         NeoForge.EVENT_BUS.register(STCommands.class);
         NeoForge.EVENT_BUS.register(STPermissions.class);
         NeoForge.EVENT_BUS.register(STServerEvents.class);

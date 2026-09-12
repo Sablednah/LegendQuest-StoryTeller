@@ -68,8 +68,14 @@ public final class STServerEvents {
         Sights.mobWentAway(mob, "dies");
         Possession.possessorOf(mob).ifPresent(possessor -> {
             Possession.release(possessor);
+            // Only mention /st return if they are actually out of their body.
+            // A driver never left it -- they were walking the creature around
+            // from inside their own skin -- so telling them how to come back
+            // is an instruction to fix something that is not wrong.
+            boolean away = Presence.isDrifting(possessor);
             Feedback.chat(possessor, "&c" + mob.getName().getString()
-                    + " dies, and you are cast out of it. &f/st return&c brings you back to your body.");
+                    + " dies, and you are cast out of it."
+                    + (away ? " &f/st return&c brings you back to your body." : ""));
         });
     }
 
