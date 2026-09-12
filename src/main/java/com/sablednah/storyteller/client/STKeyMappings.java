@@ -60,8 +60,11 @@ public final class STKeyMappings {
     /** Jump to the next player at the table. */
     public static final KeyMapping NEXT = new KeyMapping(
             "key.storyteller.next", InputConstants.UNKNOWN.getValue(), CATEGORY);
+    /** Bring the party to where you are standing. */
+    public static final KeyMapping SUMMON = new KeyMapping(
+            "key.storyteller.summon", InputConstants.UNKNOWN.getValue(), CATEGORY);
 
-    private static final KeyMapping[] ALL = { POSSESS, LOCK, DRIFT, NEXT };
+    private static final KeyMapping[] ALL = { POSSESS, LOCK, DRIFT, NEXT, SUMMON };
 
     public static void register(RegisterKeyMappingsEvent event) {
         event.registerCategory(CATEGORY);
@@ -79,6 +82,7 @@ public final class STKeyMappings {
         drain(mc, LOCK, "st lock");
         drain(mc, DRIFT, "st drift");
         drain(mc, NEXT, "st next");
+        drain(mc, SUMMON, "st summon");
     }
 
     /**

@@ -72,6 +72,15 @@ public final class STCommands {
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(STCommands::gotoPlayer)))
                 .then(Commands.literal("next").executes(STCommands::nextPlayer))
+                // Bring the table to the scene. No player argument needed when
+                // the Storyteller is in the party themselves, which is the
+                // common case -- they joined it to be summonable in the first
+                // place. Naming a member covers the other case: a GM who runs
+                // scenes from outside the party.
+                .then(Commands.literal("summon")
+                        .executes(ctx -> summonParty(ctx, null))
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(ctx -> summonParty(ctx, EntityArgument.getPlayer(ctx, "player")))))
 
                 // --- oversight ---
                 .then(Commands.literal("who").executes(STCommands::who))
@@ -518,6 +527,40 @@ public final class STCommands {
         Feedback.chat(player, "&7You let &f" + name.get()
                 + "&7 go. &8Back to whatever you are looking at.");
         return 1;
+    }
+
+    /**
+     * {@code /st summon} — the party arrives where the Storyteller stands.
+     *
+     * <p>Reports every member, including the ones it could not reach. "Three of
+     * four arrived" is something the person about to start talking needs to
+     * know, and an offline member reported as a silence is how a scene gets run
+     * at somebody who is not there.</p>
+     */
+    private static int summonParty(CommandContext<CommandSourceStack> ctx, ServerPlayer named)
+            throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        ServerPlayer anchor = named != null ? named : player;
+
+        var arrivals = Summons.summonParty(player, anchor);
+        long came = arrivals.stream().filter(a -> "arrived".equals(a.what())).count();
+        long missing = arrivals.stream().filter(a -> "offline".equals(a.what())).count();
+
+        if (came == 0 && missing == 0) {
+            Feedback.chat(player, "&7Nobody to bring — "
+                    + (named != null ? named.getName().getString() + " is" : "you are")
+                    + " not in a party with anyone else.");
+            return 0;
+        }
+        Feedback.chat(player, "&d" + came + " &7" + (came == 1 ? "player" : "players")
+                + " brought to you."
+                + (missing > 0 ? " &8(" + missing + " offline)" : ""));
+        for (var a : arrivals) {
+            if (!"arrived".equals(a.what())) {
+                Feedback.chat(player, "  &8" + a.who() + ": " + a.what());
+            }
+        }
+        return (int) came;
     }
 
     // --- presence ----------------------------------------------------------

@@ -39,8 +39,14 @@ neoForge {
     }
 
     runs {
+        // A SECOND player, for the things one client cannot show: a party
+        // summon, party chat, a nameplate seen from outside, possession watched
+        // by somebody who is not doing it. Auto-joins the same dev server as
+        // the buddy so two windows are two players without any clicking.
         client {
             client()
+            programArguments.addAll '--username', 'TestGM', '--quickPlayMultiplayer', '127.0.0.1:25570'
+            gameDirectory = file('runGM')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -228,8 +234,20 @@ tasks.register('stageLegendQuestBuddy', Copy) {
     from(standardsJar)
     into file('runBuddy/mods')
 }
+// The second client needs its own staging for the same reason the first does:
+// a run directory is not shared, and a client with no LegendQuest jar dies at
+// load with "Mod storyteller requires legendquest 2.4.1 or above / Currently,
+// legendquest is not installed" -- a message that names two other mods and
+// never mentions the run directory it is actually missing from.
+tasks.register('stageLegendQuestGM', Copy) {
+    doFirst { sweepStaged(file('runGM/mods')) }
+    from(legendQuestJar)
+    from(standardsJar)
+    into file('runGM/mods')
+}
 tasks.matching { it.name == 'runServer' }.configureEach { dependsOn 'stageLegendQuestServer' }
 tasks.matching { it.name == 'runClientBuddy' }.configureEach { dependsOn 'stageLegendQuestBuddy' }
+tasks.matching { it.name == 'runClient' }.configureEach { dependsOn 'stageLegendQuestGM' }
 
 // ---------------------------------------------------------------------------
 // Build stamp. A version number answers "which release"; during development
