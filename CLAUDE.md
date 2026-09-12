@@ -82,6 +82,40 @@ at *your* code rather than at the stale jar actually causing it.
 So: **build the matching LegendQuest branch first.** A red build here is usually
 a missing or stale sibling jar, not a code error.
 
+## Deploying to instances
+
+`./deploy.sh` is the mid-loop tool: it builds the checked-out branch and copies
+the jar into the one instance that branch targets, routed by the jar's own `+mc`
+tag. It picks the JDK from `minecraft_version` — 26.x will not build on 21, and
+there is no system Java to fall back to.
+
+`./deploy-all.sh <dir-of-tagged-jars>` is the after-a-release tool: it updates
+**every** instance that already has a StoryTeller jar, and never installs the mod
+somewhere new. `./deploy-all.sh --check <dir>` audits and copies nothing.
+
+- **Route on the instance's own `gameVersion`, never its folder name.** The
+  1.21.11 instance is called `MobHealth - Forge`, after a different mod
+  entirely; `26.2` and `26.2.test` are both Minecraft 26.2. It is in
+  `minecraftinstance.json`, written **UTF-8 with BOM**, so read it as
+  `utf-8-sig` or it dies on the first character looking like a corrupt file.
+- **`--check` exists because the estate drifted for two days unnoticed.** Three
+  26.x instances sat on a build from 10 Sep while `main` moved five commits,
+  and "is the new one everywhere?" could only be answered by hand, jar by jar.
+  An audit nobody can run is an audit nobody runs.
+- **Both scripts refuse a running instance**, and that has to be a refusal
+  rather than a warning — see the jar-copying trap below.
+- **The stamp is printed before and after**, because two jars can share a
+  filename *and* a version and still differ. What that guards against is not
+  the script (which copies unconditionally) but a person or an agent deciding
+  to skip a deploy because the version already reads right.
+- **A `-dirty` stamp is called out.** Mid-loop that is normal and wanted;
+  estate-wide it means every instance is running code no commit describes. That
+  nearly shipped — the 26.x jars built during a port loop were stamped
+  `4a0de0dd-dirty`, naming the parent commit plus modifications, because they
+  were built *before* the commit that captured them.
+- **Stamp times are the COMMIT's time, not the build's.** Deliberate, and
+  confusing exactly once when reading one as "when was this built".
+
 ## Worktrees and the test loop
 
 | Path | Purpose |
