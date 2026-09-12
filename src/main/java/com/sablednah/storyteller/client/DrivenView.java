@@ -165,6 +165,22 @@ public final class DrivenView {
         var entity = mc.level.getEntity(driven);
         if (entity == null || entity == mc.player) return;
 
+        // Cancel any interpolation FIRST, or it undoes this every tick.
+        //
+        // A move or teleport packet does not set a position, it starts a lerp:
+        // InterpolationHandler.interpolate() runs on the entity's own tick and
+        // calls setPos() itself, stepping toward a target. Worse for us, it
+        // measures how far the entity moved by other means since last tick and
+        // ADDS that delta to its own target -- so puppeting the entity feeds
+        // the thing that is fighting the puppet, and the body chases the camera
+        // at a fixed lag instead of being pinned to it. That is a slide.
+        //
+        // It matters most for a cast body: Cast moves its NPCs with snapTo on
+        // every tick of a drive, so there is always an interpolation in flight.
+        // Nullable, and vanilla null-checks it too.
+        var interpolation = entity.getInterpolation();
+        if (interpolation != null) interpolation.cancel();
+
         entity.setPos(mc.player.getX(), mc.player.getY(), mc.player.getZ());
         entity.xOld = mc.player.xOld;
         entity.yOld = mc.player.yOld;
