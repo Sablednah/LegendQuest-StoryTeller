@@ -38,6 +38,17 @@ neoForge {
         }
     }
 
+    // Which dev server the test clients auto-join.
+    //
+    // A property rather than a constant because a version rig is a port, not a
+    // rewrite: 1.21.11 runs on 25570, the 26.2 rig on 25571, and 26.3 will want
+    // its own without anybody editing a build file to get it.
+    //
+    //   ./gradlew client -Pst_server=127.0.0.1:25571
+    //
+    // Default unchanged, so every existing invocation behaves exactly as before.
+    def stServer = project.findProperty('st_server') ?: '127.0.0.1:25570'
+
     runs {
         client {
             client()
@@ -52,7 +63,7 @@ neoForge {
             // server; each owns a port pair, because a collision on the game
             // port fails loudly but a collision on RCON just answers "auth
             // failed" forever. See CLAUDE.md.
-            programArguments.addAll '--username', 'TestBuddy', '--quickPlayMultiplayer', '127.0.0.1:25570'
+            programArguments.addAll '--username', 'TestBuddy', '--quickPlayMultiplayer', stServer
             gameDirectory = file('runBuddy')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
