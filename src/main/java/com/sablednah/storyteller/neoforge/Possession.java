@@ -222,7 +222,36 @@ public final class Possession {
      */
     private static void stepInto(ServerPlayer player, double x, double y, double z,
             float yaw, float pitch) {
-        player.teleportTo(player.level(), x, y, z, java.util.Set.of(), yaw, pitch, false);
+        double clear = clearY(player, x, y, z);
+        player.teleportTo(player.level(), x, clear, z, java.util.Set.of(), yaw, pitch, false);
+    }
+
+    /**
+     * A y the Storyteller actually fits at.
+     *
+     * <p><b>Because a body's recorded position is not always a place a player
+     * can stand.</b> A cast NPC's position comes from Cast's store after
+     * gravity has settled it, and a mob's feet can be a hair inside the surface
+     * it is standing on. Teleporting a player into a block does not fail — it
+     * is worse than that: vanilla shoves them sideways out of it. Measured at
+     * a body whose feet were buried, the driver landed <em>1.5 blocks away from
+     * the creature they had just become</em>, which is the illusion broken at
+     * the exact moment it is supposed to start.</p>
+     *
+     * <p>Searched upward in small steps and no further than a block and a bit:
+     * the aim is to clear a buried floor, not to find somewhere else entirely.
+     * If nothing in that range is clear the original is used and vanilla does
+     * whatever it was going to do — being no worse than before beats inventing
+     * a destination the Storyteller did not choose.</p>
+     */
+    private static double clearY(ServerPlayer player, double x, double y, double z) {
+        var size = player.getDimensions(player.getPose());
+        for (double lift = 0.0D; lift <= 1.25D; lift += 0.0625D) {
+            if (player.level().noCollision(player, size.makeBoundingBox(x, y + lift, z))) {
+                return y + lift;
+            }
+        }
+        return y;
     }
 
     public static Refusal drive(ServerPlayer player, Mob mob) {
