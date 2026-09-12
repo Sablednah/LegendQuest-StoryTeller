@@ -430,9 +430,10 @@ node.
   `travel` — whether the *stand* collides with blocks — and nothing consults it
   for collisions *against* the stand. Measured: a player walked straight through
   an invisible gravity-having stand at 4 blocks' run-up without slowing. Cast
-  builds these as solid "contact boxes" for its phantoms, so that premise wants
-  rechecking on their side; and a driver standing inside one is not what makes
-  them stick.
+  was spending one of these per phantom as a solid "contact box"; on this
+  measurement the whole class was deleted (Cast `2aebe1d`), so phantoms no
+  longer have a stand and `@e[type=armor_stand]` is no longer a way to find one
+  over RCON — `/cast list` prints their positions.
 - **"Stuck until I jump" means a player is inside terrain.** It never means
   something is holding them: nothing in vanilla holds a player, and almost
   nothing is even solid to them (see the armour stand entry). Measured on flat
@@ -449,7 +450,10 @@ node.
   result was a driver landing **1.5 blocks from the creature they had just
   become**, which breaks the illusion at the exact moment it should start.
   `Possession.clearY` searches up to 1.25 blocks upward for a box that fits
-  before teleporting.
+  before teleporting. Cast now unburies feet at every spawn entry point too
+  (`Gravity.unbury`), so this is belt-and-braces rather than the only guard —
+  which is the right side to be on, since the position can come from any caller
+  and we are the ones putting a player at it.
 - **A convincing wrong cause, measured.** "I keep moving when I stop, like I'm
   on ice" while driving looked exactly like entity push: a mob in the player's
   own block calls `pushEntities` at it every tick. Tested directly — an
