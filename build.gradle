@@ -59,6 +59,13 @@ neoForge {
         // the two windows you are looking at.
         clientBuddy {
             client()
+            // An unattended client stops dead on the dev-only "Warnings while
+            // loading mods" screen and waits for a human to click Proceed. It
+            // renders no in-game frame until somebody does, so an automated
+            // rig looks hung and every visual bug is invisible. Four mods here
+            // still declare the deprecated logoFile, so the screen is not
+            // going away by itself.
+            systemProperty 'neoforge.warnings.logofile.hide', 'true'
             // 25570, not the default 25565. Six of Sable's mods have a dev
             // server; each owns a port pair, because a collision on the game
             // port fails loudly but a collision on RCON just answers "auth
