@@ -150,6 +150,40 @@ git diff --name-status main mc26.2 -- src/ | awk '$1=="A"'
   reference", the file was untouched for that reason, and the run looked exactly
   like a confirmed leak. `git init -b main` and read the error line.
 
+## A 26.x rig exists now, on Vivo
+
+The 26.x client half was ported to compile and never rendered, and that gap
+produced a real bug: driving slides on 26.x and does not on 1.21.11, and there
+was no way to see it here. There is now a **26.2 rig** on Vivo — server on
+25571/25581, client on display `:12` — built by `~/dev/rig.sh <mc> <neoforge>
+<game-port> <rcon-port> <display>`, which takes a feed of version-matched jars
+and a `git archive` of the branch. 26.1.2 feeds are staged. Vivo's own README
+carries the full recipe and the seven traps that cost time the first time.
+
+What it measured, on 26.2, driving a Cast human, third person, comparing two
+frames taken *after* the key was released and the driver was standing still
+(so no walk animation to confuse it):
+
+| build | no input | after walk + stop |
+|---|---|---|
+| before the interpolation fix | 0.06 px | **5.27 px** |
+| with the fix | 0.86 px | **4.40 px** |
+| an ordinary player, not driving | — | **3.20 px** |
+
+So cancelling the interpolation helped by about a pixel, and what is left is
+close to what a vanilla player body does anyway. It is **not** a dramatic slide
+at this scale, which means either the remaining ~1px matters more in motion than
+a still frame suggests, or the rig is not yet reproducing what Sable sees. Say
+that plainly rather than claiming the fix landed.
+
+- **Third person must be found, not assumed.** F5 cycles, and the starting state
+  is whatever the last run left. Press F5 and count body pixels; repeat until
+  the body appears. A measurement script that assumes a camera mode silently
+  measures an empty screen and reports zero movement.
+- **Measure against two controls, not one.** No-input gives the noise floor;
+  an ordinary non-driving player gives what vanilla does regardless. A single
+  number in the middle of those two says nothing on its own.
+
 ## Worktrees and the test loop
 
 | Path | Purpose |
