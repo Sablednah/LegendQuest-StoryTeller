@@ -4,6 +4,7 @@ import com.sablednah.storyteller.network.DrivenPayload;
 
 import net.minecraft.client.Minecraft;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
@@ -64,6 +65,11 @@ public final class DrivenView {
     @SubscribeEvent
     static void onRenderLiving(RenderLivingEvent.Pre<?, ?, ?> event) {
         if (driven == DrivenPayload.NONE) return;
+        // Avatars carry an id, so they are decided by identity in
+        // onRenderPlayer rather than guessed at here. RenderPlayerEvent is a
+        // subclass of this event, so without this line both handlers would
+        // have an opinion about the same render.
+        if (event.getRenderState() instanceof AvatarRenderState) return;
         Minecraft mc = Minecraft.getInstance();
         // Third person wants the creature drawn: it stands where the player's
         // body would be, which is the whole illusion.
@@ -84,35 +90,43 @@ public final class DrivenView {
     }
 
     /**
-     * And in third person, hide the DRIVER instead.
+     * Avatars, decided by id: hide the driver, never the body.
      *
-     * <p>Without this, third person shows your own body standing exactly where
-     * the creature is, so you get a human and a wolf occupying one spot and the
-     * illusion collapses — which is what the first live test showed: a player
-     * model, no wolf, and no sense of playing as anything.</p>
+     * <p><b>Why this is not position matching any more.</b> A Cast human body
+     * is itself a player-shaped entity, and driving stands it in exactly the
+     * spot the driver occupies — so "hide the avatar at my position" hid the
+     * driver <em>and</em> the character they had become, and third person
+     * showed an empty world with a shadow in it. Two things in one place
+     * cannot be told apart by where they are.</p>
      *
-     * <p>The pair is the whole trick. First person hides the creature you are
-     * inside; third person hides the person inside it. Either way what is on
-     * screen is the creature, which is what the room sees too.</p>
+     * <p>{@link AvatarRenderState} carries {@code id}, set from
+     * {@code entity.getId()}, which is the identity the mob states simply do
+     * not have. So this asks the only question that has a right answer: is
+     * this render me, or is it the body I am wearing?</p>
      *
-     * <p>Matched by position against the local player, since an avatar render
-     * state carries no identity either — and hiding <em>other</em> players
-     * would be a straightforward bug rather than a cosmetic one.</p>
+     * <p>The two directions are what makes driving read as a takeover. First
+     * person hides the body you are standing inside, because otherwise it fills
+     * the screen. Third person hides <em>you</em>, so what stands where your
+     * body would be is the character — which is also what the room sees.</p>
      */
     @SubscribeEvent
     static void onRenderPlayer(RenderPlayerEvent.Pre<?> event) {
         if (driven == DrivenPayload.NONE) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.options.getCameraType().isFirstPerson()) return;
         if (mc.player == null) return;
 
-        var state = event.getRenderState();
-        double dx = state.x - mc.player.getX();
-        double dy = state.y - mc.player.getY();
-        double dz = state.z - mc.player.getZ();
-        if (dx * dx + dy * dy + dz * dz > 0.12D) return;
+        int id = event.getRenderState().id;
+        boolean firstPerson = mc.options.getCameraType().isFirstPerson();
 
-        event.setCanceled(true);
+        if (id == driven) {
+            // The body being driven. Hidden from inside, drawn from outside.
+            if (firstPerson) event.setCanceled(true);
+            return;
+        }
+        // The driver's own body, and only in third person -- vanilla does not
+        // draw your avatar in first person anyway, and hiding any OTHER player
+        // would be a plain bug rather than a cosmetic one.
+        if (id == mc.player.getId() && !firstPerson) event.setCanceled(true);
     }
 
     /**
