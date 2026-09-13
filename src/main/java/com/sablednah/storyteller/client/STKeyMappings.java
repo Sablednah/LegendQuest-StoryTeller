@@ -11,7 +11,7 @@ import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 
 /**
- * Keybinds for the four tools a Storyteller reaches for with a mob moving.
+ * Keybinds for the five tools a Storyteller reaches for mid-scene.
  *
  * <p><b>Why keys exist at all, given the commands and the buttons.</b> Both of
  * those need your hands off the mouse. Typing {@code /st lock} at a wandering
@@ -19,8 +19,9 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
  * and clicking a button means opening the inventory, which puts a screen
  * between you and the thing you were aiming at. A key is the only form that
  * works while you are still <i>tracking</i>. That is the whole reason for this
- * class, and it is why these four and not others: possess, lock, drift and
- * next are the ones aimed at something.</p>
+ * class, and it is why these and not others: possess, lock, drift and next are
+ * the ones aimed at something, and summon is the one wanted without looking
+ * away from the scene the party is about to arrive in.</p>
  *
  * <p><b>A key sends a command string, exactly like a button does.</b>
  * {@code sendCommand} is the same path the chat box uses, so the server cannot
@@ -32,7 +33,7 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
  * <p><b>Unbound by default, deliberately.</b> A mod that claims keys on install
  * is how conflicts start, and the obvious letters are taken — LegendQuest alone
  * holds K, R, G, H and B. Exactly one player on a server is the Storyteller;
- * everyone else installing this client would be donating four keys to nothing.
+ * everyone else installing this client would be donating five keys to nothing.
  * So they arrive empty and the mod <i>tells</i> the Storyteller they are there,
  * which is the trade that costs nobody anything.</p>
  *
@@ -137,7 +138,7 @@ public final class STKeyMappings {
      * Say once, per connection, that the keys exist and are empty.
      *
      * <p>Unbound-by-default is the right call and an invisible one: a
-     * Storyteller has no way to discover four keys that do nothing. So the
+     * Storyteller has no way to discover five keys that do nothing. So the
      * moment the server confirms they <i>are</i> a Storyteller — by sending a
      * tree with {@code /st} in it — say so, and only then. Someone without the
      * permission never hears about a tool they cannot use, and a Storyteller
@@ -157,7 +158,7 @@ public final class STKeyMappings {
         // that names client types, which is the arrangement that makes a
         // version drop cheap.
         mc.player.displayClientMessage(Component.literal(
-                "§7StoryTeller keys are unbound. Bind possess, lock, drift and next in "
+                "§7StoryTeller keys are unbound. Bind possess, lock, drift, next and summon in "
                 + "§fOptions → Controls → StoryTeller§7 to use them while aiming."), false);
     }
 

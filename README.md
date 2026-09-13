@@ -28,7 +28,7 @@ The corollary is that `/st` is the whole mod. Any GUI added later drives these
 same commands rather than bypassing them, so the two can never grow different
 rule sets.
 
-## Status: milestone 1
+## What it does
 
 Working today:
 
@@ -36,6 +36,12 @@ Working today:
   (dimension, position, facing and game mode all restored). `/st return` is
   the unambiguous form for a macro that must not toggle.
 - `/st goto <player>` · `/st next` — look in on someone, or cycle the table.
+- `/st summon [player]` — bring a whole LegendQuest party to where you are
+  standing, spread in a small ring and facing the way you face, so the table is
+  looking at whatever you were. Name a player to fetch *their* party. Everyone
+  who arrives is told who brought them, and anyone offline is reported to you
+  rather than silently skipped — "three of four arrived" is worth knowing before
+  you start talking.
 - `/st who` — the roster: race, class, level, karma, health, mana, party and
   where everyone is standing, with health coloured because it is the one
   number you have to react to mid-scene.
@@ -164,7 +170,7 @@ undo nor remember putting a helmet on a passing zombie.
 ## Buttons, without asking anyone to install anything
 
 With Standards 1.6.0 or newer, the Storyteller's most-used tools — **possess,
-lock, drift, next** — are registered as actions: a drawn bar for anyone running
+lock, drift, next, summon** — are registered as actions: a drawn bar for anyone running
 the Standards client, and a row of clickable chat buttons for anyone who is not.
 **A vanilla client gets working buttons.** That is why they exist here at all; a
 control surface that required a client mod would be one this mod could not use,
@@ -175,7 +181,7 @@ An action carries a **command string**, not a payload — a button sends
 of the commands, and permissions and refusals behave identically whichever way
 the command arrives. The commands stay the interface.
 
-**Four buttons, not seven, because the commands toggle.** There is no separate
+**Five buttons, not nine, because the commands toggle.** There is no separate
 Release or Return button: `/st possess` while wearing something lets it go,
 `/st drift` while drifting brings you back, `/st lock` while locked lets go.
 Two buttons for one idea reads as clunky, and the state is already on the
@@ -187,6 +193,20 @@ lights up while you are out of your body, and next only offers itself while you
 are drifting. A Storyteller who can see *you are wearing a cow* notices a
 possession that has silently ended, instead of finding out three commands
 later.
+
+## Keys, for the tools you aim
+
+With the StoryTeller mod on the Storyteller's own client, five keybinds appear
+under **Options → Controls → StoryTeller**: possess, lock, drift, next and
+summon. A command wants your hands off the mouse and a button wants a screen
+open, and neither works while you are still tracking a creature across the
+room — a key does.
+
+They arrive **unbound**. Exactly one player on a server is the Storyteller, and
+a mod that claims letters on install is how conflicts start; the Storyteller is
+told once, on joining, that the keys exist. Each key sends the same command a
+button or the chat box would, so it toggles the same way and the server cannot
+tell them apart.
 
 ## Permissions
 

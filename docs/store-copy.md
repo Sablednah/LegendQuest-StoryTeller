@@ -64,14 +64,15 @@ workflow will need as `CURSEFORGE_PROJECT_ID`.
 
 ## Relations to declare on the project page
 
-CurseForge lets a project declare its dependencies, and these are worth setting
-because they are the whole shape of the mod:
+These are declared by the upload itself — `CURSEFORGE_RELATIONS` in
+`.github/workflows/curseforge.yml` — so there is nothing to set on the website,
+and the table below is what goes out with every file:
 
 | Mod | Relation |
 |---|---|
 | LegendQuest ReForged | **Required dependency** |
 | Standards | Optional dependency |
-| Cast | Optional dependency (once it has a page) |
+| Cast | Optional dependency |
 | CityWorld ReForged | Optional dependency |
 
 ---

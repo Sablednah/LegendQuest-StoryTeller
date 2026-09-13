@@ -34,9 +34,11 @@ rather than one currency per command.
 Take over a creature, wear it, speak as it, give it back. Works on a vanilla
 Storyteller client: camera binding and spectator mode are both server-driven.
 
-**Two forms, because a vanilla client cannot give both.** `/st possess` steers
-— you keep your own grounded body and the creature walks to where you walk.
-`/st possess eyes` binds
+**Three forms, and `/st possess` picks between the first two itself.** With the
+StoryTeller client mod it *drives* — you are the creature, on your own controls,
+Cast NPCs included. Without it, it *steers* — you keep your own grounded body and
+the creature walks to where you walk. `/st possess drive` and `/st possess steer`
+name either one. `/st possess eyes` binds
 the camera and you ride along seeing what it sees, while it lives its own
 life. You cannot have eyes and control at once: a client stops sending
 movement entirely while spectating an entity (`LocalPlayer.sendPosition` is

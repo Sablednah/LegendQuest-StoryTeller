@@ -712,39 +712,40 @@ node.
 
 ## Releasing
 
-**Not released yet.** `mod_version` is `0.1.0`, there is no CurseForge project,
-and three things LegendQuest has do not exist here yet: **`CHANGELOG.md`**, the
-`.github/workflows` that publish on a GitHub release, and the artwork. Copy
-LegendQuest's rather than inventing new ones — its `curseforge.yml`,
-`modrinth.yml` and `store-copy` job are the house pattern, and its
-`scripts/curseforge-changelog.py` already strips the Markdown their sanitiser
-500s on.
+**1.0.0 is the first release.** CurseForge project **1690309**
+(`legendquest-storyteller`), with `CURSEFORGE_TOKEN` and `CURSEFORGE_PROJECT_ID`
+set on the GitHub repo. Publishing a GitHub release uploads every attached jar
+through `.github/workflows/curseforge.yml` — **copied from LegendQuest, and
+meant to stay in step with it**, along with `scripts/curseforge-upload.sh` and
+`scripts/curseforge-changelog.py`. Fix a problem in both repos, not one.
 
-The store copy is written and ready to paste: [`CURSEFORGE.md`](CURSEFORGE.md)
-is the description, [`docs/store-copy.md`](docs/store-copy.md) is everything
-around it — summary, categories, tags, relations, artwork sizes and the shot
-list. Keep both in step with the README when features change; LegendQuest's had
-drifted three releases before anyone noticed, which is why its `store-copy` job
-now fails a release when `CURSEFORGE.md` has not changed since the last tag.
+1. `mod_version` on all three branches, `CHANGELOG.md`, **`CURSEFORGE.md`**.
+2. Build all three jars from **committed** trees (a `-dirty` stamp is a jar no
+   commit describes), tag `vX.Y.Z` on main, and publish a GitHub release with
+   the three `storyteller-*+mc*.jar` attached and the changelog section as the
+   body.
+3. Check the workflow run, then the **authors file list** — a 200 is
+   acceptance, not publication, and moderation can still reject a file.
 
-When there is a project:
-
-1. `mod_version` on all three branches, `CHANGELOG.md`, **`CURSEFORGE.md`**,
-   tag, then a GitHub release.
-2. **Artwork is a prerequisite, and the keys are already written and commented
-   out** in `src/main/templates/META-INF/neoforge.mods.toml`. Three keys, all
-   declared on every branch; older loaders ignore what they do not know.
-   `iconFile` is the small **square** beside the name (26.2+; without it our row
-   is the only one with no icon), `bannerFile` the wide info-panel image (26.2+),
-   `logoFile` what 1.21.x and 26.1 show. Drop `storyteller-icon.png` and
-   `storyteller.png` into `src/main/resources/` and uncomment. Declaring
-   `logoFile` alone raises a dev-only deprecation warning on 26.2.
-3. **CurseForge rejects non-jar files** *after* returning HTTP 200, and a 200 is
-   acceptance rather than publication — check the file is approved.
-4. Its changelog sanitiser 500s on some Markdown: blockquotes, indented code
-   blocks with pipes, angle-bracket autolinks. Keep release notes to plain
-   paragraphs, lists and simple tables.
-5. Screenshots stay out of git.
+- **Relations are declared by the upload.** `CURSEFORGE_RELATIONS` in the
+  workflow sends LegendQuest as required and Standards, Cast and CityWorld as
+  optional with every file, matching `mods.toml`. Change them there, in the
+  commit, not on the project page.
+- **The `store-copy` job fails a release** whose `CURSEFORGE.md` has not
+  changed since the previous tag, unless the notes say `[no-store-update]`.
+  The first release has no previous tag and passes by definition.
+- **`lq_version_range` is `[2.5.0,)`** because 1.0.0 was only run against 2.5.0.
+  Every symbol it calls exists in 2.4.1; loosen the range only after running on
+  the older one.
+- **No Modrinth yet.** LegendQuest has a Modrinth workflow waiting on a project;
+  this repo has neither, so none was copied.
+- **CurseForge's changelog sanitiser 500s** on blockquotes, indented code blocks
+  with pipes and angle-bracket autolinks. `curseforge-changelog.py` rewrites the
+  known ones and prints what it changed.
+- **The banner is not in `CURSEFORGE.md` yet.** Upload it to the project's
+  description gallery and paste its `media.forgecdn.net` URL as the first line —
+  CurseForge's editor drops an image that is not part of the pasted text.
+- Screenshots stay out of git.
 
 Every jar carries a build stamp (`BuildInfo`, from
 `src/main/templates/storyteller/build.properties`) and names it in the startup

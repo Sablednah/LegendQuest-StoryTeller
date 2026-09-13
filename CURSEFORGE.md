@@ -138,6 +138,9 @@ every block on the server.
 - `/st goto <player>` · `/st next` — look in on someone, or cycle the table.
 - `/st drift` — leave your body and move through the scene unseen; say it again
   to come back, with dimension, position, facing and game mode all restored.
+- `/st summon [player]` — bring the whole party to where you stand, in a ring,
+  facing what you are facing. Everyone is told who brought them, and anyone
+  offline is reported to you instead of silently left behind.
 - `/st narrate [radius <n>| party <player>] <text>` · `/st title <text>` ·
   `/st whisper <player> <text>` — a god-voice, a title card, an omen meant for
   one person.
@@ -155,6 +158,11 @@ They report state rather than just availability: Possess lights up while you are
 wearing something *and names it*, Lock lights up naming what it holds. A
 Storyteller who can see "you are wearing a cow" notices a possession that has
 quietly ended, instead of finding out three commands later.
+
+**And keys, for the tools you aim.** Install StoryTeller on the Storyteller's own
+client and five keybinds appear — possess, lock, drift, next and summon — so you
+can take over a creature while you are still tracking it with the mouse. They
+arrive unbound, and the game tells you once that they are there.
 
 ---
 
