@@ -280,6 +280,13 @@ public final class Possession {
         // creature never moves under its own power, so it has no collision to
         // resolve. What constrains it is the PLAYER's collision -- they cannot
         // walk through a wall, so it does not either. Restored on release.
+        //
+        // ⚠ This is only the SERVER's copy, and noPhysics is not synced. The
+        // client's copy of the body pushes the local player from its own
+        // aiStep -- on a client, pushableBy admits nobody else -- so it needs
+        // switching off there too, or the same loop runs on the driver's side
+        // as a slide. DrivenView does that. The five blocks measured here and
+        // the "ice" reported later were the same bug seen from both ends.
         mob.noPhysics = true;
         com.sablednah.storyteller.network.STNetwork.sendDriven(player, mob.getId());
         return Refusal.NONE;

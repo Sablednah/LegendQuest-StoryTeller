@@ -556,16 +556,36 @@ node.
   (`Gravity.unbury`), so this is belt-and-braces rather than the only guard —
   which is the right side to be on, since the position can come from any caller
   and we are the ones putting a player at it.
-- **A convincing wrong cause, measured.** "I keep moving when I stop, like I'm
-  on ice" while driving looked exactly like entity push: a mob in the player's
-  own block calls `pushEntities` at it every tick. Tested directly — an
-  ordinary undriven cow summoned into the player's block — and the player did
-  not move a thousandth of a block in nine seconds. A server-side push on a
-  *player* only sets delta movement; nothing sends it, and the client reports
-  its own position back regardless. The real cause was the creature coasting:
-  `noPhysics` plus the player's delta copied in meant it travelled on after the
-  player stopped and was hauled back the next tick. Cancelling its tick
-  (`EntityTickEvent.Pre`, server side only) removes the coasting entirely.
+- **A convincing wrong cause, measured — and then the right one, found by the
+  owner from the symptoms.** "I keep moving when I stop, like I'm on ice" while
+  driving looked exactly like entity push, and was tested: an ordinary undriven
+  cow summoned into the player's block, and the player did not move a
+  thousandth of a block in nine seconds. That measurement was **correct and
+  beside the point**. A server-side push on a *player* only sets delta movement
+  that nothing sends. The push that matters is on the **client**: vanilla runs
+  `pushEntities()` in every living entity's `aiStep` there too, and on the
+  client `EntitySelector.pushableBy` admits exactly one candidate — the local
+  player — because that is the only way a mob can push a player whose movement
+  the client owns. `Entity.push` skips a pair only if either side has
+  `noPhysics`, and the server's `mob.noPhysics = true` is **never synced**. An
+  undriven cow could not show it: it walks out of your block and nothing pins it
+  back in.
+
+  Sable worked it out from four observations, all of which it explains. Still:
+  no drift, because `DrivenView` pins the body exactly and push ignores offsets
+  under 0.01. Move a hair: the body is where you were at the last pin, push
+  normalises that to a fixed shove however small it was, you move, the pin lags
+  again — a loop, identical on all three lines. Release: you shoot off the way
+  you were drifting, because the body is behind you. Exit standing still: nudged
+  out, because the pin stops. **`DrivenView` now sets `noPhysics` on the client
+  body and restores it on release.**
+
+  The coasting fix (cancelling the body's server tick in `EntityTickEvent.Pre`)
+  was a real, separate bug and stays. The two interpolation commits were also
+  real and worth about a pixel. None of the three was this — which is the
+  lesson: **a test that rules a cause out rules it out on the side it ran on.**
+  Push has two sides here, and the one that measured nothing was the one that
+  cannot move a player.
 - **A server-driven entity is rendered several ticks behind you, by design.**
   The client lerps toward each position update, while predicting its own player
   immediately — so a creature the server snaps onto you trails you, and in third
