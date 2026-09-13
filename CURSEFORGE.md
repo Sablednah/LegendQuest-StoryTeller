@@ -195,7 +195,7 @@ is a hard dependency, matching Minecraft version for Minecraft version.
 | Mod | Adds |
 |---|---|
 | [Standards](https://www.curseforge.com/minecraft/mc-mods/sablecraft-standards) | the buttons, money rewards, reputation rewards, and hiding you while you wear a body |
-| Cast | NPC bodies — human and mob — to possess, dress and speak through |
+| [Cast](https://www.curseforge.com/minecraft/mc-mods/sablecraft-cast) | NPC bodies — human and mob — to possess, dress and speak through |
 | CityWorld | its schematic library (`.schematic`, `.schem`, `.litematic`, `.nbt`) as a second pool for `/st struct` |
 
 Every one of these degrades to a plain "not available on this server" rather

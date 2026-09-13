@@ -729,8 +729,14 @@ meant to stay in step with it**, along with `scripts/curseforge-upload.sh` and
 
 - **Relations are declared by the upload.** `CURSEFORGE_RELATIONS` in the
   workflow sends LegendQuest as required and Standards, Cast and CityWorld as
-  optional with every file, matching `mods.toml`. Change them there, in the
-  commit, not on the project page.
+  optional with every file, matching `mods.toml`. Format is
+  `slug[=projectID]:type` — **the slug is required** and the numeric ID is an
+  optional exact match. 1.0.0's first upload was refused on every jar for
+  sending the ID alone, as a string. Change them in the commit, not on the
+  project page.
+- **Retry one failed file with the `pattern` input**, not a plain re-run:
+  CurseForge dedupes by content, so re-sending files that already went up gets
+  them rejected in moderation where nobody looks.
 - **The `store-copy` job fails a release** whose `CURSEFORGE.md` has not
   changed since the previous tag, unless the notes say `[no-store-update]`.
   The first release has no previous tag and passes by definition.

@@ -156,10 +156,12 @@ esac
 # scripts/curseforge-changelog.py for which, and why each one is a suspect. Anything it changes is
 # printed, because quietly editing release notes would be worse than the bug it prevents.
 # Relations: what this file depends on, shown on the project page and used by the CurseForge app to
-# pull dependencies in. CURSEFORGE_RELATIONS is "id-or-slug:type,..." -- a numeric key is a projectID,
-# which the API matches exactly; anything else is a slug. Set per repo in the workflow, committed, so
-# a dependency is reviewable rather than a setting somebody clicked once on a website. A type outside
-# CurseForge's five is refused here: the API would otherwise reject the whole upload with a 400.
+# pull dependencies in. CURSEFORGE_RELATIONS is "slug[=projectID]:type,...". The SLUG IS REQUIRED and
+# the numeric ID is an optional exact match -- sent as an integer. The published docs read as "slug or
+# projectID", and the first release built on that reading was refused file by file: "Required
+# properties are missing from object: slug" and "Expected Integer but got String" for the ID. Set per
+# repo in the workflow, committed, so a dependency is reviewable rather than clicked on a website. A
+# malformed entry is refused here, before upload, rather than 400-ing every file.
 METADATA="$(CHANGELOG="$CHANGELOG_FILE" DISPLAY="$DISPLAY_NAME" RTYPE="$RELEASE_TYPE" \
     HERE="$HERE" GV="$GAME_VERSIONS" RELATIONS="${CURSEFORGE_RELATIONS:-}" python3 -c '
 import json,os,sys,importlib.util
@@ -174,10 +176,16 @@ allowed = {"embeddedLibrary", "incompatible", "optionalDependency", "requiredDep
 projects = []
 for part in [p.strip() for p in os.environ.get("RELATIONS", "").split(",") if p.strip()]:
     key, _, kind = part.partition(":")
+    slug, _, pid = key.partition("=")
     if kind not in allowed:
         sys.exit("!! bad relation %r: type must be one of %s" % (part, ", ".join(sorted(allowed))))
-    projects.append({"projectID": key, "type": kind} if key.isdigit() else {"slug": key, "type": kind})
-    print(">> relation: %s %s" % (kind, key), file=sys.stderr)
+    if not slug or slug.isdigit() or (pid and not pid.isdigit()):
+        sys.exit("!! bad relation %r: expected slug[=numericProjectID]:type" % part)
+    entry = {"slug": slug, "type": kind}
+    if pid:
+        entry["projectID"] = int(pid)
+    projects.append(entry)
+    print(">> relation: %s %s%s" % (kind, slug, " (#%s)" % pid if pid else ""), file=sys.stderr)
 meta = {
   "changelog": text,
   "changelogType": "markdown",

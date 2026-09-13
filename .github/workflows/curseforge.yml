@@ -43,6 +43,11 @@ on:
         required: false
         default: false
         type: boolean
+      pattern:
+        description: "Which attached jars to upload, as a glob - e.g. one file that failed. Must end .jar"
+        required: false
+        default: '*.jar'
+        type: string
       minimal:
         description: "Diagnostic: upload with a one-line changelog and only the MC+loader tags"
         required: false
@@ -132,10 +137,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          # A re-run re-uploads everything by default, and CurseForge dedupes by content: files that
+          # already went up are rejected in moderation, where nobody looks. So a single failed file
+          # is retried on its own. Still jars only, whatever is typed here.
+          PATTERN: ${{ inputs.pattern || '*.jar' }}
         run: |
+          case "$PATTERN" in
+            *.jar) ;;
+            *) echo "::error::pattern must end in .jar (got '$PATTERN') - CurseForge rejects anything else after a 200."; exit 1 ;;
+          esac
           mkdir -p dist
           # Jars only - see the header. The genre pack ZIPs are deliberately not fetched.
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.jar' --dir dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$PATTERN" --dir dist
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' > dist/changelog.md
           ls -la dist
 
@@ -149,7 +162,7 @@ jobs:
           # (1690287) and CityWorld are optional: each adds something specific and degrades to "not
           # available on this server" without breaking anything. Committed rather than clicked on the
           # website, so the dependency is reviewable. See scripts/curseforge-upload.sh for the format.
-          CURSEFORGE_RELATIONS: "1658748:requiredDependency,1670445:optionalDependency,1690287:optionalDependency,cityworld-reforged:optionalDependency"
+          CURSEFORGE_RELATIONS: "legendquest-reforged=1658748:requiredDependency,sablecraft-standards=1670445:optionalDependency,sablecraft-cast=1690287:optionalDependency,cityworld-reforged:optionalDependency"
           RELEASE_TYPE: ${{ inputs.release_type || 'release' }}
           CURSEFORGE_DEBUG: ${{ inputs.debug && '1' || '' }}
           CURSEFORGE_MINIMAL: ${{ inputs.minimal && '1' || '' }}
