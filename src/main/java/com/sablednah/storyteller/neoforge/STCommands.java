@@ -41,7 +41,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /**
  * The {@code /st} command tree — the whole of StoryTeller for a vanilla
- * client, and the thing any future GUI will drive rather than bypass.
+ * client, and the thing the Standards buttons, the keybinds and any future
+ * screen all drive rather than bypass.
  *
  * <p>Commands first is not a staging decision, it is the architecture. A
  * Storyteller running the session from a laptop with no mods installed should
