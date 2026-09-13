@@ -283,9 +283,11 @@ public final class Possession {
         //
         // ⚠ This is only the SERVER's copy, and noPhysics is not synced. The
         // client's copy of the body pushes the local player from its own
-        // aiStep -- on a client, pushableBy admits nobody else -- so it needs
-        // switching off there too, or the same loop runs on the driver's side
-        // as a slide. DrivenView does that. The five blocks measured here and
+        // aiStep -- on a client, pushableBy admits nobody else. Copying the
+        // flag across is not enough: Player.tick resets it first on a
+        // player-shaped body. DrivenView.onEntityTickPre pins the body onto the
+        // driver just before its tick instead, so there is no gap to push
+        // across. The five blocks measured here and
         // the "ice" reported later were the same bug seen from both ends.
         mob.noPhysics = true;
         com.sablednah.storyteller.network.STNetwork.sendDriven(player, mob.getId());
