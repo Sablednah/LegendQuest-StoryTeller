@@ -85,7 +85,7 @@ and the table below is what goes out with every file:
 |---|---|---|
 | `src/main/resources/storyteller-icon.png` | the small icon beside the name in the 26.2+ mod list; also the CurseForge project avatar | 512×512, 108KB |
 | `src/main/resources/storyteller.png` | the wide info-panel image (26.2+), and `logoFile` for 1.21.x and 26.1 | 1024×512, 160KB |
-| `docs/store/storyteller-banner-850.png` | **upload this one to CurseForge**, then paste its forgecdn URL as the first line of `CURSEFORGE.md` | 850×425 |
+| `docs/store/storyteller-banner-850.png` | the CurseForge description header — **uploaded 2026-09-13**, and its forgecdn URL is the first line of `CURSEFORGE.md` | 850×425 |
 
 The 850px width is not arbitrary: CurseForge limits description image width, so
 that is the version that renders without being scaled by the browser.
@@ -118,6 +118,11 @@ can select-all and copy without picking the description out of a guide first.
 The banner belongs on the first line of that file on purpose: CurseForge's editor
 does not keep an uploaded image across edits, so it has to be part of the pasted
 text or it goes missing every time the copy changes.
+
+The URL reads `attachments/description/null/…` where LegendQuest's has its
+project ID. It is not broken — it serves the 850×425 PNG with HTTP 200 — it is
+just how CurseForge filed that upload, so there is no need to re-upload it to
+"fix" the path.
 
 **Keep it free of blockquotes and indented code blocks.** CurseForge renders
 descriptions through the same HTML sanitiser as changelogs, and those two

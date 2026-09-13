@@ -1,10 +1,4 @@
-<!-- Header image: upload the banner to the CurseForge description gallery,
-     then paste its media.forgecdn.net URL here AS THE FIRST LINE of this file,
-     the way LegendQuest's CURSEFORGE.md does. It has to live in the pasted text
-     rather than be uploaded separately: CurseForge's editor does not keep an
-     uploaded image across edits, so a banner that is not part of the copy goes
-     missing every time the description changes. Left blank rather than guessed
-     — a broken image is worse than none on a store page. -->
+![LegendQuest StoryTeller](https://media.forgecdn.net/attachments/description/null/description_f8609bc9-e9ec-4449-92d2-7ef4f3b1a317.png)
 
 # LegendQuest StoryTeller
 

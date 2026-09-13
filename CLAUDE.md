@@ -750,9 +750,11 @@ meant to stay in step with it**, along with `scripts/curseforge-upload.sh` and
 - **CurseForge's changelog sanitiser 500s** on blockquotes, indented code blocks
   with pipes and angle-bracket autolinks. `curseforge-changelog.py` rewrites the
   known ones and prints what it changed.
-- **The banner is not in `CURSEFORGE.md` yet.** Upload it to the project's
-  description gallery and paste its `media.forgecdn.net` URL as the first line —
-  CurseForge's editor drops an image that is not part of the pasted text.
+- **The banner is the first line of `CURSEFORGE.md`**, as a `media.forgecdn.net`
+  URL, and must stay there: CurseForge's editor drops an image that is not part
+  of the pasted text, so it would vanish the next time the description is
+  pasted. Its path says `description/null/` rather than a project ID — that is
+  how CurseForge filed it, and it serves fine.
 - Screenshots stay out of git.
 
 Every jar carries a build stamp (`BuildInfo`, from
