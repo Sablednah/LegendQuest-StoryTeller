@@ -589,8 +589,14 @@ node.
   vanilla goes first. `DrivenView.onEntityTickPre` now pins the body onto the
   driver in `EntityTickEvent.Pre` — after `setOldPosAndRot()`, before `tick()` —
   so the gap is under 0.01 at the moment of the push whatever `noPhysics` says.
-  **Not yet confirmed in-game** when written; test a plain mob and a Cast human
-  separately, since only the human was ever proven to reset the flag.
+  **Confirmed fixed in-game by Sable, 2026-09-13, on all three lines** — and the
+  test split exactly as the source predicted, which is the part worth keeping.
+  On the `noPhysics`-only build, cows and villagers stopped drifting and **only
+  Cast NPCs still did**: nothing resets the flag on a mob, and `Player.tick`
+  resets it on a player-shaped body. On the pre-tick pin, NPCs stopped too. When
+  a fix works for some entities and not others, the dividing line is a class
+  hierarchy, and the first place to look is what the losing class's `tick`
+  does before yours runs.
 
   The coasting fix (cancelling the body's server tick in `EntityTickEvent.Pre`)
   was a real, separate bug and stays. The two interpolation commits were also
