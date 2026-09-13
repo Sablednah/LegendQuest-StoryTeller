@@ -227,8 +227,18 @@ for a StoryTeller release that changes nothing else.
 
 ## Honest about what it does not do yet
 
-There is **no GUI and no story planner yet** — `/st` is the whole mod today, and
-anything built later drives these same commands rather than bypassing them.
+There is **no Storyteller screen yet** — no roster panel, spawn palette or saved
+reward presets. What you run a session with today is the commands, the
+[Standards](https://www.curseforge.com/minecraft/mc-mods/sablecraft-standards)
+buttons (a drawn bar, or clickable chat buttons on a vanilla client) and the
+keybinds. All three send the same `/st` commands, so none of them can do
+something the others cannot, and a screen built later will work the same way.
+
+**StoryTeller runs a story live; it does not author one.** Written questlines —
+givers, stages, choices, consequences the world remembers — are
+[Chronicler](https://www.curseforge.com/minecraft/mc-mods/chronicler)'s job, and
+the two sit happily on one server: prepare the plot in Chronicler, improvise
+around it with StoryTeller.
 
 Two limits worth knowing before a real session, stated here rather than
 discovered mid-scene:

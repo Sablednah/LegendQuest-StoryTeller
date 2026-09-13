@@ -24,9 +24,9 @@ titles, the action bar, sounds, display entities. A client-side StoryTeller
 mod is a *control surface* for the person running the scene, and never a
 requirement for the scene to be witnessed.
 
-The corollary is that `/st` is the whole mod. Any GUI added later drives these
-same commands rather than bypassing them, so the two can never grow different
-rule sets.
+The corollary is that `/st` is the whole mod. The buttons and keybinds send
+these same commands rather than bypassing them, and any screen added later will
+too, so they can never grow different rule sets.
 
 ## What it does
 
@@ -145,7 +145,11 @@ Nothing is destroyed either way. A steered creature keeps every goal it was
 born with; possession just adds one at priority 0 that holds all four AI
 flags, and releasing removes exactly that one.
 
-Not built yet: the story planner and the GUI. See `docs/ROADMAP.md` — it also
+Not built yet: a Storyteller screen — roster panel, spawn palette, saved
+reward presets. Today's controls are the commands, the Standards buttons and the
+keybinds. Authored, triggered storylines are
+[Chronicler](https://github.com/Sablednah/Chronicler)'s job rather than this
+mod's; StoryTeller is for running a story live. See `docs/ROADMAP.md` — it also
 has two known limitations worth reading before relying on this in a real
 session: `behave` may not hold on a brain-driven mob (Villager, Piglin, Warden
 and 17 others) because it competes with a Brain rather than replacing it, and

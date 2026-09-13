@@ -220,7 +220,7 @@ mod could neither remember nor undo.
 
 **Merchant/quest-giver/ambusher presets** are not built — they would need
 actual interaction (trading, dialogue, an aggro trigger) beyond a movement
-goal, which is GUI/story-planner territory more than a command-line preset.
+goal. The quest-giver half of that now exists in Chronicler — see section 5.
 
 ## 4. Set dressing — DONE (vanilla + CityWorld, both with undo)
 
@@ -291,14 +291,42 @@ decided for when one is built:
   machine. First sight of it being wrong is likelier to be their layout than
   our registration, and is worth reporting rather than working around.
 
-## 5. The GUI, and the planner
+## 5. The screen, and where the planner went
 
-Last, deliberately. Everything above is usable from a chat box first.
+Everything above is usable from a chat box first, and the Standards buttons and
+keybinds (see Buttons, above) already cover the tools a Storyteller aims.
 
-- Storyteller screen: roster, spawn palette, reward packets, scene cues.
-- Story planner: ordered beats with triggers (location entered, mob slain,
-  item obtained, time elapsed), fired manually or automatically.
-- Private GM notes per scene, and a session log for the recap.
+- **Storyteller screen — not built.** Roster, spawn palette, reward packets,
+  scene cues. Like the buttons and keys, it must send `/st` commands rather
+  than grow its own rules.
+- **Story planner — shipped, as a separate mod.** Ordered beats with triggers
+  (place entered, mob slain, item obtained, deadlines), choices and endings are
+  what [Chronicler](https://github.com/Sablednah/Chronicler) 1.0.0 does. Its own
+  design notes say it plainly: a live GM firing cues "is a quest with `on_enter`
+  effects", so building a second engine here would be building the same thing
+  twice.
+- Private GM notes per scene, and a session log for the recap — not built.
+
+### Next wave: fire Chronicler quests from the table
+
+A library of short "mini" quests — an ambush, a lost item, a rival's dare —
+kept in Chronicler, that the Storyteller can drop into a live session as it
+happens rather than laying out in advance. Chronicler's `api/Quests` is already
+the door, written with StoryTeller named as its first customer: `offer`,
+`accept`, `isActive` / `isComplete`, and world `flag` / `setFlag`.
+
+Sketch, not a design:
+
+- `/st quest offer <player|party> <quest>` — the giver's offer (Accept/Info in
+  chat) without a giver standing there; `accept` for a scene that should not ask.
+- `/st quest list [filter]` — browse the library mid-scene; a button later.
+- A **cast NPC as the giver**, so the offer comes from whoever the Storyteller is
+  wearing, in that NPC's voice.
+- Flags as scene state: `/st flag <name> on|off`, so an improvised choice can
+  change what an authored quest later does.
+
+Soft dependency, same pattern as Cast: one guarded `ChroniclerSupport` class,
+and without Chronicler the subcommand says so and nothing else changes.
 
 ## Control and safety, threaded throughout
 

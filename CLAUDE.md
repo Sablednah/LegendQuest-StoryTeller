@@ -16,9 +16,11 @@ party, a citizen's race and class *are* LegendQuest registry entries. There is
 no version of this mod that stands on its own, and proposals to make one are
 proposals for a different mod.
 
-**`/st` is the whole mod.** There is no client half yet. Any GUI built later
-drives these same commands rather than bypassing them, so the two can never grow
-different rule sets.
+**`/st` is the whole mod.** The client half (`STClient`, `DrivenView`, the
+keybinds) and the Standards buttons both send these same commands rather than
+bypassing them, and any screen built later must too, so they can never grow
+different rule sets. The one exception is `DrivenPayload`, which carries what a
+command cannot: which entity the client should stop drawing.
 
 ## Versions — one branch per Minecraft version
 
