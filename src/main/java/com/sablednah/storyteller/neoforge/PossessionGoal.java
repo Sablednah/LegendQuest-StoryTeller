@@ -24,11 +24,13 @@ import net.minecraft.world.entity.Mob;
  * without a single goal being removed. Releasing is one
  * {@code removeGoal} call and the mob is exactly what it was.</p>
  *
- * <p><b>Steering, on a vanilla client.</b> The Storyteller drifts as a
- * spectator and this goal walks the creature to wherever they have flown, so
- * the mob is led rather than driven. It is deliberately the version that needs
- * no client mod at all; one-to-one input control is what the Storyteller's own
- * mod adds later.
+ * <p><b>Steering, on a vanilla client.</b> The Storyteller keeps their own
+ * grounded body and this goal walks the creature to wherever they walk, so the
+ * mob is led rather than driven. It is deliberately the version that needs no
+ * client mod at all. One-to-one control is driving ({@code Possession.drive}),
+ * which {@code /st possess} picks instead whenever the Storyteller's client has
+ * the StoryTeller mod — this goal is the fallback, and {@code /st possess steer}
+ * asks for it by name.
  *
  * <p><b>This goal is used only when the camera is NOT bound to the mob</b>,
  * and that is not a preference. A vanilla client stops sending movement

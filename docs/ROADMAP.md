@@ -267,29 +267,31 @@ moment.
 
 Keybinds are the client half's to register and are unambiguously client-side —
 a `KeyMapping` is registered before anything knows which server it is talking
-to. `ClientActions.run(id)` gives a key handler the availability check and a
-silent no-op when the action is not offered, so none of that is reimplemented
-here. Silent is right: a key brushed on a server that does not offer the action
-should do nothing, because the player may not know it is bound.
+to. They do **not** go through Standards' `ClientActions.run`, so they work
+without Standards on the client at all: each key checks that the server's
+command tree actually offers the command (`findNode`, on the tree the server
+sent already filtered by permission) and sends it exactly as typed. Where it is
+not offered the key does nothing, silently — a key brushed on a server that does
+not offer the command should do nothing, because the player may not know it is
+bound.
 
-**StoryTeller has no client half yet** — it is server-only today, which is why
-the buttons had to work through clickable chat. Three things are already
-decided for when one is built:
+**The client half exists now**, and the three rules set down before it was
+built all held:
 
-- **Register keys UNBOUND by default.** A mod claiming keys on install is how
-  conflicts start, and anyone installing this will bind them deliberately.
-  Standards registers its own the same way, as a worked example.
-- **Keep everything that touches a rendering type in ONE small class.** 26.x
-  reworked GUI rendering wholesale — `GuiGraphics` became
-  `GuiGraphicsExtractor`, `renderItem` became `item`, `drawString` became
-  `text`, and a screen's `render` became `extractRenderState`; `fill` survived.
-  Standards ported its whole client half by touching a single file, because
-  only one file drew anything. Spread thinner than that and every version drop
-  becomes a hunt.
-- **The drawn bar is not proof.** Standards' bar compiles and its server half
-  is self-tested, but nobody has seen it rendered — there is no display on that
-  machine. First sight of it being wrong is likelier to be their layout than
-  our registration, and is worth reporting rather than working around.
+- **Keys are registered UNBOUND.** Five of them — possess, lock, drift, next and
+  summon — under Options → Controls → StoryTeller, and the Storyteller is told
+  once, on joining, that they exist. A mod claiming letters on install is how
+  conflicts start.
+- **Everything version-sensitive on the client stays in a few small classes.**
+  `STClient`, `STKeyMappings` and `DrivenView`; nothing draws, it only declines
+  to draw the body you are driving. That is why each 26.x port of the client
+  half has been a copy with one per-branch line rather than a hunt — 26.x reworked
+  GUI rendering wholesale (`GuiGraphics` became `GuiGraphicsExtractor`, a screen's
+  `render` became `extractRenderState`), and none of that is touched here yet.
+- **The drawn bar was not proof until somebody looked.** It has been looked at
+  now, in play: the bar renders and the buttons work, and the one layout fault
+  found — a hint drawn over the item icon rather than only in the tooltip — was
+  Standards' to fix and was reported there.
 
 ## 5. The screen, and where the planner went
 
