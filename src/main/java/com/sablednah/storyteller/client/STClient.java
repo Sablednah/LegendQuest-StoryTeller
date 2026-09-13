@@ -21,7 +21,7 @@ import net.neoforged.neoforge.common.NeoForge;
  * <p><b>The mod stays server-side by design; this adds convenience, never
  * capability.</b> Everything the keys do can be typed, and everything the table
  * perceives still arrives through things a vanilla client understands. A
- * Storyteller who installs nothing loses four keys and keeps the whole mod —
+ * Storyteller who installs nothing loses five keys and keeps the whole mod —
  * which is the promise this project will not trade away.</p>
  *
  * <p><b>Two small files, and deliberately.</b> 26.x reworked GUI rendering
