@@ -170,12 +170,20 @@ frames taken *after* the key was released and the driver was standing still
 | with the fix | 0.86 px | **4.40 px** |
 | an ordinary player, not driving | — | **3.20 px** |
 
-So cancelling the interpolation helped by about a pixel, and what is left is
-close to what a vanilla player body does anyway. It is **not** a dramatic slide
-at this scale, which means either the remaining ~1px matters more in motion than
-a still frame suggests, or the rig is not yet reproducing what Sable sees. Say
-that plainly rather than claiming the fix landed.
+So cancelling the interpolation helped by about a pixel — and **the rig was
+measuring the one phase where the bug is absent.** The real cause, found by
+Sable from the symptoms and fixed from the Standards session, was client-side
+entity push: the body's client copy shoves its driver whenever there is any gap
+between them. Standing still the pin is exact, so there is nothing to push.
+The slide happens *while moving* and on the release itself — and every frame
+above was taken after the driver had already stopped. See "A convincing wrong
+cause" under Known traps.
 
+- **Measure the phase the symptom describes.** "I keep moving when I stop"
+  reads like a post-stop effect, and the test was built around that reading,
+  with two controls and careful camera handling — all rigorous, all aimed at
+  the wrong moment. A clean null result from a well-controlled test is only as
+  good as the question it asked.
 - **Third person must be found, not assumed.** F5 cycles, and the starting state
   is whatever the last run left. Press F5 and count body pixels; repeat until
   the body appears. A measurement script that assumes a camera mode silently
