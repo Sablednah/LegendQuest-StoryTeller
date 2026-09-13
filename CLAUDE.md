@@ -577,8 +577,20 @@ node.
   normalises that to a fixed shove however small it was, you move, the pin lags
   again — a loop, identical on all three lines. Release: you shoot off the way
   you were drifting, because the body is behind you. Exit standing still: nudged
-  out, because the pin stops. **`DrivenView` now sets `noPhysics` on the client
-  body and restores it on release.**
+  out, because the pin stops.
+
+  **The first fix — `noPhysics` on the client body — changed nothing, on all
+  three lines, and why is worth more than the fix.** `Player.tick` opens with
+  `noPhysics = isSpectator()`. A Cast human is a `FakePlayer` on the server and
+  reaches the client as a `RemotePlayer`, whose `aiStep` ends in
+  `pushEntities()`. So the flag, set at the end of each client tick, was wiped at
+  the start of the next — before every push. **Setting a vanilla field from
+  outside is only as good as the last thing vanilla does to it**, and here
+  vanilla goes first. `DrivenView.onEntityTickPre` now pins the body onto the
+  driver in `EntityTickEvent.Pre` — after `setOldPosAndRot()`, before `tick()` —
+  so the gap is under 0.01 at the moment of the push whatever `noPhysics` says.
+  **Not yet confirmed in-game** when written; test a plain mob and a Cast human
+  separately, since only the human was ever proven to reset the flag.
 
   The coasting fix (cancelling the body's server tick in `EntityTickEvent.Pre`)
   was a real, separate bug and stays. The two interpolation commits were also

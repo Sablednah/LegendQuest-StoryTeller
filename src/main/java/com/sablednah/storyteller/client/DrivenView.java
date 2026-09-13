@@ -9,6 +9,7 @@ import net.neoforged.neoforge.client.event.RenderLivingEvent;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
 /**
  * Not drawing the creature you are standing inside.
@@ -183,36 +184,15 @@ public final class DrivenView {
         var entity = mc.level.getEntity(driven);
         if (entity == null || entity == mc.player) return;
 
-        // ⚠ THE ICE. The body's own CLIENT tick was shoving the driver.
-        //
-        // Vanilla runs pushEntities() in every living entity's aiStep, on the
-        // client too, and on the client EntitySelector.pushableBy admits exactly
-        // one candidate: the local player. That is deliberate -- the client is
-        // authoritative for its own player, so a mob has to push you from your
-        // side or it cannot push you at all. Entity.push skips a pair only when
-        // either has noPhysics, and the server's `mob.noPhysics = true` is never
-        // synced, so this copy of the body went on pushing.
-        //
-        // It explains all four things Sable saw, which is how it was found --
-        // by him, from the symptoms, before anyone read the code:
-        //  - Standing still, nothing. This method pins the body exactly onto
-        //    you, and push ignores offsets under 0.01.
-        //  - Move a hair and you slide. The body is where you were at the last
-        //    pin, so there is an offset; push normalises it to a fixed shove
-        //    however small it was; you move; the pin lags again. A loop.
-        //  - Release and you shoot off the way you were drifting: the body is
-        //    behind you, and the shove is always away from it.
-        //  - Leave while still and you are nudged out -- the pin stops, so the
-        //    next offset finally resolves.
-        //
-        // The earlier test that ruled push out was right about what it tested:
-        // a SERVER-side push on a player really does nothing. It could not see
-        // this one, because an undriven cow walks out of your block and is
-        // never pinned back into it.
+        // noPhysics on the client body, mirroring what the server sets on its
+        // own copy. It is NOT what stops the ice -- see onEntityTickPre.
+        // Player.tick opens with `noPhysics = isSpectator()`, so on a
+        // player-shaped body (a Cast human reaches the client as a RemotePlayer)
+        // this is wiped before every push. It does hold on an ordinary mob,
+        // where nothing resets it, so it stays as a second guard there.
         //
         // Every tick rather than once: a body that leaves tracking and comes
-        // back is a new object under the same id, and it would arrive with its
-        // physics on.
+        // back is a new object under the same id.
         if (entity != body) {
             letGo();
             body = entity;
@@ -254,6 +234,53 @@ public final class DrivenView {
             living.yBodyRotO = mc.player.yRotO;
             living.yHeadRotO = mc.player.yRotO;
         }
+    }
+
+    /**
+     * Pin the body onto the driver at the start of ITS OWN tick — the moment
+     * it pushes.
+     *
+     * <p><b>The ice.</b> A driven body's client tick ends its {@code aiStep} in
+     * {@code pushEntities()}, and on a client {@code EntitySelector.pushableBy}
+     * admits exactly one candidate: the local player. {@code Entity.push}
+     * ignores any pair under 0.01 apart, so the body is put exactly where the
+     * driver is immediately before it ticks. NeoForge raises
+     * {@code EntityTickEvent.Pre} in {@code ClientLevel.tickNonPassenger} after
+     * {@code setOldPosAndRot()} and before {@code tick()}, on 1.21.11 and 26.x
+     * alike — so whether the driver ticks before or after the body, the gap is
+     * zero at the only moment it matters.</p>
+     *
+     * <p>Sable found it from the symptoms: still, nothing (pinned exactly);
+     * move a hair and slide (the pin lags, push turns any gap into a fixed
+     * shove, you move, it lags again); release and shoot off the way you were
+     * going (the body is behind you).</p>
+     *
+     * <p><b>Why switching {@code noPhysics} on did nothing.</b> It was set at
+     * the END of the client tick, and {@code Player.tick} opens with
+     * {@code noPhysics = isSpectator()}. A Cast human is a {@code FakePlayer} on
+     * the server and a {@code RemotePlayer} here, so its flag was wiped before
+     * every push. Setting a vanilla field from outside is only as good as the
+     * last thing vanilla does to it, and here vanilla goes first. This pin does
+     * not depend on the flag.</p>
+     *
+     * <p>Interpolation is cancelled first, as in {@link #onClientTick}: a move
+     * packet handled since then has started a lerp, and the body's own
+     * {@code aiStep} would step it off the pin before pushing.</p>
+     *
+     * <p>Client only. In singleplayer this bus also carries the integrated
+     * server's ticks, and an entity id is not unique across the two.</p>
+     */
+    @SubscribeEvent
+    static void onEntityTickPre(EntityTickEvent.Pre event) {
+        if (driven == DrivenPayload.NONE) return;
+        var entity = event.getEntity();
+        if (!entity.level().isClientSide() || entity.getId() != driven) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || entity == mc.player || entity.level() != mc.level) return;
+
+        var interpolation = entity.getInterpolation();
+        if (interpolation != null) interpolation.cancel();
+        entity.setPos(mc.player.getX(), mc.player.getY(), mc.player.getZ());
     }
 
     @SubscribeEvent
