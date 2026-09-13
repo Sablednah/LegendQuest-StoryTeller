@@ -25,14 +25,16 @@ public final class STServerEvents {
      * snapping, which is what ice looks like. With no tick there is nothing to
      * coast with: the position comes from the Storyteller, full stop.</p>
      *
-     * <p><b>The obvious explanation was measured and was wrong.</b> Entity
-     * push looked like the culprit — a mob in the same block as a player calls
-     * {@code pushEntities} at it every tick — so it was tested directly, with
-     * an ordinary undriven cow summoned into the player's own block. The player
-     * did not move a thousandth of a block in nine seconds. A server-side push
-     * on a player sets delta movement and nothing sends it, and the client
-     * reports its own position back regardless. Worth keeping written down,
-     * because it is a genuinely convincing wrong answer.</p>
+     * <p><b>Push was measured and ruled out — on the wrong side.</b> An
+     * ordinary undriven cow summoned into the player's block did not move them
+     * a thousandth of a block in nine seconds, and that is true: a server-side
+     * push on a player sets delta movement that nothing sends. But the body's
+     * <em>client</em> copy pushes the local player from its own
+     * {@code aiStep}, the server's {@code noPhysics} is never synced to it,
+     * and a driven body is pinned back onto you every tick where an undriven
+     * cow simply walks away. That was the rest of the ice; see
+     * {@code DrivenView.onClientTick}. This tick cancel is still needed — the
+     * coasting was a separate, real bug.</p>
      *
      * <p>{@code setNoAi} was never going to be enough on its own: it stops the
      * <em>goals</em>, not the living tick that travels, falls, drowns and

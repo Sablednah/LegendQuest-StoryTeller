@@ -36,8 +36,22 @@ public final class DrivenView {
     /** The entity this client is driving, or {@link DrivenPayload#NONE}. */
     private static int driven = DrivenPayload.NONE;
 
+    /**
+     * The client-side body we switched physics off on, and what it was before,
+     * so release gives back exactly what it took. See {@link #onClientTick}.
+     */
+    private static net.minecraft.world.entity.Entity body;
+    private static boolean bodyHadNoPhysics;
+
     public static void accept(DrivenPayload payload) {
+        if (payload.entityId() != driven) letGo();
         driven = payload.entityId();
+    }
+
+    /** Hand the body its own physics back. Safe to call with nothing held. */
+    private static void letGo() {
+        if (body != null) body.noPhysics = bodyHadNoPhysics;
+        body = null;
     }
 
     public static boolean driving() {
@@ -46,6 +60,10 @@ public final class DrivenView {
 
     static void forget() {
         driven = DrivenPayload.NONE;
+        // Not letGo(): on logout the level and every entity in it are being
+        // thrown away, so there is nothing worth restoring and no promise that
+        // the object is still in a sane state to write to.
+        body = null;
     }
 
     /**
@@ -164,6 +182,43 @@ public final class DrivenView {
 
         var entity = mc.level.getEntity(driven);
         if (entity == null || entity == mc.player) return;
+
+        // ⚠ THE ICE. The body's own CLIENT tick was shoving the driver.
+        //
+        // Vanilla runs pushEntities() in every living entity's aiStep, on the
+        // client too, and on the client EntitySelector.pushableBy admits exactly
+        // one candidate: the local player. That is deliberate -- the client is
+        // authoritative for its own player, so a mob has to push you from your
+        // side or it cannot push you at all. Entity.push skips a pair only when
+        // either has noPhysics, and the server's `mob.noPhysics = true` is never
+        // synced, so this copy of the body went on pushing.
+        //
+        // It explains all four things Sable saw, which is how it was found --
+        // by him, from the symptoms, before anyone read the code:
+        //  - Standing still, nothing. This method pins the body exactly onto
+        //    you, and push ignores offsets under 0.01.
+        //  - Move a hair and you slide. The body is where you were at the last
+        //    pin, so there is an offset; push normalises it to a fixed shove
+        //    however small it was; you move; the pin lags again. A loop.
+        //  - Release and you shoot off the way you were drifting: the body is
+        //    behind you, and the shove is always away from it.
+        //  - Leave while still and you are nudged out -- the pin stops, so the
+        //    next offset finally resolves.
+        //
+        // The earlier test that ruled push out was right about what it tested:
+        // a SERVER-side push on a player really does nothing. It could not see
+        // this one, because an undriven cow walks out of your block and is
+        // never pinned back into it.
+        //
+        // Every tick rather than once: a body that leaves tracking and comes
+        // back is a new object under the same id, and it would arrive with its
+        // physics on.
+        if (entity != body) {
+            letGo();
+            body = entity;
+            bodyHadNoPhysics = entity.noPhysics;
+        }
+        entity.noPhysics = true;
 
         // Cancel any interpolation FIRST, or it undoes this every tick.
         //
