@@ -33,7 +33,7 @@ public final class STServerEvents {
      * {@code aiStep}, the server's {@code noPhysics} is never synced to it,
      * and a driven body is pinned back onto you every tick where an undriven
      * cow simply walks away. That was the rest of the ice; see
-     * {@code DrivenView.onClientTick}. This tick cancel is still needed — the
+     * {@code DrivenView.onEntityTickPre}. This tick cancel is still needed — the
      * coasting was a separate, real bug.</p>
      *
      * <p>{@code setNoAi} was never going to be enough on its own: it stops the
