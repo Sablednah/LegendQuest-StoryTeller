@@ -1003,34 +1003,104 @@ public final class STCommands {
         return Commands.literal("struct")
                 .then(Commands.literal("list").executes(STCommands::structList))
                 .then(Commands.literal("place")
-                        .then(Commands.argument("template", IdentifierArgument.id())
-                                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
-                                        ctx.getSource().getPlayer() != null
-                                                ? Structures.list(ctx.getSource().getPlayer()) : List.of(),
-                                        builder))
-                                .executes(ctx -> structPlace(ctx, Rotation.NONE, Mirror.NONE))
-                                .then(Commands.literal("rotate")
-                                        .then(Commands.literal("cw90").executes(ctx ->
-                                                structPlace(ctx, Rotation.CLOCKWISE_90, Mirror.NONE)))
-                                        .then(Commands.literal("180").executes(ctx ->
-                                                structPlace(ctx, Rotation.CLOCKWISE_180, Mirror.NONE)))
-                                        .then(Commands.literal("ccw90").executes(ctx ->
-                                                structPlace(ctx, Rotation.COUNTERCLOCKWISE_90, Mirror.NONE))))))
+                        .then(withRotations(templateArgument(), (ctx, rotation) -> structPlace(ctx, rotation, false))
+                                // "at" is what a ghost sends: the position it
+                                // was showing, so the placement is the one seen.
+                                .then(Commands.literal("at")
+                                        .then(withRotations(
+                                                Commands.argument("pos",
+                                                        net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos()),
+                                                (ctx, rotation) -> structPlace(ctx, rotation, true))))))
+                .then(ghostCommands())
                 .then(Commands.literal("library")
                         .then(Commands.literal("list")
                                 .executes(STCommands::libraryList)
                                 .then(Commands.argument("family", StringArgumentType.word())
                                         .executes(STCommands::libraryListFamily)))
                         .then(Commands.literal("place")
-                                .then(Commands.argument("name", StringArgumentType.greedyString())
-                                        .executes(STCommands::libraryPlace))));
+                                .then(withRotations(libraryName(), (ctx, rotation) -> libraryPlace(ctx, rotation, false))
+                                        .then(Commands.literal("at")
+                                                .then(withRotations(
+                                                        Commands.argument("pos",
+                                                                net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos()),
+                                                        (ctx, rotation) -> libraryPlace(ctx, rotation, true))))))
+                        .then(Commands.literal("ghost")
+                                .then(libraryName().executes(STCommands::libraryGhost))));
     }
 
-    private static int structPlace(CommandContext<CommandSourceStack> ctx, Rotation rotation, Mirror mirror)
+    /**
+     * A CityWorld building's name. A quoted string rather than the rest of the
+     * line, so {@code at} and {@code rotate} can follow it the way they follow a
+     * datapack structure; the bundled library has no names with spaces, and a
+     * dropped-in file with one takes quotes.
+     */
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> libraryName() {
+        return Commands.argument("name", StringArgumentType.string())
+                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                        net.neoforged.fml.ModList.get().isLoaded("cityworld") ? CityWorldSupport.names() : List.of(),
+                        builder));
+    }
+
+    /** A command that takes a rotation, so one tree of {@code rotate} literals serves both placing forms. */
+    @FunctionalInterface
+    private interface RotatedCommand {
+        int run(CommandContext<CommandSourceStack> ctx, Rotation rotation) throws CommandSyntaxException;
+    }
+
+    private static <T extends ArgumentBuilder<CommandSourceStack, T>> T withRotations(T node, RotatedCommand command) {
+        return node.executes(ctx -> command.run(ctx, Rotation.NONE))
+                .then(Commands.literal("rotate")
+                        .then(Commands.literal("cw90").executes(ctx -> command.run(ctx, Rotation.CLOCKWISE_90)))
+                        .then(Commands.literal("180").executes(ctx -> command.run(ctx, Rotation.CLOCKWISE_180)))
+                        .then(Commands.literal("ccw90").executes(ctx -> command.run(ctx, Rotation.COUNTERCLOCKWISE_90))));
+    }
+
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, Identifier> templateArgument() {
+        return Commands.argument("template", IdentifierArgument.id())
+                .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                        ctx.getSource().getPlayer() != null
+                                ? Structures.list(ctx.getSource().getPlayer()) : List.of(),
+                        builder));
+    }
+
+    /**
+     * {@code /st struct ghost} — see a structure where it will stand first.
+     * With the StoryTeller client it is drawn and steered from the client; without
+     * it these subcommands steer an outline, and the chat buttons send them.
+     */
+    private static LiteralArgumentBuilder<CommandSourceStack> ghostCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> nudge = Commands.literal("nudge");
+        for (com.sablednah.storyteller.ghost.GhostMath.Nudge way : com.sablednah.storyteller.ghost.GhostMath.Nudge.values()) {
+            nudge.then(Commands.literal(way.word())
+                    .executes(ctx -> Ghosts.nudge(ctx.getSource().getPlayerOrException(), way, 1))
+                    .then(Commands.argument("blocks", IntegerArgumentType.integer(1, 64))
+                            .executes(ctx -> Ghosts.nudge(ctx.getSource().getPlayerOrException(), way,
+                                    IntegerArgumentType.getInteger(ctx, "blocks")))));
+        }
+        return Commands.literal("ghost")
+                .executes(ctx -> Ghosts.controls(ctx.getSource().getPlayerOrException()))
+                .then(Commands.literal("rotate")
+                        .executes(ctx -> Ghosts.rotate(ctx.getSource().getPlayerOrException(), true))
+                        .then(Commands.literal("cw")
+                                .executes(ctx -> Ghosts.rotate(ctx.getSource().getPlayerOrException(), true)))
+                        .then(Commands.literal("ccw")
+                                .executes(ctx -> Ghosts.rotate(ctx.getSource().getPlayerOrException(), false))))
+                .then(nudge)
+                .then(Commands.literal("hold").executes(ctx -> Ghosts.hold(ctx.getSource().getPlayerOrException())))
+                .then(Commands.literal("place").executes(ctx -> Ghosts.place(ctx.getSource().getPlayerOrException())))
+                .then(Commands.literal("cancel").executes(ctx -> Ghosts.cancel(ctx.getSource().getPlayerOrException())))
+                .then(templateArgument().executes(ctx -> Ghosts.start(ctx.getSource().getPlayerOrException(),
+                        IdentifierArgument.getId(ctx, "template"))));
+    }
+
+    private static int structPlace(CommandContext<CommandSourceStack> ctx, Rotation rotation, boolean at)
             throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         Identifier templateId = IdentifierArgument.getId(ctx, "template");
-        var result = Structures.place(player, templateId, rotation, mirror);
+        net.minecraft.core.BlockPos origin = at
+                ? net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(ctx, "pos")
+                : player.blockPosition();
+        var result = Structures.placeAt(player, templateId, origin, rotation, Mirror.NONE);
         if (!result.ok()) {
             Feedback.chat(player, "&cCould not place '" + templateId + "' — "
                     + (result.refusal() == Structures.Refusal.UNKNOWN_TEMPLATE
@@ -1069,11 +1139,20 @@ public final class STCommands {
         return 1;
     }
 
-    private static int libraryPlace(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    private static int libraryPlace(CommandContext<CommandSourceStack> ctx, Rotation rotation, boolean at)
+            throws CommandSyntaxException {
         if (!requireCityWorld(ctx)) return 0;
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         String name = StringArgumentType.getString(ctx, "name");
-        var placed = CityWorldSupport.place(player, name);
+        if (rotation != Rotation.NONE && !CityWorldSupport.canTurnAndShow()) {
+            Feedback.chat(player, "&cThis server's CityWorld cannot turn a building; that needs CityWorld 5.8.0 "
+                    + "or newer. Without &frotate&c it still places.");
+            return 0;
+        }
+        net.minecraft.core.BlockPos origin = at
+                ? net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(ctx, "pos")
+                : null;
+        var placed = CityWorldSupport.place(player, name, origin, rotation);
         if (placed.isEmpty()) {
             Feedback.chat(player, "&cNo classic schematic named '" + name + "'. /st struct library list.");
             return 0;
@@ -1081,6 +1160,28 @@ public final class STCommands {
         Feedback.chat(player, "&aPlaced &f" + name + " &7[" + placed.get().family()
                 + "]&a. &f/st undo&a takes it back off.");
         return 1;
+    }
+
+    /** {@code /st struct library ghost <name>} — a CityWorld building shown before it is placed. */
+    private static int libraryGhost(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        if (!requireCityWorld(ctx)) return 0;
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        if (!CityWorldSupport.canTurnAndShow()) {
+            Feedback.chat(player, "&cThis server's CityWorld is too old to show a ghost; that needs CityWorld "
+                    + "5.8.0 or newer. &f/st struct library place&c still works.");
+            return 0;
+        }
+        String name = StringArgumentType.getString(ctx, "name");
+        var found = CityWorldSupport.ghostable(name);
+        if (found.isEmpty()) {
+            Feedback.chat(player, "&cNo classic schematic named '" + name + "'. /st struct library list.");
+            return 0;
+        }
+        var building = found.get();
+        return Ghosts.show(player, "cityworld:" + building.name(),
+                "st struct library place " + StringArgumentType.escapeIfRequired(building.name()),
+                building.size(), () -> Structures.preview(building.blocks(), building.size()),
+                -building.groundLevelY());
     }
 
     private static boolean requireCityWorld(CommandContext<CommandSourceStack> ctx) {

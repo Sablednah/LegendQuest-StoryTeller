@@ -27,8 +27,8 @@ import net.neoforged.neoforge.common.NeoForge;
  * <p><b>Two small files, and deliberately.</b> 26.x reworked GUI rendering
  * wholesale, so everything that names a client type belongs where a version
  * drop can find it in one place rather than hunting it through the server code.
- * Nothing here draws yet, and when something does, it goes in one class beside
- * these rather than being spread.</p>
+ * The one thing that draws is the structure ghost, and it draws in exactly one
+ * class, {@link GhostRenderer}, which each Minecraft line rewrites.</p>
  */
 @Mod(value = StoryTeller.MODID, dist = Dist.CLIENT)
 public class STClient {
@@ -37,11 +37,20 @@ public class STClient {
         modEventBus.addListener(STKeyMappings::register);
         // Declines to draw the creature you are driving, in first person only.
         NeoForge.EVENT_BUS.register(DrivenView.class);
+        // The structure ghost: its controls, and the one class here that draws.
+        NeoForge.EVENT_BUS.register(GhostPreview.class);
+        NeoForge.EVENT_BUS.register(GhostRenderer.class);
         NeoForge.EVENT_BUS.addListener(
-                (ClientTickEvent.Post event) -> STKeyMappings.onClientTick());
+                (ClientTickEvent.Post event) -> {
+                    STKeyMappings.onClientTick();
+                    GhostPreview.onClientTick();
+                });
         // Per-connection state, so the "your keys are unbound" notice belongs to
         // the server that offered the tools rather than to the session.
         NeoForge.EVENT_BUS.addListener(
-                (ClientPlayerNetworkEvent.LoggingOut event) -> STKeyMappings.onDisconnect());
+                (ClientPlayerNetworkEvent.LoggingOut event) -> {
+                    STKeyMappings.onDisconnect();
+                    GhostPreview.forget();
+                });
     }
 }

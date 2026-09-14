@@ -85,6 +85,7 @@ public final class STServerEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             Possession.forget(player);
             Sights.forget(player);
+            Ghosts.forget(player);
         }
     }
 
@@ -128,6 +129,8 @@ public final class STServerEvents {
     @SubscribeEvent
     static void onServerTick(ServerTickEvent.Post event) {
         Possession.tick(event.getServer());
+        // Redraws vanilla Storytellers' ghost outlines; free while nobody has one.
+        Ghosts.tick(event.getServer());
     }
 
     private STServerEvents() {}

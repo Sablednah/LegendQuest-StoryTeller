@@ -9,5 +9,11 @@
   "key.storyteller.drift": "Drift / Return",
   "key.storyteller.next": "Next Player",
   "action.storyteller.summon": "Bring your party to where you are standing",
-  "key.storyteller.summon": "Summon Party"
+  "key.storyteller.summon": "Summon Party",
+  "key.storyteller.ghost_left": "Ghost: Shift Left",
+  "key.storyteller.ghost_right": "Ghost: Shift Right",
+  "key.storyteller.ghost_forward": "Ghost: Shift Away",
+  "key.storyteller.ghost_back": "Ghost: Shift Towards You",
+  "key.storyteller.ghost_raise": "Ghost: Raise",
+  "key.storyteller.ghost_lower": "Ghost: Lower"
 }

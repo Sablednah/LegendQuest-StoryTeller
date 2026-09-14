@@ -283,8 +283,9 @@ built all held:
   once, on joining, that they exist. A mod claiming letters on install is how
   conflicts start.
 - **Everything version-sensitive on the client stays in a few small classes.**
-  `STClient`, `STKeyMappings` and `DrivenView`; nothing draws, it only declines
-  to draw the body you are driving. That is why each 26.x port of the client
+  `STClient`, `STKeyMappings` and `DrivenView`, which only declines to draw the
+  body you are driving — plus, since the ghost placer, `GhostRenderer` and
+  `ClientText`, the two files each line rewrites. That is why each 26.x port of the client
   half has been a copy with one per-branch line rather than a hunt — 26.x reworked
   GUI rendering wholesale (`GuiGraphics` became `GuiGraphicsExtractor`, a screen's
   `render` became `extractRenderState`), and none of that is touched here yet.
@@ -330,38 +331,95 @@ Sketch, not a design:
 Soft dependency, same pattern as Cast: one guarded `ChroniclerSupport` class,
 and without Chronicler the subcommand says so and nothing else changes.
 
-## Next: place a building by seeing it first
+## Place a building by seeing it first — the ghost placer BUILT, the browser not
 
-**Asked for by Sable on 2026-09-12, deliberately deferred in favour of driving,
-not started.** Two halves, MineColonies' build tool being the reference for how
-it should feel:
+**Asked for by Sable on 2026-09-12**, MineColonies' build tool being the
+reference for how it should feel. Two halves; the second is built.
 
-- **A schematic browser.** The structure library listed on the left, a
-  rotatable preview of the selected one on the right, and a **Place** button
-  that hands over to the ghost placer rather than placing immediately. Both
-  pools: datapack structures (`/st struct place`) and CityWorld's library
-  (`/st struct library`).
-- **A ghost placer.** The structure drawn translucent in the world where it
-  will land, following the Storyteller's aim, rotatable before it is committed —
-  so a building goes where it looks right rather than where a coordinate guess
-  put it and `/st undo` took it back.
+- **A schematic browser — not built.** The structure library listed on the
+  left, a rotatable preview on the right, and a **Place** button that hands
+  over to the ghost placer rather than placing immediately.
+- **A ghost placer — built, vanilla datapack structures.**
+  `/st struct ghost <template>` shows the structure where it would stand,
+  centred on the Storyteller's aim, and it is placed by
+  `/st struct place <template> at <pos> [rotate ...]` — the command a vanilla
+  Storyteller could type, so undo, permissions and feedback are unchanged.
 
-What is already known about the shape of it:
+Decided with Sable on 2026-09-14:
 
-- **Client-only drawing, server-side placing.** The ghost is a client render and
-  a vanilla Storyteller simply does not get it; the Place still ends in the same
-  `/st struct place ... ` command with a rotation and a position, so undo,
-  permissions and CityWorld's own placement all behave exactly as typed. Same
-  rule as the buttons and keys: nothing the screen does that a command cannot.
-- **This is the first thing StoryTeller would genuinely DRAW.** Everything on
-  the client so far only declines to draw (`DrivenView`). Drawing is where 26.x
-  reworked GUI rendering wholesale, so it belongs in one small class per the
-  client-half rule, and it wants the 26.2 rig from day one rather than a
-  compile-only port.
-- **Reading a structure for preview** needs its block list on the client. For a
-  vanilla `.nbt` template that is a known format; for CityWorld's
-  `.schem`/`.litematic` it means asking CityWorld's library for blocks rather
-  than parsing four formats here.
+- **A vanilla Storyteller gets an outline**, not nothing. The server draws the
+  footprint as dust particles only that player sees, with the front edge in
+  gold, and steers it with `/st struct ghost rotate|nudge|hold|place|cancel` —
+  sent by a row of chat buttons. The gold edge exists because a square footprint
+  looks identical at every quarter turn, so a rotate would otherwise appear to
+  do nothing.
+- **Controls on the modded client:** aim moves it, scroll turns it,
+  Shift+scroll or Page Up/Down raise and lower it, the arrow keys shift it
+  relative to where you face ("offset up/down, side to side, for uneven
+  terrain" — Sable's addition), right-click places, left-click clears,
+  middle-click holds it still. These six keys are the one exception to
+  "registered unbound": their conflict context is the ghost itself, so outside a
+  ghost they take no key from anyone.
+- **Both lines from day one**, because drawing is exactly what 26.x rewrote.
+
+How it is built:
+
+- **One payload, and it carries blocks, not decisions.** `GhostPayload` is the
+  structure's block-state ids and cells, read server-side through
+  `StructureTemplate.save` (the one public view of a template's blocks on both
+  lines). The client works out the position; `GhostMath` holds the arithmetic
+  both the outline and the drawn ghost use, so "centred on my aim" means the
+  same thing on both sides. Over `MAX_BLOCKS` (150,000) the server sends an
+  outline instead.
+- **Captured once, replayed each frame.** `GhostRenderer` renders every visible
+  block into plain vertex arrays when the structure arrives or turns; a frame
+  only copies them in at the current position. Blocks buried on all six sides
+  are skipped. It is the one client class per line that draws:
+  `RenderLevelStageEvent.AfterEntities` and `renderSingleBlock` on 1.21.11;
+  `SubmitCustomGeometryEvent` and `ModelBlockRenderer.tesselateBlock` on 26.x,
+  where `BlockRenderDispatcher` and `MultiBufferSource` no longer exist.
+  `ClientText` is the other per-branch file (chat and action bar from the
+  client).
+
+**Seen, not inferred, on the 1.21.11 Vivo rig:** the ghost drawn on the ground
+at the crosshair; a scroll turning it (front north to east) and Shift+scroll and
+arrows moving it; right-click placing the real building in exactly the ghost's
+spot and turn; `/st undo` restoring the snow and ice under it.
+
+**And on the 26.2 Vivo rig, the same sequence, the same result** — drawn
+translucent over water facing north, turned east, raised and shifted, placed
+where it stood, undone back to water, no client errors. That settles the three
+things the 26.2 port could only assert from source: `SubmitCustomGeometryEvent`
+is the right door, the item-translucent pipeline really blends, and
+`ModelBlockRenderer.tesselateBlock` into a capturing consumer yields the
+building. mc26.1 carries the same renderer and compiles; it has not been watched.
+
+Two things the rig caught before anyone played it: the ghost followed the gaze
+only 64 blocks, so a Storyteller on a hilltop hit nothing (now 128); and a full
+template id overflowed the action bar at both ends (it shows the short name now).
+Both fixes compile on all three lines and were made after the rig runs, so
+neither has been seen yet.
+
+**Not yet done here:**
+
+- The **outline path has not been watched** — the rig client is modded, so it
+  always gets the drawn ghost. Needs a vanilla client pointed at the rig.
+- **CityWorld's library in the ghost — built, compiled, not yet watched.**
+  `/st struct library ghost <name>` and `library place <name> [at <pos>]
+  [rotate ...]`, on CityWorld 5.8.0's rotated whole-building `paste` and
+  `saveTemplate()` (added at this mod's request). `CityWorldSupport.canTurnAndShow`
+  asks the class for both methods rather than trusting a version; an unturned
+  placement still uses the old paste, so an older CityWorld loses nothing it had.
+  The ghost starts `GroundLevelY` blocks down (`GhostPayload.sinkY`), and `at`
+  means the same template origin for both pools — CityWorld is handed the turned
+  footprint's minimum corner, which is where its paste puts the north-west corner.
+  Library names became a quotable string (none of the bundled ones has a space)
+  so `at` and `rotate` can follow them.
+- **Several palettes:** a template that picks a palette at random when placed
+  (shipwrecks, some ruins) previews the first one, so the ghost is the right
+  shape and possibly the wrong planks.
+- **Block-entity renderers** (chests, beds, signs) draw little or nothing in the
+  ghost; the building places them normally.
 
 ## Control and safety, threaded throughout
 

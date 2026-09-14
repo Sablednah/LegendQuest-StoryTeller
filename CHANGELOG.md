@@ -3,6 +3,35 @@
 All notable changes to LegendQuest StoryTeller are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### See a building before you place it
+
+- `/st struct ghost <structure>` shows a structure where it would stand, centred
+  on where you are looking. Nothing is built until you say so.
+- With the StoryTeller mod on your client it is drawn in the world as a
+  translucent ghost. Scroll turns it; Shift+scroll or Page Up/Down raise and
+  lower it; the arrow keys shift it left, right, away and back, for fitting it
+  to uneven ground; right-click builds it; left-click puts it away; middle-click
+  holds it still so you can walk round it. The six ghost keys only do anything
+  while a ghost is up, and rebind under Options → Controls → StoryTeller.
+- On a vanilla client you get its outline instead, drawn in particles only you
+  can see, with its front edge in gold so you can tell which way it faces. A row
+  of chat buttons turns, raises, shifts, holds, places and cancels it — or type
+  `/st struct ghost rotate|nudge|hold|place|cancel`.
+- `/st struct place <structure> at <x y z> [rotate ...]` places at a position
+  instead of at your feet. It is what a ghost sends, so `/st undo` takes a ghost
+  placement back off like any other.
+- CityWorld's schematic library works the same way:
+  `/st struct library ghost <name>` shows a CityWorld building as a ghost,
+  starting with its foundation buried as CityWorld buries it, and
+  `/st struct library place <name> [at <x y z>] [rotate ...]` can now turn one.
+  Showing and turning need **CityWorld 5.8.0 or newer**; an older CityWorld
+  still places buildings unturned, and says why when asked for more.
+- Library names are now a single word or a quoted string, so that `at` and
+  `rotate` can follow them. None of CityWorld's own buildings have spaces in
+  their names; a dropped-in file that does needs quotes.
+
 ## 1.0.0 — 2026-09-13
 
 The first release. Requires **LegendQuest ReForged 2.5.0 or newer** on the

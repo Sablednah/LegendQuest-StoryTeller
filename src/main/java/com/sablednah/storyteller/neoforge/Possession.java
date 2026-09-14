@@ -202,8 +202,7 @@ public final class Possession {
      * remember which one their client supports.</p>
      */
     public static boolean canDrive(ServerPlayer player) {
-        return net.neoforged.neoforge.network.registration.NetworkRegistry.hasChannel(
-                player.connection,
+        return com.sablednah.storyteller.network.STNetwork.listening(player,
                 com.sablednah.storyteller.network.DrivenPayload.TYPE.id());
     }
 

@@ -17,10 +17,21 @@ no version of this mod that stands on its own, and proposals to make one are
 proposals for a different mod.
 
 **`/st` is the whole mod.** The client half (`STClient`, `DrivenView`, the
-keybinds) and the Standards buttons both send these same commands rather than
-bypassing them, and any screen built later must too, so they can never grow
-different rule sets. The one exception is `DrivenPayload`, which carries what a
-command cannot: which entity the client should stop drawing.
+keybinds, the structure ghost) and the Standards buttons both send these same
+commands rather than bypassing them, and any screen built later must too, so
+they can never grow different rule sets. Two payloads carry what a command
+cannot, and neither decides anything: `DrivenPayload` (which entity the client
+should stop drawing) and `GhostPayload` (a structure's blocks, which a client
+cannot read from a server's datapack). A placed ghost still ends in the typed
+`/st struct place <template> at <pos> [rotate ...]`.
+
+**The client draws one thing, and the drawing is per branch.** `GhostRenderer`
+and `ClientText` are the two client files each Minecraft line rewrites —
+1.21.11 draws in `RenderLevelStageEvent.AfterEntities` through
+`renderSingleBlock`; 26.x has neither `BlockRenderDispatcher` nor
+`MultiBufferSource` and submits through `SubmitCustomGeometryEvent`. Everything
+else on the client, `GhostPreview` included, is identical on all three branches.
+When porting, copy those two from the neighbouring 26.x branch, not from main.
 
 ## Versions — one branch per Minecraft version
 
