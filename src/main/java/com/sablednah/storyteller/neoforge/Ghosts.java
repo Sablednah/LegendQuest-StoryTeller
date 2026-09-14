@@ -90,7 +90,7 @@ public final class Ghosts {
     }
 
     /** {@code /st struct ghost <template>}. */
-    static int start(ServerPlayer player, Identifier templateId) {
+    static int start(ServerPlayer player, Identifier templateId, boolean withAir) {
         Optional<StructureTemplate> template = Structures.template((ServerLevel) player.level(), templateId);
         if (template.isEmpty()) {
             Feedback.chat(player, "&cNo structure called '" + templateId + "' is loaded. "
@@ -102,7 +102,7 @@ public final class Ghosts {
             Feedback.chat(player, "&c'" + templateId + "' is empty, so there is nothing to show.");
             return 0;
         }
-        return show(player, templateId.toString(), "st struct place " + templateId, size,
+        return show(player, templateId.toString(), "st struct place " + templateId + (withAir ? " withair" : ""), size,
                 () -> Structures.preview(template.get()), 0);
     }
 
@@ -153,8 +153,8 @@ public final class Ghosts {
         button(line, "&b[▶]", "st struct ghost nudge right", "&7One block to your right");
         button(line, "&b[Fwd]", "st struct ghost nudge forward", "&7One block away from you");
         button(line, "&b[Back]", "st struct ghost nudge back", "&7One block towards you");
-        button(line, "&f[Hold]", "st struct ghost hold",
-                "&7Stop it following your aim so you can walk round it. Again to let it follow.");
+        button(line, "&f[Lock]", "st struct ghost hold",
+                "&7Lock it where it is so you can walk round it. Again to let it follow your aim.");
         button(line, "&a[Place]", "st struct ghost place", "&7Build it here. &f/st undo&7 takes it back off.");
         button(line, "&c[Cancel]", "st struct ghost cancel", "&7Put the ghost away");
         player.sendSystemMessage(line);
@@ -187,11 +187,11 @@ public final class Ghosts {
         }
         BlockPos aim = aim(player, session);
         if (aim == null) {
-            Feedback.chat(player, "&7Look at the ground where it should stand, then hold it.");
+            Feedback.chat(player, "&7Look at the ground where it should stand, then lock it.");
             return 0;
         }
         session.held = aim;
-        Feedback.chat(player, "&7Held where it is. Walk round it; &f[Hold]&7 again lets it follow your aim.");
+        Feedback.chat(player, "&7Locked where it is. Walk round it; &f[Lock]&7 again lets it follow your aim.");
         return 1;
     }
 
@@ -275,7 +275,7 @@ public final class Ghosts {
         Feedback.actionBar(player, "&7Ghost &f" + GhostMath.shortName(session.label)
                 + " &8· &7front faces &f" + GhostMath.front(session.rotation).getName()
                 + (offset.isEmpty() ? "" : " &8· &f" + offset)
-                + (session.held != null ? " &8· &eheld" : ""));
+                + (session.held != null ? " &8· &elocked" : ""));
     }
 
     private static int noGhost(ServerPlayer player) {
