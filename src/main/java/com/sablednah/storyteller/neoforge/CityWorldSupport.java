@@ -122,11 +122,9 @@ final class CityWorldSupport {
         // this box's minimum corner.
         BoundingBox box = GhostMath.worldBox(origin, new Vec3i(clip.sizeX, clip.sizeY, clip.sizeZ), rotation);
 
-        List<Structures.ExternalSnap> before = new ArrayList<>();
-        BlockPos.betweenClosed(
-                        new BlockPos(box.minX(), box.minY(), box.minZ()),
-                        new BlockPos(box.maxX(), box.maxY(), box.maxZ()))
-                .forEach(pos -> before.add(new Structures.ExternalSnap(pos.immutable(), level.getBlockState(pos))));
+        // Air follows the building's own KeepAir sidecar: CityWorld strips it at
+        // load unless the author asked to keep it, so there is no withair here.
+        List<Structures.ExternalSnap> before = Structures.snapshot(level, box);
 
         int groundY = box.minY() + clip.groundLevelY;
         if (rotation == Rotation.NONE) {
