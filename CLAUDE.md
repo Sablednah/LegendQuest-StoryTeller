@@ -719,6 +719,18 @@ node.
   state back per branch (`git show origin/<branch>:<file> | grep -c ...`) rather
   than trusting what the loop said.
 
+- **Sodium cancels `ModelBlockRenderer.renderModel`**, so anything that renders
+  a block into its own `VertexConsumer` gets nothing under Sodium. Its
+  replacement asks `VertexBufferWriter.of(consumer)`, which throws for any
+  consumer that is not one of Sodium's buffers. The ghost captured through
+  `renderSingleBlock`, so on Sable's instance (Sodium 0.8.14) every block threw,
+  a per-block `catch` meant for one odd modded model swallowed all of them, and
+  the ghost drew nothing while scroll, keys and placement all worked. The Vivo
+  rig has no Sodium, so it looked perfect there. `GhostRenderer` now walks
+  `collectParts` and `getQuads` itself, and logs the first failure and a count.
+  **A catch that turns a failure into "skip it" needs to say how much it
+  skipped**, or it can hide a total failure as easily as a partial one.
+
 - **After a rewrite, grep for the name of the thing you removed**, not the thing
   you added. `build.gradle` carried a comment naming a `StructureSupport` class
   that has never existed under that name.

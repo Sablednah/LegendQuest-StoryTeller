@@ -103,22 +103,72 @@ public final class GhostRenderer {
         }
 
         Capture capture = new Capture();
-        MultiBufferSource into = type -> capture;
         PoseStack pose = new PoseStack();
+        var blockColors = Minecraft.getInstance().getBlockColors();
+        var random = net.minecraft.util.RandomSource.create();
+        var parts = new java.util.ArrayList<net.minecraft.client.renderer.block.model.BlockModelPart>();
+        int failed = 0;
         for (int i = 0; i < count && capture.count < MAX_VERTICES; i++) {
-            if (states[i].getRenderShape() == RenderShape.INVISIBLE) continue;
+            BlockState state = states[i];
+            if (state.getRenderShape() == RenderShape.INVISIBLE) continue;
             if (buried(at[i], opaque)) continue;
             pose.pushPose();
             pose.translate(at[i].getX(), at[i].getY(), at[i].getZ());
             try {
-                dispatcher.renderSingleBlock(states[i], pose, into, LightTexture.FULL_BRIGHT,
-                        OverlayTexture.NO_OVERLAY, EmptyBlockAndTintGetter.INSTANCE, BlockPos.ZERO);
+                putModel(dispatcher, blockColors, state, pose.last(), capture, random, parts);
             } catch (RuntimeException modelTrouble) {
-                // One odd modded model should cost its own block, not the ghost.
+                // One odd modded model should cost its own block, not the ghost
+                // -- but never silently. This catch once hid EVERY block failing
+                // (Sodium, below), and the ghost drew nothing with nothing logged.
+                if (failed++ == 0) {
+                    com.sablednah.storyteller.StoryTeller.LOGGER.warn(
+                            "Ghost: could not draw {}; skipping it and any others that fail", state, modelTrouble);
+                }
             }
             pose.popPose();
         }
+        if (failed > 0) {
+            com.sablednah.storyteller.StoryTeller.LOGGER.warn("Ghost: {} of {} blocks could not be drawn", failed, count);
+        }
         return capture.toMesh();
+    }
+
+    /**
+     * One block's quads into the capture, read straight off its model.
+     *
+     * <p><b>Not {@code renderSingleBlock}, deliberately.</b> Sodium cancels
+     * {@code ModelBlockRenderer.renderModel} and writes the quads through its own
+     * {@code VertexBufferWriter}, which throws for any consumer that is not one of
+     * its buffers. The capture is not, so under Sodium every block failed and the
+     * ghost was empty — seen on Sable's instance, where scrolling and placing worked
+     * and nothing drew. Walking the parts and quads here is vanilla's own
+     * {@code renderModel} loop, tint included, with no method for anyone to hook.</p>
+     */
+    private static void putModel(BlockRenderDispatcher dispatcher, net.minecraft.client.color.block.BlockColors blockColors,
+            BlockState state, PoseStack.Pose pose, Capture capture, net.minecraft.util.RandomSource random,
+            java.util.List<net.minecraft.client.renderer.block.model.BlockModelPart> parts) {
+        int tint = blockColors.getColor(state, null, null, 0);
+        float red = (tint >> 16 & 0xFF) / 255.0F;
+        float green = (tint >> 8 & 0xFF) / 255.0F;
+        float blue = (tint & 0xFF) / 255.0F;
+        random.setSeed(42L);
+        parts.clear();
+        dispatcher.getBlockModel(state).collectParts(EmptyBlockAndTintGetter.INSTANCE, BlockPos.ZERO, state, random, parts);
+        for (var part : parts) {
+            for (Direction side : Direction.values()) {
+                putQuads(pose, capture, part.getQuads(side), red, green, blue);
+            }
+            putQuads(pose, capture, part.getQuads(null), red, green, blue);
+        }
+    }
+
+    private static void putQuads(PoseStack.Pose pose, Capture capture,
+            java.util.List<net.minecraft.client.renderer.block.model.BakedQuad> quads, float red, float green, float blue) {
+        for (var quad : quads) {
+            boolean tinted = quad.isTinted();
+            capture.putBulkData(pose, quad, tinted ? red : 1.0F, tinted ? green : 1.0F, tinted ? blue : 1.0F,
+                    1.0F, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+        }
     }
 
     private static boolean buried(BlockPos pos, LongOpenHashSet opaque) {
