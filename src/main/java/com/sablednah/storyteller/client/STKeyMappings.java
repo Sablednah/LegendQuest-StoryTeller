@@ -67,9 +67,48 @@ public final class STKeyMappings {
 
     private static final KeyMapping[] ALL = { POSSESS, LOCK, DRIFT, NEXT, SUMMON };
 
+    /**
+     * Live only while a structure ghost is on screen.
+     *
+     * <p><b>The one exception to "registered unbound", and a deliberate one.</b>
+     * These keys belong to this context and nothing else, so outside a ghost
+     * they do nothing and take no key from anyone; inside one, a Storyteller
+     * shifting a building sideways should not have to visit Options first.
+     * Arrows and Page Up/Down are unused by vanilla, and all six rebind like
+     * any other key.</p>
+     */
+    private static final net.neoforged.neoforge.client.settings.IKeyConflictContext WHILE_GHOST =
+            new net.neoforged.neoforge.client.settings.IKeyConflictContext() {
+                @Override
+                public boolean isActive() {
+                    return GhostPreview.showing()
+                            && net.neoforged.neoforge.client.settings.KeyConflictContext.IN_GAME.isActive();
+                }
+
+                @Override
+                public boolean conflicts(net.neoforged.neoforge.client.settings.IKeyConflictContext other) {
+                    return other == this;
+                }
+            };
+
+    public static final KeyMapping GHOST_LEFT = ghostKey("ghost_left", InputConstants.KEY_LEFT);
+    public static final KeyMapping GHOST_RIGHT = ghostKey("ghost_right", InputConstants.KEY_RIGHT);
+    public static final KeyMapping GHOST_FORWARD = ghostKey("ghost_forward", InputConstants.KEY_UP);
+    public static final KeyMapping GHOST_BACK = ghostKey("ghost_back", InputConstants.KEY_DOWN);
+    public static final KeyMapping GHOST_RAISE = ghostKey("ghost_raise", InputConstants.KEY_PAGEUP);
+    public static final KeyMapping GHOST_LOWER = ghostKey("ghost_lower", InputConstants.KEY_PAGEDOWN);
+
+    private static final KeyMapping[] GHOST = {
+            GHOST_LEFT, GHOST_RIGHT, GHOST_FORWARD, GHOST_BACK, GHOST_RAISE, GHOST_LOWER };
+
+    private static KeyMapping ghostKey(String name, int key) {
+        return new KeyMapping("key.storyteller." + name, WHILE_GHOST, InputConstants.Type.KEYSYM, key, CATEGORY);
+    }
+
     public static void register(RegisterKeyMappingsEvent event) {
         event.registerCategory(CATEGORY);
         for (KeyMapping key : ALL) event.register(key);
+        for (KeyMapping key : GHOST) event.register(key);
     }
 
     /** Called on ClientTickEvent.Post from the client entrypoint. */
