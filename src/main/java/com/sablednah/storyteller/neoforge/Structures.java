@@ -88,14 +88,19 @@ public final class Structures {
      * already knows that command already knows where this lands one.
      */
     public static Result place(ServerPlayer caster, Identifier templateId, Rotation rotation, Mirror mirror) {
+        return placeAt(caster, templateId, caster.blockPosition(), rotation, mirror);
+    }
+
+    /**
+     * Place a template with its origin at {@code origin} — what
+     * {@code /st struct place <template> at <pos>} types, and what a ghost
+     * finally sends. Rotation turns about the origin, as vanilla's
+     * {@code /place template} does.
+     */
+    public static Result placeAt(ServerPlayer caster, Identifier templateId, BlockPos origin,
+            Rotation rotation, Mirror mirror) {
         ServerLevel level = (ServerLevel) caster.level();
-        StructureTemplateManager manager = level.getStructureManager();
-        Optional<StructureTemplate> template;
-        try {
-            template = manager.get(templateId);
-        } catch (net.minecraft.IdentifierException e) {
-            return new Result(Refusal.UNKNOWN_TEMPLATE, 0);
-        }
+        Optional<StructureTemplate> template = template(level, templateId);
         if (template.isEmpty()) return new Result(Refusal.UNKNOWN_TEMPLATE, 0);
 
         StructureTemplate structure = template.get();
@@ -107,7 +112,6 @@ public final class Structures {
                 // snapshotted below, with nothing loose to lose track of. Cast
                 // an inhabitant on purpose with /st cast instead.
                 .setIgnoreEntities(true);
-        BlockPos origin = caster.blockPosition();
         var box = structure.getBoundingBox(settings, origin);
         if (box.getXSpan() < 1 || box.getYSpan() < 1 || box.getZSpan() < 1) {
             return new Result(Refusal.EMPTY_TEMPLATE, 0);
@@ -125,6 +129,62 @@ public final class Structures {
         SceneLog.record(caster, new Placement(templateId.toString(), before));
         return new Result(Refusal.NONE, before.size());
     }
+
+    /** A template by id, or empty for an unknown or malformed one. */
+    public static Optional<StructureTemplate> template(ServerLevel level, Identifier templateId) {
+        try {
+            return level.getStructureManager().get(templateId);
+        } catch (net.minecraft.IdentifierException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * A template's blocks as block state ids and template-local cells
+     * ({@code x + sizeX * (y + sizeY * z)}), air left out — what a ghost is
+     * drawn from.
+     *
+     * <p>Read through {@link StructureTemplate#save}, the one public view of a
+     * template's blocks on both 1.21.11 and 26.x. A template with several
+     * palettes (shipwrecks, some ruins) chooses one at random each time it is
+     * placed; the preview shows the first, so the ghost of one of those is the
+     * right shape and possibly the wrong planks.</p>
+     */
+    public static Preview preview(StructureTemplate structure) {
+        return preview(structure.save(new net.minecraft.nbt.CompoundTag()), structure.getSize());
+    }
+
+    /**
+     * The same, from a template already saved to a tag — which is how CityWorld
+     * hands a library building over ({@code Clipboard.saveTemplate()}).
+     */
+    public static Preview preview(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.Vec3i size) {
+        net.minecraft.nbt.ListTag palette = tag.getList("palette")
+                .orElseGet(() -> tag.getListOrEmpty("palettes").getListOrEmpty(0));
+        int[] ids = new int[palette.size()];
+        for (int i = 0; i < ids.length; i++) {
+            BlockState state = net.minecraft.nbt.NbtUtils.readBlockState(
+                    net.minecraft.core.registries.BuiltInRegistries.BLOCK, palette.getCompoundOrEmpty(i));
+            ids[i] = state.isAir() ? -1 : net.minecraft.world.level.block.Block.getId(state);
+        }
+
+        net.minecraft.nbt.ListTag blocks = tag.getListOrEmpty("blocks");
+        var states = new it.unimi.dsi.fastutil.ints.IntArrayList(blocks.size());
+        var cells = new it.unimi.dsi.fastutil.ints.IntArrayList(blocks.size());
+        for (int i = 0; i < blocks.size(); i++) {
+            net.minecraft.nbt.CompoundTag block = blocks.getCompoundOrEmpty(i);
+            int index = block.getIntOr("state", -1);
+            if (index < 0 || index >= ids.length || ids[index] < 0) continue;
+            net.minecraft.nbt.ListTag pos = block.getListOrEmpty("pos");
+            int x = pos.getIntOr(0, 0), y = pos.getIntOr(1, 0), z = pos.getIntOr(2, 0);
+            states.add(ids[index]);
+            cells.add(x + size.getX() * (y + size.getY() * z));
+        }
+        return new Preview(states.toIntArray(), cells.toIntArray());
+    }
+
+    /** See {@link #preview}. */
+    public record Preview(int[] states, int[] cells) {}
 
     /** Every template any loaded datapack declares, for {@code /st struct list}
      *  and tab-completion — the exact set {@code /place template} offers. */
