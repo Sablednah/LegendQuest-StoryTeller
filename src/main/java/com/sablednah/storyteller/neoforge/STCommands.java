@@ -1003,14 +1003,9 @@ public final class STCommands {
         return Commands.literal("struct")
                 .then(Commands.literal("list").executes(STCommands::structList))
                 .then(Commands.literal("place")
-                        .then(withRotations(templateArgument(), (ctx, rotation) -> structPlace(ctx, rotation, false))
-                                // "at" is what a ghost sends: the position it
-                                // was showing, so the placement is the one seen.
-                                .then(Commands.literal("at")
-                                        .then(withRotations(
-                                                Commands.argument("pos",
-                                                        net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos()),
-                                                (ctx, rotation) -> structPlace(ctx, rotation, true))))))
+                        .then(placeTail(templateArgument(), false)
+                                // Air is left out unless asked for; see Structures.placeAt.
+                                .then(placeTail(Commands.literal("withair"), true))))
                 .then(ghostCommands())
                 .then(Commands.literal("library")
                         .then(Commands.literal("list")
@@ -1055,6 +1050,20 @@ public final class STCommands {
                         .then(Commands.literal("ccw90").executes(ctx -> command.run(ctx, Rotation.COUNTERCLOCKWISE_90))));
     }
 
+    /**
+     * {@code [at <pos>] [rotate ...]} after a structure, with or without its air.
+     * "at" is what a ghost sends: the position it was showing, so the placement
+     * is the one seen.
+     */
+    private static <T extends ArgumentBuilder<CommandSourceStack, T>> T placeTail(T node, boolean withAir) {
+        return withRotations(node, (ctx, rotation) -> structPlace(ctx, rotation, false, withAir))
+                .then(Commands.literal("at")
+                        .then(withRotations(
+                                Commands.argument("pos",
+                                        net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos()),
+                                (ctx, rotation) -> structPlace(ctx, rotation, true, withAir))));
+    }
+
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, Identifier> templateArgument() {
         return Commands.argument("template", IdentifierArgument.id())
                 .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
@@ -1089,25 +1098,30 @@ public final class STCommands {
                 .then(Commands.literal("hold").executes(ctx -> Ghosts.hold(ctx.getSource().getPlayerOrException())))
                 .then(Commands.literal("place").executes(ctx -> Ghosts.place(ctx.getSource().getPlayerOrException())))
                 .then(Commands.literal("cancel").executes(ctx -> Ghosts.cancel(ctx.getSource().getPlayerOrException())))
-                .then(templateArgument().executes(ctx -> Ghosts.start(ctx.getSource().getPlayerOrException(),
-                        IdentifierArgument.getId(ctx, "template"))));
+                .then(templateArgument()
+                        .executes(ctx -> Ghosts.start(ctx.getSource().getPlayerOrException(),
+                                IdentifierArgument.getId(ctx, "template"), false))
+                        .then(Commands.literal("withair")
+                                .executes(ctx -> Ghosts.start(ctx.getSource().getPlayerOrException(),
+                                        IdentifierArgument.getId(ctx, "template"), true))));
     }
 
-    private static int structPlace(CommandContext<CommandSourceStack> ctx, Rotation rotation, boolean at)
-            throws CommandSyntaxException {
+    private static int structPlace(CommandContext<CommandSourceStack> ctx, Rotation rotation, boolean at,
+            boolean withAir) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         Identifier templateId = IdentifierArgument.getId(ctx, "template");
         net.minecraft.core.BlockPos origin = at
                 ? net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(ctx, "pos")
                 : player.blockPosition();
-        var result = Structures.placeAt(player, templateId, origin, rotation, Mirror.NONE);
+        var result = Structures.placeAt(player, templateId, origin, rotation, Mirror.NONE, withAir);
         if (!result.ok()) {
             Feedback.chat(player, "&cCould not place '" + templateId + "' — "
                     + (result.refusal() == Structures.Refusal.UNKNOWN_TEMPLATE
                             ? "no such structure is loaded." : "it placed nothing."));
             return 0;
         }
-        Feedback.chat(player, "&aPlaced &f" + templateId + "&a. &f/st undo&a takes it back off.");
+        Feedback.chat(player, "&aPlaced &f" + templateId + (withAir ? " &7(air included)" : "")
+                + "&a. &f/st undo&a takes it back off.");
         return 1;
     }
 

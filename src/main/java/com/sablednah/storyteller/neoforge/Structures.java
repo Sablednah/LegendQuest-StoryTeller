@@ -49,12 +49,48 @@ public final class Structures {
      *  exists. */
     public record ExternalSnap(BlockPos pos, BlockState state) {}
 
+    /**
+     * Placing sends to clients and suppresses drops. A plant or bed that stops
+     * fitting as a building lands vanishes rather than scattering seeds and
+     * items across the scene; vanilla's own template placement drops them.
+     */
+    private static final int PLACE_FLAGS =
+            net.minecraft.world.level.block.Block.UPDATE_CLIENTS
+                    | net.minecraft.world.level.block.Block.UPDATE_SUPPRESS_DROPS;
+
+    /**
+     * Undo puts back exact states, so it must not let one restored block react
+     * to a neighbour that is not restored yet. Without KNOWN_SHAPE, half a bed
+     * put back beside a gap updates, finds no partner, and breaks, and
+     * SUPPRESS_DROPS alone would only hide that. Skipping block-entity side
+     * effects stops the structure's own chests spilling their loot as they go.
+     */
+    private static final int RESTORE_FLAGS =
+            net.minecraft.world.level.block.Block.UPDATE_CLIENTS
+                    | net.minecraft.world.level.block.Block.UPDATE_KNOWN_SHAPE
+                    | net.minecraft.world.level.block.Block.UPDATE_SUPPRESS_DROPS
+                    | net.minecraft.world.level.block.Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+
+    /**
+     * The blocks a placement could disturb: its box plus one block all round, so
+     * a flower or torch on the edge that the landing building knocked off comes
+     * back on undo. Public so {@link CityWorldSupport} snapshots the same way.
+     */
+    public static List<ExternalSnap> snapshot(ServerLevel level, net.minecraft.world.level.levelgen.structure.BoundingBox box) {
+        List<ExternalSnap> before = new ArrayList<>();
+        BlockPos.betweenClosed(
+                        new BlockPos(box.minX() - 1, box.minY() - 1, box.minZ() - 1),
+                        new BlockPos(box.maxX() + 1, box.maxY() + 1, box.maxZ() + 1))
+                .forEach(pos -> before.add(new ExternalSnap(pos.immutable(), level.getBlockState(pos))));
+        return before;
+    }
+
     /** A placed structure, and everything needed to take it back off. */
     private record Placement(String label, List<ExternalSnap> before) implements SceneAction {
         @Override
         public boolean undo(ServerLevel level) {
             for (ExternalSnap snap : before) {
-                level.setBlock(snap.pos(), snap.state(), 2);
+                level.setBlock(snap.pos(), snap.state(), RESTORE_FLAGS);
             }
             return !before.isEmpty();
         }
@@ -88,7 +124,7 @@ public final class Structures {
      * already knows that command already knows where this lands one.
      */
     public static Result place(ServerPlayer caster, Identifier templateId, Rotation rotation, Mirror mirror) {
-        return placeAt(caster, templateId, caster.blockPosition(), rotation, mirror);
+        return placeAt(caster, templateId, caster.blockPosition(), rotation, mirror, false);
     }
 
     /**
@@ -96,9 +132,15 @@ public final class Structures {
      * {@code /st struct place <template> at <pos>} types, and what a ghost
      * finally sends. Rotation turns about the origin, as vanilla's
      * {@code /place template} does.
+     *
+     * <p><b>Air is left out unless {@code withAir}.</b> A structure-block export
+     * records the air in its box, and placing that air carves the whole box out
+     * of whatever the building lands in, so a house set into a hillside arrived
+     * in a cube-shaped hole. Sable asked for no air by default, with air as a
+     * flag for the builds that carry their own interior.</p>
      */
     public static Result placeAt(ServerPlayer caster, Identifier templateId, BlockPos origin,
-            Rotation rotation, Mirror mirror) {
+            Rotation rotation, Mirror mirror, boolean withAir) {
         ServerLevel level = (ServerLevel) caster.level();
         Optional<StructureTemplate> template = template(level, templateId);
         if (template.isEmpty()) return new Result(Refusal.UNKNOWN_TEMPLATE, 0);
@@ -112,18 +154,17 @@ public final class Structures {
                 // snapshotted below, with nothing loose to lose track of. Cast
                 // an inhabitant on purpose with /st cast instead.
                 .setIgnoreEntities(true);
+        if (!withAir) {
+            settings.addProcessor(net.minecraft.world.level.levelgen.structure.templatesystem.BlockIgnoreProcessor.AIR);
+        }
         var box = structure.getBoundingBox(settings, origin);
         if (box.getXSpan() < 1 || box.getYSpan() < 1 || box.getZSpan() < 1) {
             return new Result(Refusal.EMPTY_TEMPLATE, 0);
         }
 
-        List<ExternalSnap> before = new ArrayList<>();
-        BlockPos.betweenClosed(
-                        new BlockPos(box.minX(), box.minY(), box.minZ()),
-                        new BlockPos(box.maxX(), box.maxY(), box.maxZ()))
-                .forEach(pos -> before.add(new ExternalSnap(pos.immutable(), level.getBlockState(pos))));
+        List<ExternalSnap> before = snapshot(level, box);
 
-        boolean placed = structure.placeInWorld(level, origin, origin, settings, level.getRandom(), 2);
+        boolean placed = structure.placeInWorld(level, origin, origin, settings, level.getRandom(), PLACE_FLAGS);
         if (!placed) return new Result(Refusal.EMPTY_TEMPLATE, 0);
 
         SceneLog.record(caster, new Placement(templateId.toString(), before));

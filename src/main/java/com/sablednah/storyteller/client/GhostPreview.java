@@ -39,8 +39,9 @@ import net.neoforged.neoforge.client.event.InputEvent;
  *
  * <p>Controls, only while a ghost is up: aim moves it; scroll turns it;
  * Shift+scroll or Page Up/Down raise and lower it; the arrow keys shift it
- * relative to where you face; right-click places; left-click clears;
- * middle-click holds it still so you can walk round it.</p>
+ * relative to where you face; left-click locks it where it is so you can walk
+ * round it and nudge it, and again lets it follow; right-click places; Esc
+ * puts it away.</p>
  */
 public final class GhostPreview {
 
@@ -174,7 +175,13 @@ public final class GhostPreview {
         statusTicks = 10;
     }
 
-    /** Right-click places, left-click clears, middle-click holds. None of them reach the world. */
+    /**
+     * Right-click places; left-click locks and unlocks. Neither reaches the world.
+     *
+     * <p>Left-click was "clear" until Sable played it: the useful thing is to
+     * pin the ghost, walk round it nudging it with the arrows, then place — or
+     * click again and pick it back up on the aim. Clearing moved to Esc.</p>
+     */
     @SubscribeEvent
     static void onInteract(InputEvent.InteractionKeyMappingTriggered event) {
         if (ghost == null) return;
@@ -182,15 +189,30 @@ public final class GhostPreview {
         if (event.isUseItem()) {
             place(mc);
         } else if (event.isAttack()) {
-            forget();
-            ClientText.overlay(grey("Ghost put away."));
-        } else if (event.isPickBlock()) {
             toggleHold();
         } else {
-            return;
+            return;   // middle-click picks a block as usual
         }
         event.setCanceled(true);
         event.setSwingHand(false);
+    }
+
+    /**
+     * Esc puts the ghost away instead of pausing.
+     *
+     * <p>Caught as the pause screen opens, and only while Esc is actually held:
+     * the same screen opens when the window loses focus, and alt-tabbing away
+     * must not cost the Storyteller the ghost they had lined up.</p>
+     */
+    @SubscribeEvent
+    static void onScreenOpening(net.neoforged.neoforge.client.event.ScreenEvent.Opening event) {
+        if (ghost == null || !(event.getNewScreen() instanceof net.minecraft.client.gui.screens.PauseScreen)) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (!com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow(),
+                com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE)) return;
+        event.setCanceled(true);
+        forget();
+        ClientText.overlay(grey("Ghost put away."));
     }
 
     private static void toggleHold() {
@@ -224,7 +246,7 @@ public final class GhostPreview {
                 .append(grey(" · front faces ")).append(white(GhostMath.front(rotation).getName()));
         String moved = GhostMath.describeOffset(offset);
         if (!moved.isEmpty()) line.append(grey(" · ")).append(white(moved));
-        if (held != null) line.append(Component.literal(" · held").withStyle(ChatFormatting.YELLOW));
+        if (held != null) line.append(Component.literal(" · locked").withStyle(ChatFormatting.YELLOW));
         return line;
     }
 
@@ -240,9 +262,9 @@ public final class GhostPreview {
                 .append(white(keyName(STKeyMappings.GHOST_LEFT) + " " + keyName(STKeyMappings.GHOST_RIGHT) + " "
                         + keyName(STKeyMappings.GHOST_FORWARD) + " " + keyName(STKeyMappings.GHOST_BACK)))
                 .append(grey(" shift it; "))
-                .append(white("right-click")).append(grey(" places, "))
-                .append(white("left-click")).append(grey(" clears, "))
-                .append(white("middle-click")).append(grey(" holds it still.")));
+                .append(white("left-click")).append(grey(" locks it in place (again to follow your look); "))
+                .append(white("right-click")).append(grey(" places; "))
+                .append(white("Esc")).append(grey(" puts it away.")));
     }
 
     private static String keyName(KeyMapping key) {

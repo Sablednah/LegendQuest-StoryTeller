@@ -356,8 +356,11 @@ Decided with Sable on 2026-09-14:
 - **Controls on the modded client:** aim moves it, scroll turns it,
   Shift+scroll or Page Up/Down raise and lower it, the arrow keys shift it
   relative to where you face ("offset up/down, side to side, for uneven
-  terrain" — Sable's addition), right-click places, left-click clears,
-  middle-click holds it still. These six keys are the one exception to
+  terrain" — Sable's addition), left-click locks it in place so you can walk
+  round it nudging it (again to follow the aim), right-click places, Esc puts it
+  away. Left-click was "clear" and middle-click "hold" until Sable played it on
+  2026-09-14 and asked for this; Esc is caught as the pause screen opens, and
+  only while Esc is down, so losing focus does not cost the ghost. These six keys are the one exception to
   "registered unbound": their conflict context is the ghost itself, so outside a
   ghost they take no key from anyone.
 - **Both lines from day one**, because drawing is exactly what 26.x rewrote.
@@ -399,6 +402,22 @@ only 64 blocks, so a Storyteller on a hilltop hit nothing (now 128); and a full
 template id overflowed the action bar at both ends (it shows the short name now).
 Both fixes compile on all three lines and were made after the rig runs, so
 neither has been seen yet.
+
+**What Sable's first real play found, all fixed the same day:**
+
+- **No ghost at all under Sodium** — see StoryTeller CLAUDE.md, Known traps.
+- **Placing carved.** A template's recorded air was placed, cutting the
+  structure's whole box out of the terrain. Air is skipped now
+  (`BlockIgnoreProcessor.AIR`), with `withair` to keep it.
+- **Placing and undo were messy** — seeds popping on place, beds dropping on
+  undo. Both were shape updates destroying blocks with drops
+  (`Block.updateOrDestroy` drops unless `UPDATE_SUPPRESS_DROPS`). Placement now
+  suppresses drops; undo restores with `UPDATE_KNOWN_SHAPE` too, so a bed half
+  put back before its partner does not update and break, and skips block-entity
+  side effects so a structure's own chests do not spill. The undo snapshot takes
+  one block of margin so edge plants knocked off come back.
+- CityWorld's paste sets its own flags, so a library building can still pop the
+  odd seed as it lands; its undo is ours and is tidy.
 
 **Not yet done here:**
 

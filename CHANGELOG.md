@@ -12,13 +12,22 @@ This project follows [Semantic Versioning](https://semver.org/).
 - With the StoryTeller mod on your client it is drawn in the world as a
   translucent ghost. Scroll turns it; Shift+scroll or Page Up/Down raise and
   lower it; the arrow keys shift it left, right, away and back, for fitting it
-  to uneven ground; right-click builds it; left-click puts it away; middle-click
-  holds it still so you can walk round it. The six ghost keys only do anything
+  to uneven ground; left-click locks it where it is so you can walk round it
+  and nudge it (click again to pick it back up); right-click builds it; Esc
+  puts it away. The six ghost keys only do anything
   while a ghost is up, and rebind under Options → Controls → StoryTeller.
 - On a vanilla client you get its outline instead, drawn in particles only you
   can see, with its front edge in gold so you can tell which way it faces. A row
-  of chat buttons turns, raises, shifts, holds, places and cancels it — or type
+  of chat buttons turns, raises, shifts, locks, places and cancels it — or type
   `/st struct ghost rotate|nudge|hold|place|cancel`.
+- Placing no longer carves a hole: a structure's air blocks are left out, so a
+  house set into a hillside keeps the hill around it. Add `withair` after the
+  name to keep them — `/st struct place <structure> withair`, or
+  `/st struct ghost <structure> withair`.
+- Placing and undoing are tidy. Plants and beds that stop fitting as a building
+  lands disappear instead of scattering seeds and items, undo puts every block
+  back exactly without beds breaking or chests spilling, and it restores one
+  block of ground around the footprint so edge flowers come back too.
 - `/st struct place <structure> at <x y z> [rotate ...]` places at a position
   instead of at your feet. It is what a ghost sends, so `/st undo` takes a ghost
   placement back off like any other.
