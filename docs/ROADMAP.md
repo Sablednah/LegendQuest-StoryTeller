@@ -330,6 +330,39 @@ Sketch, not a design:
 Soft dependency, same pattern as Cast: one guarded `ChroniclerSupport` class,
 and without Chronicler the subcommand says so and nothing else changes.
 
+## Next: place a building by seeing it first
+
+**Asked for by Sable on 2026-09-12, deliberately deferred in favour of driving,
+not started.** Two halves, MineColonies' build tool being the reference for how
+it should feel:
+
+- **A schematic browser.** The structure library listed on the left, a
+  rotatable preview of the selected one on the right, and a **Place** button
+  that hands over to the ghost placer rather than placing immediately. Both
+  pools: datapack structures (`/st struct place`) and CityWorld's library
+  (`/st struct library`).
+- **A ghost placer.** The structure drawn translucent in the world where it
+  will land, following the Storyteller's aim, rotatable before it is committed —
+  so a building goes where it looks right rather than where a coordinate guess
+  put it and `/st undo` took it back.
+
+What is already known about the shape of it:
+
+- **Client-only drawing, server-side placing.** The ghost is a client render and
+  a vanilla Storyteller simply does not get it; the Place still ends in the same
+  `/st struct place ... ` command with a rotation and a position, so undo,
+  permissions and CityWorld's own placement all behave exactly as typed. Same
+  rule as the buttons and keys: nothing the screen does that a command cannot.
+- **This is the first thing StoryTeller would genuinely DRAW.** Everything on
+  the client so far only declines to draw (`DrivenView`). Drawing is where 26.x
+  reworked GUI rendering wholesale, so it belongs in one small class per the
+  client-half rule, and it wants the 26.2 rig from day one rather than a
+  compile-only port.
+- **Reading a structure for preview** needs its block list on the client. For a
+  vanilla `.nbt` template that is a known format; for CityWorld's
+  `.schem`/`.litematic` it means asking CityWorld's library for blocks rather
+  than parsing four formats here.
+
 ## Control and safety, threaded throughout
 
 Not a milestone; each of these lands with the tool it protects.
