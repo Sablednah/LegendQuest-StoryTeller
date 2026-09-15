@@ -90,7 +90,7 @@ public final class Ghosts {
     }
 
     /** {@code /st struct ghost <template>}. */
-    static int start(ServerPlayer player, Identifier templateId, boolean withAir) {
+    static int start(ServerPlayer player, Identifier templateId, boolean withAir, boolean withJigsaw) {
         Optional<StructureTemplate> template = Structures.template((ServerLevel) player.level(), templateId);
         if (template.isEmpty()) {
             Feedback.chat(player, "&cNo structure called '" + templateId + "' is loaded. "
@@ -102,8 +102,9 @@ public final class Ghosts {
             Feedback.chat(player, "&c'" + templateId + "' is empty, so there is nothing to show.");
             return 0;
         }
-        return show(player, templateId.toString(), "st struct place " + templateId + (withAir ? " withair" : ""), size,
-                () -> Structures.preview(template.get()), 0);
+        String flags = (withAir ? " withair" : "") + (withJigsaw ? " withjigsaw" : "");
+        return show(player, templateId.toString(), "st struct place " + templateId + flags, size,
+                () -> Structures.preview(template.get(), withJigsaw), 0);
     }
 
     /**

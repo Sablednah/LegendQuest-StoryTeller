@@ -124,7 +124,7 @@ public final class Structures {
      * already knows that command already knows where this lands one.
      */
     public static Result place(ServerPlayer caster, Identifier templateId, Rotation rotation, Mirror mirror) {
-        return placeAt(caster, templateId, caster.blockPosition(), rotation, mirror, false);
+        return placeAt(caster, templateId, caster.blockPosition(), rotation, mirror, false, false);
     }
 
     /**
@@ -138,9 +138,17 @@ public final class Structures {
      * of whatever the building lands in, so a house set into a hillside arrived
      * in a cube-shaped hole. Sable asked for no air by default, with air as a
      * flag for the builds that carry their own interior.</p>
+     *
+     * <p><b>Jigsaw blocks become their final state unless {@code withJigsaw}.</b>
+     * Village houses, bastion rooms and outpost parts are single pieces of
+     * structures world generation assembles, and a jigsaw block is a connector:
+     * "attach a piece from this pool here". Generation swaps each one for its
+     * {@code final_state} once the pieces are joined; a lone piece placed on its
+     * own has nobody to do that, so Sable found raw jigsaw blocks in every
+     * village house. This is vanilla's own swap, {@code JigsawReplacementProcessor}.</p>
      */
     public static Result placeAt(ServerPlayer caster, Identifier templateId, BlockPos origin,
-            Rotation rotation, Mirror mirror, boolean withAir) {
+            Rotation rotation, Mirror mirror, boolean withAir, boolean withJigsaw) {
         ServerLevel level = (ServerLevel) caster.level();
         Optional<StructureTemplate> template = template(level, templateId);
         if (template.isEmpty()) return new Result(Refusal.UNKNOWN_TEMPLATE, 0);
@@ -154,6 +162,11 @@ public final class Structures {
                 // snapshotted below, with nothing loose to lose track of. Cast
                 // an inhabitant on purpose with /st cast instead.
                 .setIgnoreEntities(true);
+        // Jigsaws first: one whose final state is air then goes out with the rest of the air.
+        if (!withJigsaw) {
+            settings.addProcessor(
+                    net.minecraft.world.level.levelgen.structure.templatesystem.JigsawReplacementProcessor.INSTANCE);
+        }
         if (!withAir) {
             settings.addProcessor(net.minecraft.world.level.levelgen.structure.templatesystem.BlockIgnoreProcessor.AIR);
         }
@@ -191,8 +204,8 @@ public final class Structures {
      * placed; the preview shows the first, so the ghost of one of those is the
      * right shape and possibly the wrong planks.</p>
      */
-    public static Preview preview(StructureTemplate structure) {
-        return preview(structure.save(new net.minecraft.nbt.CompoundTag()), structure.getSize());
+    public static Preview preview(StructureTemplate structure, boolean withJigsaw) {
+        return preview(structure.save(new net.minecraft.nbt.CompoundTag()), structure.getSize(), withJigsaw);
     }
 
     /**
@@ -200,13 +213,23 @@ public final class Structures {
      * hands a library building over ({@code Clipboard.saveTemplate()}).
      */
     public static Preview preview(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.Vec3i size) {
+        return preview(tag, size, true);
+    }
+
+    /**
+     * @param withJigsaw false to show each jigsaw block as the final state it will
+     *                   be placed as, exactly as {@link #placeAt} will place it
+     */
+    public static Preview preview(net.minecraft.nbt.CompoundTag tag, net.minecraft.core.Vec3i size, boolean withJigsaw) {
         net.minecraft.nbt.ListTag palette = tag.getList("palette")
                 .orElseGet(() -> tag.getListOrEmpty("palettes").getListOrEmpty(0));
         int[] ids = new int[palette.size()];
+        boolean[] jigsaw = new boolean[palette.size()];
         for (int i = 0; i < ids.length; i++) {
             BlockState state = net.minecraft.nbt.NbtUtils.readBlockState(
                     net.minecraft.core.registries.BuiltInRegistries.BLOCK, palette.getCompoundOrEmpty(i));
             ids[i] = state.isAir() ? -1 : net.minecraft.world.level.block.Block.getId(state);
+            jigsaw[i] = state.is(net.minecraft.world.level.block.Blocks.JIGSAW);
         }
 
         net.minecraft.nbt.ListTag blocks = tag.getListOrEmpty("blocks");
@@ -215,13 +238,33 @@ public final class Structures {
         for (int i = 0; i < blocks.size(); i++) {
             net.minecraft.nbt.CompoundTag block = blocks.getCompoundOrEmpty(i);
             int index = block.getIntOr("state", -1);
-            if (index < 0 || index >= ids.length || ids[index] < 0) continue;
+            if (index < 0 || index >= ids.length) continue;
+            int id = !withJigsaw && jigsaw[index] ? jigsawFinalState(block) : ids[index];
+            if (id < 0) continue;
             net.minecraft.nbt.ListTag pos = block.getListOrEmpty("pos");
             int x = pos.getIntOr(0, 0), y = pos.getIntOr(1, 0), z = pos.getIntOr(2, 0);
-            states.add(ids[index]);
+            states.add(id);
             cells.add(x + size.getX() * (y + size.getY() * z));
         }
         return new Preview(states.toIntArray(), cells.toIntArray());
+    }
+
+    /**
+     * The block a jigsaw block is placed as — the reading
+     * {@code JigsawReplacementProcessor} does, from the block's own
+     * {@code final_state} — or -1 for nothing drawn (air, structure void, or a
+     * state that does not parse, which the processor also leaves out).
+     */
+    private static int jigsawFinalState(net.minecraft.nbt.CompoundTag block) {
+        String text = block.getCompoundOrEmpty("nbt").getStringOr("final_state", "minecraft:air");
+        try {
+            BlockState state = net.minecraft.commands.arguments.blocks.BlockStateParser.parseForBlock(
+                    net.minecraft.core.registries.BuiltInRegistries.BLOCK, text, true).blockState();
+            return state.isAir() || state.is(net.minecraft.world.level.block.Blocks.STRUCTURE_VOID)
+                    ? -1 : net.minecraft.world.level.block.Block.getId(state);
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException unparseable) {
+            return -1;
+        }
     }
 
     /** See {@link #preview}. */
