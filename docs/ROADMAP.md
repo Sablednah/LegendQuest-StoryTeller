@@ -418,6 +418,12 @@ neither has been seen yet.
   one block of margin so edge plants knocked off come back.
 - CityWorld's paste sets its own flags, so a library building can still pop the
   odd seed as it lands; its undo is ours and is tidy.
+- **Raw jigsaw blocks left in every village house.** A lone piece of an
+  assembled structure keeps its connectors, because nothing assembles it.
+  `JigsawReplacementProcessor` now swaps them for their `final_state` as world
+  generation does (before the air filter, so an air final state goes too), and
+  the ghost preview does the same reading. `withjigsaw` keeps them, in either
+  order with `withair`.
 
 **Not yet done here:**
 
@@ -439,6 +445,32 @@ neither has been seen yet.
   shape and possibly the wrong planks.
 - **Block-entity renderers** (chests, beds, signs) draw little or nothing in the
   ghost; the building places them normally.
+
+## Next: whole structures — villages, bastions, fortresses, with undo
+
+**Asked for by Sable on 2026-09-14**, prompted by the jigsaw blocks: "spawning a
+whole village or bastion or fortress would be useful — especially with undo."
+Vanilla already assembles them for an operator — `/place structure <id>` places
+a configured structure as world generation would, and `/place jigsaw <pool>
+<target> <depth>` grows one from a pool — so the tool is those, reached through
+the Storyteller permission, with the thing vanilla has never had: undo.
+
+A sketch, and nothing below has been checked against the source yet:
+
+- **Decide the layout, then snapshot, then place.** A structure start (its
+  pieces and their boxes) can be generated before anything is written; its
+  combined box plus margin is what undo must snapshot. Villages also reshape
+  the terrain around their pieces, so the margin may need to be generous.
+- **Size.** A village can be well over a hundred blocks across and span
+  unloaded chunks. The current undo keeps one object per block, which will not
+  scale to that; it wants a compact snapshot (a palette and packed positions).
+- **The ghost is the hard part.** Assembly is random, so a preview has to
+  generate one start, show that, and place exactly that one — not a fresh roll.
+  Villages and bastions are jigsaw pieces with templates, so they can be drawn
+  as blocks; fortresses and strongholds are built by code piece by piece and
+  would get an outline.
+- Turning one means choosing the start's rotation rather than rotating a
+  template, and may not be offered at all.
 
 ## Control and safety, threaded throughout
 

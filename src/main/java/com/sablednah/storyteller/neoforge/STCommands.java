@@ -1003,9 +1003,8 @@ public final class STCommands {
         return Commands.literal("struct")
                 .then(Commands.literal("list").executes(STCommands::structList))
                 .then(Commands.literal("place")
-                        .then(placeTail(templateArgument(), false)
-                                // Air is left out unless asked for; see Structures.placeAt.
-                                .then(placeTail(Commands.literal("withair"), true))))
+                        // Air and jigsaw blocks are left out unless asked for; see Structures.placeAt.
+                        .then(placeFlags(templateArgument(), false, false)))
                 .then(ghostCommands())
                 .then(Commands.literal("library")
                         .then(Commands.literal("list")
@@ -1055,13 +1054,37 @@ public final class STCommands {
      * "at" is what a ghost sends: the position it was showing, so the placement
      * is the one seen.
      */
-    private static <T extends ArgumentBuilder<CommandSourceStack, T>> T placeTail(T node, boolean withAir) {
-        return withRotations(node, (ctx, rotation) -> structPlace(ctx, rotation, false, withAir))
+    private static <T extends ArgumentBuilder<CommandSourceStack, T>> T placeTail(T node, boolean withAir,
+            boolean withJigsaw) {
+        return withRotations(node, (ctx, rotation) -> structPlace(ctx, rotation, false, withAir, withJigsaw))
                 .then(Commands.literal("at")
                         .then(withRotations(
                                 Commands.argument("pos",
                                         net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos()),
-                                (ctx, rotation) -> structPlace(ctx, rotation, true, withAir))));
+                                (ctx, rotation) -> structPlace(ctx, rotation, true, withAir, withJigsaw))));
+    }
+
+    /**
+     * {@code withair} and {@code withjigsaw}, in either order, each leading on to
+     * {@code [at <pos>] [rotate ...]}. Either order, because nobody should have
+     * to remember which flag comes first.
+     */
+    private static <T extends ArgumentBuilder<CommandSourceStack, T>> T placeFlags(T node, boolean withAir,
+            boolean withJigsaw) {
+        placeTail(node, withAir, withJigsaw);
+        if (!withAir) node.then(placeFlags(Commands.literal("withair"), true, withJigsaw));
+        if (!withJigsaw) node.then(placeFlags(Commands.literal("withjigsaw"), withAir, true));
+        return node;
+    }
+
+    /** The same two flags for {@code /st struct ghost <template>}. */
+    private static <T extends ArgumentBuilder<CommandSourceStack, T>> T ghostFlags(T node, boolean withAir,
+            boolean withJigsaw) {
+        node.executes(ctx -> Ghosts.start(ctx.getSource().getPlayerOrException(),
+                IdentifierArgument.getId(ctx, "template"), withAir, withJigsaw));
+        if (!withAir) node.then(ghostFlags(Commands.literal("withair"), true, withJigsaw));
+        if (!withJigsaw) node.then(ghostFlags(Commands.literal("withjigsaw"), withAir, true));
+        return node;
     }
 
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, Identifier> templateArgument() {
@@ -1098,29 +1121,26 @@ public final class STCommands {
                 .then(Commands.literal("hold").executes(ctx -> Ghosts.hold(ctx.getSource().getPlayerOrException())))
                 .then(Commands.literal("place").executes(ctx -> Ghosts.place(ctx.getSource().getPlayerOrException())))
                 .then(Commands.literal("cancel").executes(ctx -> Ghosts.cancel(ctx.getSource().getPlayerOrException())))
-                .then(templateArgument()
-                        .executes(ctx -> Ghosts.start(ctx.getSource().getPlayerOrException(),
-                                IdentifierArgument.getId(ctx, "template"), false))
-                        .then(Commands.literal("withair")
-                                .executes(ctx -> Ghosts.start(ctx.getSource().getPlayerOrException(),
-                                        IdentifierArgument.getId(ctx, "template"), true))));
+                .then(ghostFlags(templateArgument(), false, false));
     }
 
     private static int structPlace(CommandContext<CommandSourceStack> ctx, Rotation rotation, boolean at,
-            boolean withAir) throws CommandSyntaxException {
+            boolean withAir, boolean withJigsaw) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         Identifier templateId = IdentifierArgument.getId(ctx, "template");
         net.minecraft.core.BlockPos origin = at
                 ? net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(ctx, "pos")
                 : player.blockPosition();
-        var result = Structures.placeAt(player, templateId, origin, rotation, Mirror.NONE, withAir);
+        var result = Structures.placeAt(player, templateId, origin, rotation, Mirror.NONE, withAir, withJigsaw);
         if (!result.ok()) {
             Feedback.chat(player, "&cCould not place '" + templateId + "' — "
                     + (result.refusal() == Structures.Refusal.UNKNOWN_TEMPLATE
                             ? "no such structure is loaded." : "it placed nothing."));
             return 0;
         }
-        Feedback.chat(player, "&aPlaced &f" + templateId + (withAir ? " &7(air included)" : "")
+        String kept = withAir && withJigsaw ? " &7(air and jigsaw blocks kept)"
+                : withAir ? " &7(air kept)" : withJigsaw ? " &7(jigsaw blocks kept)" : "";
+        Feedback.chat(player, "&aPlaced &f" + templateId + kept
                 + "&a. &f/st undo&a takes it back off.");
         return 1;
     }

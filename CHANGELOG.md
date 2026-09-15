@@ -24,6 +24,11 @@ This project follows [Semantic Versioning](https://semver.org/).
   house set into a hillside keeps the hill around it. Add `withair` after the
   name to keep them — `/st struct place <structure> withair`, or
   `/st struct ghost <structure> withair`.
+- Village houses, bastion rooms and other pieces of assembled structures no
+  longer leave jigsaw blocks behind. A jigsaw block is a connector world
+  generation uses to join pieces and then swaps for its final state; a piece
+  placed on its own now gets the same swap. Add `withjigsaw` to keep them, in
+  either order with `withair`.
 - Placing and undoing are tidy. Plants and beds that stop fitting as a building
   lands disappear instead of scattering seeds and items, undo puts every block
   back exactly without beds breaking or chests spilling, and it restores one
