@@ -3,7 +3,11 @@
 All notable changes to LegendQuest StoryTeller are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 1.1.0 — 2026-09-15
+
+Requires **LegendQuest ReForged 2.5.0 or newer**, as before. Showing and turning
+CityWorld library buildings needs **CityWorld 5.8.0 or newer**; an older
+CityWorld still places them, unturned.
 
 ### See a building before you place it
 
@@ -45,6 +49,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Library names are now a single word or a quoted string, so that `at` and
   `rotate` can follow them. None of CityWorld's own buildings have spaces in
   their names; a dropped-in file that does needs quotes.
+
+### Fixed
+
+- Another mod's fake player no longer makes `/st possess` or a ghost throw an
+  error when StoryTeller asks what client it is on.
 
 ## 1.0.0 — 2026-09-13
 

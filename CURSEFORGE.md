@@ -93,14 +93,32 @@ whatever happened to be under the crosshair.
   written exactly as `/give` takes it, so a named sword or a tipped arrow works.
   (Needs Cast, below.)
 
-## Dress the set
+## Dress the set — and see it before you place it
 
-- `/st struct place <template> [rotate cw90|180|ccw90]` — any structure any
-  loaded datapack declares: over 1,200 of them in vanilla alone, villages,
-  temples, ruins and fortress pieces.
+- `/st struct ghost <structure>` shows a building where it would stand, centred
+  on where you are looking, before anything is built. **With the StoryTeller mod
+  on your client it is drawn in the world as a translucent ghost**: scroll turns
+  it, Shift+scroll or Page Up/Down raise and lower it, the arrow keys shift it to
+  sit right on uneven ground, left-click locks it in place so you can walk round
+  it, right-click builds it and Esc puts it away. On a vanilla client you get its
+  outline in particles only you can see, with its front edge in gold, steered by
+  a row of chat buttons.
+- `/st struct place <structure> [at <x y z>] [rotate cw90|180|ccw90]` — any
+  structure any loaded datapack declares: over 1,200 of them in vanilla alone,
+  village houses, temples, ruins and fortress pieces. It is exactly what the
+  ghost sends, so the two never disagree about where a building lands.
+- **Placing is tidy.** A structure's recorded air is left out, so a house set
+  into a hillside does not carve a box out of it; the jigsaw connectors a village
+  piece carries become what world generation would have made them; and nothing
+  breaks and scatters drops as it lands. Add `withair` or `withjigsaw` to keep
+  either.
+- `/st struct library ghost <name>` · `/st struct library place <name> [at <x y
+  z>] [rotate ...]` — the same for CityWorld's schematic library, when it is
+  installed.
 - `/st undo` · `/st scene clear` — take back the last thing you placed or
   spawned, or everything from this session. **Every placement snapshots the
-  ground first**, so a building can be taken back off cleanly.
+  ground first**, so a building comes back off cleanly, without beds breaking or
+  chests spilling on the way.
 
 ## Reward the table
 
@@ -190,7 +208,7 @@ is a hard dependency, matching Minecraft version for Minecraft version.
 |---|---|
 | [Standards](https://www.curseforge.com/minecraft/mc-mods/sablecraft-standards) | the buttons, money rewards, reputation rewards, and hiding you while you wear a body |
 | [Cast](https://www.curseforge.com/minecraft/mc-mods/sablecraft-cast) | NPC bodies — human and mob — to possess, dress and speak through |
-| CityWorld | its schematic library (`.schematic`, `.schem`, `.litematic`, `.nbt`) as a second pool for `/st struct` |
+| CityWorld | its schematic library (`.schematic`, `.schem`, `.litematic`, `.nbt`) as a second pool for `/st struct`; ghosts and turning need 5.8.0 or newer |
 
 Every one of these degrades to a plain "not available on this server" rather
 than breaking. Standards being *installed* and the server *having an economy*
