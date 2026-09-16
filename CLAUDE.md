@@ -216,6 +216,16 @@ cause" under Known traps.
 Worktrees are **detached** — advance with `git checkout --detach <sha>`, never
 `git checkout main` (main is held by the primary worktree).
 
+**Port through a throwaway worktree, not a branch switch.** `git worktree add
+../LegendQuest-StoryTeller-mc26.2 mc26.2`, copy the changed files in, compile,
+commit, `git worktree remove`. It keeps main's uncommitted work untouched — no
+stash, no "commit before checkout" race — and the ghost placer was built and
+ported that way in a day. A worktree added by branch name checks that branch
+*out*, so its commits move the branch ref and nothing needs re-pointing
+afterwards; verify with `git log -1 <branch>` from the main checkout before
+removing it. Sibling jar lookups still work because the worktree sits beside the
+other repos, which is why it goes in `/mnt/d/Repos/sable/`, not somewhere tidy.
+
 `run/` and `runBuddy/` are gitignored, so they do not follow a branch switch: a
 26.x session needs its own mods folder, its own world, and Java 25 for the buddy
 (`TestClient.cmd` hardcodes CurseForge's JDK 21 `java-runtime-delta`).
@@ -737,7 +747,8 @@ node.
 
 ## Releasing
 
-**1.0.0 is the first release.** CurseForge project **1690309**
+**1.1.0 is current** (2026-09-15: the structure ghost placer, the CityWorld
+library ghost, and the fake-player channel guard). **1.0.0 was the first.** CurseForge project **1690309**
 (`legendquest-storyteller`), with `CURSEFORGE_TOKEN` and `CURSEFORGE_PROJECT_ID`
 set on the GitHub repo. Publishing a GitHub release uploads every attached jar
 through `.github/workflows/curseforge.yml` — **copied from LegendQuest, and
@@ -752,6 +763,13 @@ meant to stay in step with it**, along with `scripts/curseforge-upload.sh` and
 3. Check the workflow run, then the **authors file list** — a 200 is
    acceptance, not publication, and moderation can still reject a file.
 
+- **Upload this mod's jars and nothing else.** `ordered=(dist/storyteller-*.jar)`
+  is deliberate: the CurseForge app pulls a required dependency in as the
+  dependency project's newest *approved* file for that Minecraft version,
+  whatever it is called. LegendQuest had been uploading its example skill pack
+  into its own project, so a modpack installing StoryTeller got the example pack
+  instead of LegendQuest (2026-09-16). A project's file list is its identity to
+  every other mod; companion jars go on the GitHub release.
 - **Relations are declared by the upload.** `CURSEFORGE_RELATIONS` in the
   workflow sends LegendQuest as required and Standards, Cast and CityWorld as
   optional with every file, matching `mods.toml`. Format is
