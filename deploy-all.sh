@@ -121,6 +121,11 @@ for dir in "$INSTANCES"/*/; do
     done
     [ -n "$have" ] || continue
 
+    if [ -e "$dir/.sablecraft-no-deploy" ]; then
+        echo "-- $name is marked .sablecraft-no-deploy -- left alone"
+        continue
+    fi
+
     mc="$(mc_version_of "$dir")"
     if [ -z "$mc" ]; then
         echo "?? $name: could not read its Minecraft version -- SKIPPED"; fail=1; continue

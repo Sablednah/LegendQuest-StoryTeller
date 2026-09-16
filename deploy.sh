@@ -59,6 +59,18 @@ INSTANCE="${ST_INSTANCE:-$TARGET}"
 MODS="$INSTANCE/mods"
 NAME="$(basename "$INSTANCE")"
 
+# A modpack instance holds ONLY released CurseForge jars: an export names file
+# ids, so a locally built jar would be exported as a file that does not exist.
+# Sable marks those instances with .sablecraft-no-deploy, and Chronicler and Cast
+# honour the same file (asked for by the ZARP session, 2026-09-16). Skipping is
+# success, not failure -- nothing was ever meant to go there -- and it applies
+# whether the instance was found by the scan or named explicitly with
+# ST_INSTANCE.
+if [ -e "$INSTANCE/.sablecraft-no-deploy" ]; then
+    echo ">> '$NAME' is marked .sablecraft-no-deploy -- leaving it alone."
+    exit 0
+fi
+
 [ -d "$MODS" ] || { echo "!! Instance mods folder not found: $MODS" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
