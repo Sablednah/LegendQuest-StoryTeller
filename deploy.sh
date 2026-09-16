@@ -76,12 +76,50 @@ NAME="$(basename "$INSTANCE")"
 # silently while the game is running. That exact bug lived in LegendQuest's copy
 # of this script for weeks. Let the name run to the next backslash or quote.
 # ---------------------------------------------------------------------------
-RUNNING="$(powershell.exe -NoProfile -Command \
-  "Get-CimInstance Win32_Process | Where-Object { \$_.Name -like 'java*' } | ForEach-Object { \
-   \$m=[regex]::Match(\$_.CommandLine,'Instances\\\\([^\\\\\"]+)'); if (\$m.Success) { \$m.Groups[1].Value } }" \
-  2>/dev/null | tr -d '\r' | sort -u || true)"
+# The trailing backslash is not decoration. A running instance's own command
+# line carries "--gameDir C:\...\Instances\26.2 --assetsDir C:\..." with NO
+# separator after the folder, so a pattern that stops at the next backslash
+# swallows the rest of the argument and yields "26.2 --assetsDir C:". That never
+# equals the folder name, the guard misses, and the script tries to replace a jar
+# under a live game (which fails with "Permission denied" on the rm, mid-run --
+# seen 2026-09-16). Requiring the trailing backslash matches the deeper paths in
+# the same command line instead (natives, libraries), which DO have one, and
+# keeps names with spaces whole.
+RUNNING_CMDS="$(powershell.exe -NoProfile -Command \
+  "Get-CimInstance Win32_Process | Where-Object { \$_.Name -like 'java*' } | ForEach-Object { \$_.CommandLine }" \
+  2>/dev/null | tr -d '\r' || true)"
 
-if echo "$RUNNING" | grep -qxF "$NAME"; then
+# Ask the question the right way round: we KNOW the folder name, so look for it
+# in the running command lines rather than parsing a name out of them. Every
+# attempt to READ the name failed the same way -- the launcher's own argument is
+#   --gameDir C:\...\Instances\26.2 --assetsDir C:\...
+# with no separator after the folder, so the pattern ran on into the next
+# argument and produced "26.2 --assetsDir C:", which matches no instance. The
+# guard then missed and a deploy started under a live game (2026-09-16): the rm
+# failed with "Permission denied" halfway through the estate.
+#
+# The boundary matters as much as the name: without it "26.2" also matches
+# "26.2.test". Names with spaces ("MobHealth - Forge") stay whole either way,
+# because nothing here splits on whitespace.
+instance_running() {
+    local name="$1" padded
+    # Fixed strings, no regex: an instance name can hold dots ("26.2") and
+    # spaces ("MobHealth - Forge"), and escaping them for grep -E is how the
+    # previous attempt died -- its bracket expression opened with "[." , which
+    # POSIX reads as a collating symbol, so sed failed and EVERY instance came
+    # back "not running". A guard that errors must never read as "safe".
+    #
+    # Three boundaries are all the launcher can put after the folder name: a
+    # deeper path, a closing quote, or the end of the argument. The padding
+    # gives that last one something to match.
+    padded="$(printf '%s' "$RUNNING_CMDS" | sed 's/$/ /')"
+    printf '%s' "$padded" | grep -qF -- "Instances\\$name\\" && return 0
+    printf '%s' "$padded" | grep -qF -- "Instances\\$name\"" && return 0
+    printf '%s' "$padded" | grep -qF -- "Instances\\$name " && return 0
+    return 1
+}
+
+if instance_running "$NAME"; then
     echo "!! '$NAME' is RUNNING. Refusing to overwrite a jar underneath a live game." >&2
     echo "!! Close Minecraft and run this again." >&2
     exit 1

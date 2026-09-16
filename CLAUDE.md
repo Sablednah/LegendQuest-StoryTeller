@@ -417,10 +417,22 @@ the moment it lazily loads a class it had not already touched
 disk). Confirm nothing is running first:
 
 ```bash
+# Collect the command lines, then ask about a name you ALREADY have.
 powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process | \
-  Where-Object { \$_.Name -like 'java*' } | ForEach-Object { \
-  [regex]::Match(\$_.CommandLine,'Instances\\\\([^\\\\\"]+)').Groups[1].Value }"
+  Where-Object { \$_.Name -like 'java*' } | ForEach-Object { \$_.CommandLine }" \
+  | grep -F 'Instances\26.2\'
 ```
+
+**Do not try to read the instance name out of the command line** — the same
+guard lives in `deploy.sh` and `deploy-all.sh` in both repos, and it was wrong
+in both until 2026-09-16. `--gameDir C:\...\Instances\26.2 --assetsDir C:\...`
+has no separator after the folder, so any pattern that reads the name runs into
+the next argument and yields `26.2 --assetsDir C:`; the guard then matched
+nothing and a deploy began under a live game. `instance_running <name>` now
+greps for `Instances\<name>` followed by `\`, `"` or a space, as fixed strings.
+The boundary stops `26.2` matching `26.2.test`, and fixed strings avoid the
+escaping that broke the first fix (a `[.` bracket expression made `sed` error,
+so every instance read as "not running").
 
 There is no `deploy.sh` here yet; instances are updated by hand. Overwrite the
 same filename in place, and update the whole family together — this mod,
