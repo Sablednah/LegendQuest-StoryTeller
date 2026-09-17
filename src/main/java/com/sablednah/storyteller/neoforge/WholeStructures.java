@@ -93,10 +93,28 @@ public final class WholeStructures {
      * @param index  which roll: 0 is the one a bare command gets, {@code [Reroll]} counts up
      * @param chunk  the chunk it was rolled in, whose terrain the pieces were fitted to
      */
-    public record Roll(int index, ChunkPos chunk) {
+    public record Roll(int index, int chunkX, int chunkZ) {
+
+        /**
+         * Two ints rather than a {@link ChunkPos}, and that is a portability
+         * decision: 26.x made ChunkPos a record whose {@code x} and {@code z}
+         * are private, so {@code chunk.x} compiles on 1.21.11 and on no branch
+         * after it. The pair travels as ints and becomes a ChunkPos only where
+         * one is needed, through the constructor every line still has.
+         */
+        public ChunkPos chunk() {
+            return new ChunkPos(chunkX, chunkZ);
+        }
+
+        /** The roll for the chunk containing {@code pos}. */
+        public static Roll at(int index, BlockPos pos) {
+            return new Roll(index, SectionPos.blockToSectionCoord(pos.getX()),
+                    SectionPos.blockToSectionCoord(pos.getZ()));
+        }
+
         /** The tail a place command carries so it rebuilds this exact assembly. */
         public String command() {
-            return " roll " + index + " " + chunk.x + " " + chunk.z;
+            return " roll " + index + " " + chunkX + " " + chunkZ;
         }
     }
 
@@ -169,7 +187,7 @@ public final class WholeStructures {
     /** {@code /st struct whole ghost <structure>} — roll one and show it where they are looking. */
     static int ghost(ServerPlayer player, Holder<Structure> structure, Identifier id, int index) {
         ServerLevel level = (ServerLevel) player.level();
-        Roll roll = new Roll(index, new ChunkPos(aim(player)));
+        Roll roll = Roll.at(index, aim(player));
         StructureStart start = generate(level, structure, roll);
         if (!start.isValid()) {
             Feedback.chat(player, "&c'" + id + "' would not generate here. Some structures only assemble in "
@@ -344,8 +362,11 @@ public final class WholeStructures {
         Optional<ChunkPos> missing = ChunkPos.rangeClosed(min, max)
                 .filter(chunk -> !level.isLoaded(chunk.getWorldPosition())).findAny();
         if (missing.isPresent()) {
-            return Result.refused("it reaches ground nobody has loaded yet (chunk " + missing.get().x + ", "
-                    + missing.get().z + "). Move closer to where it should stand and try again.");
+            // Block coordinates, not chunk ones: a Storyteller reads the world
+            // in the numbers F3 shows them, and this is a message they act on.
+            return Result.refused("it reaches ground nobody has loaded yet, around x "
+                    + missing.get().getMinBlockX() + ", z " + missing.get().getMinBlockZ()
+                    + ". Move closer to where it should stand and try again.");
         }
 
         // Snapshot the pieces, not the whole box: most of a village is the
