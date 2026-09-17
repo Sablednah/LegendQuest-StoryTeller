@@ -33,10 +33,12 @@ import net.minecraft.resources.Identifier;
  * @param placeCommand the command to finish, without a leading slash or the position, e.g. {@code st struct place <id>}
  * @param sinkY        where the ghost starts vertically: 0 for a datapack structure, minus a CityWorld
  *                     building's {@code GroundLevelY} so its foundation starts buried as CityWorld buries it
+ * @param rotatable    false for a whole generated structure, whose pieces carry their own final rotations:
+ *                     the client turns nothing and says "as generated" rather than leaving a dead scroll wheel
  * @param cells        {@code x + sizeX * (y + sizeY * z)} for each block, template-local and unrotated
  */
 public record GhostPayload(String label, String placeCommand, int sizeX, int sizeY, int sizeZ, int sinkY,
-        int[] states, int[] cells) implements CustomPacketPayload {
+        boolean rotatable, int[] states, int[] cells) implements CustomPacketPayload {
 
     /** Blocks per payload before the ghost gives way to an outline. */
     public static final int MAX_BLOCKS = 150_000;
@@ -53,16 +55,18 @@ public record GhostPayload(String label, String placeCommand, int sizeX, int siz
                         buf.writeVarInt(p.sizeY);
                         buf.writeVarInt(p.sizeZ);
                         buf.writeVarInt(p.sinkY);
+                        buf.writeBoolean(p.rotatable);
                         buf.writeVarIntArray(p.states);
                         buf.writeVarIntArray(p.cells);
                     },
                     buf -> new GhostPayload(buf.readUtf(), buf.readUtf(),
                             buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
+                            buf.readBoolean(),
                             buf.readVarIntArray(MAX_BLOCKS), buf.readVarIntArray(MAX_BLOCKS)));
 
     /** Take the ghost away. */
     public static GhostPayload clear() {
-        return new GhostPayload("", "", 0, 0, 0, 0, new int[0], new int[0]);
+        return new GhostPayload("", "", 0, 0, 0, 0, true, new int[0], new int[0]);
     }
 
     public boolean isClear() {

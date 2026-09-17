@@ -45,8 +45,15 @@ import net.neoforged.neoforge.client.event.InputEvent;
  */
 public final class GhostPreview {
 
-    /** A structure as received: unrotated, template-local. */
-    record Ghost(String label, String placeCommand, Vec3i size, BlockState[] states, BlockPos[] local) {}
+    /**
+     * A structure as received: unrotated, template-local.
+     *
+     * <p>{@code rotatable} is false for a whole generated structure, whose
+     * pieces already carry their own final rotations — there, scroll raises and
+     * lowers instead of turning, rather than leaving a wheel that looks broken.</p>
+     */
+    record Ghost(String label, String placeCommand, Vec3i size, boolean rotatable,
+            BlockState[] states, BlockPos[] local) {}
 
     private static Ghost ghost;
     private static Rotation rotation = Rotation.NONE;
@@ -75,7 +82,7 @@ public final class GhostPreview {
             states.add(state);
         }
         ghost = new Ghost(payload.label(), payload.placeCommand(),
-                new Vec3i(sizeX, sizeY, payload.sizeZ()),
+                new Vec3i(sizeX, sizeY, payload.sizeZ()), payload.rotatable(),
                 states.toArray(BlockState[]::new), local.toArray(BlockPos[]::new));
         rotation = Rotation.NONE;
         // A CityWorld building starts with its foundation buried, as CityWorld buries it.
@@ -166,7 +173,7 @@ public final class GhostPreview {
         if (delta == 0) return;
         event.setCanceled(true);
         Minecraft mc = Minecraft.getInstance();
-        if (mc.options.keyShift.isDown()) {
+        if (mc.options.keyShift.isDown() || !ghost.rotatable()) {
             offset = offset.relative(delta > 0 ? Direction.UP : Direction.DOWN);
         } else {
             // Wheel towards you turns it clockwise, as a dial on a desk would.
@@ -243,7 +250,9 @@ public final class GhostPreview {
             return grey("Look at the ground to stand the ghost of ").append(white(name)).append(grey(" on it."));
         }
         MutableComponent line = grey("Ghost ").append(white(name))
-                .append(grey(" · front faces ")).append(white(GhostMath.front(rotation).getName()));
+                .append(ghost.rotatable()
+                        ? grey(" · front faces ").append(white(GhostMath.front(rotation).getName()))
+                        : grey(" · as generated"));
         String moved = GhostMath.describeOffset(offset);
         if (!moved.isEmpty()) line.append(grey(" · ")).append(white(moved));
         if (held != null) line.append(Component.literal(" · locked").withStyle(ChatFormatting.YELLOW));
@@ -252,11 +261,19 @@ public final class GhostPreview {
 
     /** Say what the controls are, naming the keys as this player has them bound. */
     private static void explain() {
-        ClientText.chat(Component.literal("Ghost of ").withStyle(ChatFormatting.GREEN)
+        MutableComponent line = Component.literal("Ghost of ").withStyle(ChatFormatting.GREEN)
                 .append(white(ghost.label()))
-                .append(grey(". It follows where you look. "))
-                .append(white("Scroll")).append(grey(" turns it; "))
-                .append(white("Shift+scroll")).append(grey(" or "))
+                .append(grey(". It follows where you look. "));
+        // A whole generated structure does not turn, so its wheel does what the
+        // wheel would otherwise need Shift for, and the line never offers a
+        // control that would do nothing.
+        if (ghost.rotatable()) {
+            line.append(white("Scroll")).append(grey(" turns it; "))
+                    .append(white("Shift+scroll")).append(grey(" or "));
+        } else {
+            line.append(white("Scroll")).append(grey(" or "));
+        }
+        ClientText.chat(line
                 .append(white(keyName(STKeyMappings.GHOST_RAISE) + "/" + keyName(STKeyMappings.GHOST_LOWER)))
                 .append(grey(" raise and lower it; "))
                 .append(white(keyName(STKeyMappings.GHOST_LEFT) + " " + keyName(STKeyMappings.GHOST_RIGHT) + " "
@@ -264,7 +281,11 @@ public final class GhostPreview {
                 .append(grey(" shift it; "))
                 .append(white("left-click")).append(grey(" locks it in place (again to follow your look); "))
                 .append(white("right-click")).append(grey(" places; "))
-                .append(white("Esc")).append(grey(" puts it away.")));
+                .append(white("Esc")).append(grey(" puts it away."))
+                .append(ghost.rotatable() ? Component.empty()
+                        : grey(" It lands the way generation assembled it, so it does not turn — ")
+                                .append(white("/st struct ghost reroll"))
+                                .append(grey(" deals a different layout."))));
     }
 
     private static String keyName(KeyMapping key) {
