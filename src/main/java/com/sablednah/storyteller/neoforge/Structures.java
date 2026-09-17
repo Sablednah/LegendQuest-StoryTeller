@@ -111,6 +111,97 @@ public final class Structures {
         SceneLog.record(caster, new Placement(label, before));
     }
 
+    /**
+     * One box as it was before a placement, as a palette and one index per
+     * block rather than an object per block.
+     *
+     * <p><b>Scale is the whole reason this exists beside {@link ExternalSnap}.</b>
+     * A village's pieces cover a few hundred thousand blocks between them, and a
+     * record holding a {@link BlockPos} and a state costs some forty times what
+     * an index into a palette does. A single building never needed this; a
+     * village cannot do without it.</p>
+     *
+     * <p>Cells run x fastest, then y, then z — {@link #snapshotVolume} writes
+     * them in that order and {@code VolumePlacement.undo} reads them back in it.
+     * The two loops are the same loop and have to stay that way.</p>
+     */
+    public record VolumeSnap(net.minecraft.world.level.levelgen.structure.BoundingBox box,
+            BlockState[] palette, int[] cells) {
+
+        /** Blocks in this box — what a snapshot costs, before taking it. */
+        public static int volume(net.minecraft.world.level.levelgen.structure.BoundingBox box) {
+            return box.getXSpan() * box.getYSpan() * box.getZSpan();
+        }
+    }
+
+    /** Every block in {@code box} as it stands right now. See {@link VolumeSnap}. */
+    public static VolumeSnap snapshotVolume(ServerLevel level,
+            net.minecraft.world.level.levelgen.structure.BoundingBox box) {
+        List<BlockState> palette = new ArrayList<>();
+        java.util.Map<BlockState, Integer> seen = new java.util.HashMap<>();
+        int[] cells = new int[VolumeSnap.volume(box)];
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        int i = 0;
+        for (int z = box.minZ(); z <= box.maxZ(); z++) {
+            for (int y = box.minY(); y <= box.maxY(); y++) {
+                for (int x = box.minX(); x <= box.maxX(); x++) {
+                    BlockState state = level.getBlockState(pos.set(x, y, z));
+                    cells[i++] = seen.computeIfAbsent(state, fresh -> {
+                        palette.add(fresh);
+                        return palette.size() - 1;
+                    });
+                }
+            }
+        }
+        return new VolumeSnap(box, palette.toArray(BlockState[]::new), cells);
+    }
+
+    /**
+     * A whole generated structure placed, and what stood where it landed.
+     *
+     * <p><b>It also remembers what arrived with it.</b> A monument brings
+     * guardians and a fortress's own spawners fill; vanilla's {@code /place
+     * structure} leaves every one of them behind when you clear the blocks by
+     * hand. Anything that was not in the footprint before the placement and is
+     * there after it goes when the placement goes — which is the difference
+     * between "the village is gone" and "the village is gone and forty
+     * villagers are standing in a field".</p>
+     */
+    private record VolumePlacement(String label, List<VolumeSnap> before,
+            List<java.util.UUID> arrivals) implements SceneAction {
+        @Override
+        public boolean undo(ServerLevel level) {
+            for (java.util.UUID id : arrivals) {
+                net.minecraft.world.entity.Entity entity = level.getEntity(id);
+                if (entity != null) entity.discard();
+            }
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            for (VolumeSnap snap : before) {
+                var box = snap.box();
+                int i = 0;
+                for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                    for (int y = box.minY(); y <= box.maxY(); y++) {
+                        for (int x = box.minX(); x <= box.maxX(); x++) {
+                            level.setBlock(pos.set(x, y, z), snap.palette()[snap.cells()[i++]], RESTORE_FLAGS);
+                        }
+                    }
+                }
+            }
+            return !before.isEmpty() || !arrivals.isEmpty();
+        }
+
+        @Override
+        public String describe() {
+            return "a structure (" + label + ")";
+        }
+    }
+
+    /** See {@link VolumePlacement}. Used by {@link WholeStructures}, which does its own placing. */
+    static void recordWholePlacement(ServerPlayer caster, String label, List<VolumeSnap> before,
+            List<java.util.UUID> arrivals) {
+        SceneLog.record(caster, new VolumePlacement(label, before, arrivals));
+    }
+
     /** Why a placement did not happen. */
     public enum Refusal { NONE, UNKNOWN_TEMPLATE, EMPTY_TEMPLATE }
 

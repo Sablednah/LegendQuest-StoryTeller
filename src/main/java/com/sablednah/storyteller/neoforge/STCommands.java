@@ -1006,6 +1006,14 @@ public final class STCommands {
                         // Air and jigsaw blocks are left out unless asked for; see Structures.placeAt.
                         .then(placeFlags(templateArgument(), false, false)))
                 .then(ghostCommands())
+                .then(Commands.literal("whole")
+                        .then(Commands.literal("place")
+                                .then(wholeTail(Commands.argument("structure",
+                                        net.minecraft.commands.arguments.ResourceKeyArgument.key(Registries.STRUCTURE)))))
+                        .then(Commands.literal("ghost")
+                                .then(Commands.argument("structure",
+                                        net.minecraft.commands.arguments.ResourceKeyArgument.key(Registries.STRUCTURE))
+                                        .executes(STCommands::structWholeGhost))))
                 .then(Commands.literal("library")
                         .then(Commands.literal("list")
                                 .executes(STCommands::libraryList)
@@ -1118,6 +1126,8 @@ public final class STCommands {
                         .then(Commands.literal("ccw")
                                 .executes(ctx -> Ghosts.rotate(ctx.getSource().getPlayerOrException(), false))))
                 .then(nudge)
+                .then(Commands.literal("reroll")
+                        .executes(ctx -> WholeStructures.reroll(ctx.getSource().getPlayerOrException())))
                 .then(Commands.literal("hold").executes(ctx -> Ghosts.hold(ctx.getSource().getPlayerOrException())))
                 .then(Commands.literal("place").executes(ctx -> Ghosts.place(ctx.getSource().getPlayerOrException())))
                 .then(Commands.literal("cancel").executes(ctx -> Ghosts.cancel(ctx.getSource().getPlayerOrException())))
@@ -1216,6 +1226,73 @@ public final class STCommands {
                 "st struct library place " + StringArgumentType.escapeIfRequired(building.name()),
                 building.size(), () -> Structures.preview(building.blocks(), building.size()),
                 -building.groundLevelY());
+    }
+
+    /**
+     * {@code [roll <n> <cx> <cz>] [at <x> <y> <z>]} after a whole structure.
+     *
+     * <p>{@code roll} names a layout — assembly is random, so the ghost sends
+     * back the one it drew rather than letting the placement throw the dice
+     * again — and {@code at} is where that assembly's lowest north-west corner
+     * goes. Both are optional and both are what a ghost sends; typed bare, the
+     * command is vanilla's {@code /place structure} with an undo.</p>
+     */
+    private static <T extends ArgumentBuilder<CommandSourceStack, T>> T wholeTail(T node) {
+        node.executes(ctx -> structWholePlace(ctx, false, false));
+        node.then(Commands.literal("at")
+                .then(Commands.argument("pos",
+                        net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
+                        .executes(ctx -> structWholePlace(ctx, true, false))));
+        node.then(Commands.literal("roll")
+                .then(Commands.argument("roll", IntegerArgumentType.integer(0))
+                        .then(Commands.argument("chunkX", IntegerArgumentType.integer())
+                                .then(Commands.argument("chunkZ", IntegerArgumentType.integer())
+                                        .executes(ctx -> structWholePlace(ctx, false, true))
+                                        .then(Commands.literal("at")
+                                                .then(Commands.argument("pos",
+                                                        net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
+                                                        .executes(ctx -> structWholePlace(ctx, true, true))))))));
+        return node;
+    }
+
+    /** {@code /st struct whole place <structure> [roll ...] [at ...]}. See {@link WholeStructures}. */
+    private static int structWholePlace(CommandContext<CommandSourceStack> ctx, boolean at, boolean rolled)
+            throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        Holder.Reference<net.minecraft.world.level.levelgen.structure.Structure> structure =
+                net.minecraft.commands.arguments.ResourceKeyArgument.getStructure(ctx, "structure");
+        Identifier id = structure.key().identifier();
+        net.minecraft.core.BlockPos target = at
+                ? net.minecraft.commands.arguments.coordinates.BlockPosArgument.getLoadedBlockPos(ctx, "pos")
+                : null;
+        // Where it was rolled decides the layout AND the terrain its pieces were
+        // fitted to, so a placement with no roll of its own uses the chunk it is
+        // going to stand in rather than the one the Storyteller happens to be in.
+        net.minecraft.world.level.ChunkPos chunk = rolled
+                ? new net.minecraft.world.level.ChunkPos(IntegerArgumentType.getInteger(ctx, "chunkX"),
+                        IntegerArgumentType.getInteger(ctx, "chunkZ"))
+                : new net.minecraft.world.level.ChunkPos(target != null ? target : player.blockPosition());
+        WholeStructures.Roll roll = new WholeStructures.Roll(
+                rolled ? IntegerArgumentType.getInteger(ctx, "roll") : 0, chunk);
+
+        WholeStructures.Result result = WholeStructures.place(player, structure, id, roll, target);
+        if (!result.ok()) {
+            Feedback.chat(player, "&cCould not place '" + id + "' — " + result.problem());
+            return 0;
+        }
+        Feedback.chat(player, "&aPlaced &f" + id + "&a, " + result.pieces() + " pieces. "
+                + (result.undoable()
+                        ? "&f/st undo&a takes it back off, and anything that arrived with it."
+                        : "&eThis one is too big to remember, so &f/st undo&e cannot take it back off."));
+        return 1;
+    }
+
+    /** {@code /st struct whole ghost <structure>} — see the assembly that would land. */
+    private static int structWholeGhost(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        Holder.Reference<net.minecraft.world.level.levelgen.structure.Structure> structure =
+                net.minecraft.commands.arguments.ResourceKeyArgument.getStructure(ctx, "structure");
+        return WholeStructures.ghost(player, structure, structure.key().identifier(), 0);
     }
 
     private static boolean requireCityWorld(CommandContext<CommandSourceStack> ctx) {
