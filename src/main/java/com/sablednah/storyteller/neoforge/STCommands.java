@@ -1268,12 +1268,11 @@ public final class STCommands {
         // Where it was rolled decides the layout AND the terrain its pieces were
         // fitted to, so a placement with no roll of its own uses the chunk it is
         // going to stand in rather than the one the Storyteller happens to be in.
-        net.minecraft.world.level.ChunkPos chunk = rolled
-                ? new net.minecraft.world.level.ChunkPos(IntegerArgumentType.getInteger(ctx, "chunkX"),
+        WholeStructures.Roll roll = rolled
+                ? new WholeStructures.Roll(IntegerArgumentType.getInteger(ctx, "roll"),
+                        IntegerArgumentType.getInteger(ctx, "chunkX"),
                         IntegerArgumentType.getInteger(ctx, "chunkZ"))
-                : new net.minecraft.world.level.ChunkPos(target != null ? target : player.blockPosition());
-        WholeStructures.Roll roll = new WholeStructures.Roll(
-                rolled ? IntegerArgumentType.getInteger(ctx, "roll") : 0, chunk);
+                : WholeStructures.Roll.at(0, target != null ? target : player.blockPosition());
 
         WholeStructures.Result result = WholeStructures.place(player, structure, id, roll, target);
         if (!result.ok()) {
