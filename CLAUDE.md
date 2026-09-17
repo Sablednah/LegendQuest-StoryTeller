@@ -25,6 +25,17 @@ should stop drawing) and `GhostPayload` (a structure's blocks, which a client
 cannot read from a server's datapack). A placed ghost still ends in the typed
 `/st struct place <template> at <pos> [rotate ...]`.
 
+**A whole generated structure is the same shape with one extra idea: the roll.**
+`WholeStructures` rolls a village or bastion with `Structure.generate`, which
+decides every piece without writing a block, so the assembly can be drawn before
+it exists. Assembly is random, so the ghost pins its layout and the command
+carries it — `/st struct whole place <id> roll <n> <cx> <cz> at <x y z>` — and
+the server regenerates that identical one. The chunk is part of the pin because
+generation fits pieces to *that chunk's* terrain, not because it seeds the
+random alone. `GhostPayload.rotatable` is false for these: a start's pieces
+carry their own final rotations with no setter, so the ghost says "as generated"
+and offers `[Reroll]` where a building offers turn buttons.
+
 **The client draws one thing, and the drawing is per branch.** `GhostRenderer`
 and `ClientText` are the two client files each Minecraft line rewrites —
 1.21.11 draws in `RenderLevelStageEvent.AfterEntities` through

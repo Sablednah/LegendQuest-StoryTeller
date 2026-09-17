@@ -446,7 +446,7 @@ neither has been seen yet.
 - **Block-entity renderers** (chests, beds, signs) draw little or nothing in the
   ghost; the building places them normally.
 
-## Whole structures — BUILT, compiles, not yet watched
+## Whole structures — BUILT, and watched on the 1.21.11 rig
 
 **Asked for by Sable on 2026-09-14**, prompted by the jigsaw blocks: "spawning a
 whole village or bastion or fortress would be useful — especially with undo."
@@ -517,12 +517,65 @@ How it is built:
   placement goes — the difference between "the village is gone" and "the village
   is gone and forty villagers are standing in a field".
 
+**Seen, not inferred, on the 1.21.11 Vivo rig (2026-09-17):** a plains village
+drawn as a translucent ghost over the terrain, 148 pieces on one roll and 199 on
+another at a different spot; the chat line naming the controls with the
+non-turning wording and the `[Reroll]` button beside it; `/st struct whole place
+... roll 0 12 7 at 195 77 115` answering "Placed minecraft:village_plains, 91
+pieces"; and `/st undo` answering "Undone: a structure (village_plains)".
+
+**The undo measurement, with its control.** Seven villagers stood inside the
+placement's box after it landed and none after the undo — while a villager
+elsewhere in the world was still there, untouched. That second number is the
+one that makes the first mean anything: it says the undo removed *what arrived
+with the village*, not every villager it could reach.
+
+**The client kept drawing a village that was already gone**, which reads exactly
+like "undo did not restore the blocks" — while the server, asked directly, said
+the path block was gone and the ground was back. The first explanation reached
+for was software rendering lagging behind, and that was a guess, so it was
+tested: a place-then-undo cycle with a screenshot and a block probe at every
+step.
+
+**The frames proved it, and named their own moment.** Each screenshot showed the
+chat line from the *previous* step — the shot taken after the placement still
+read "Ghost put away", and the one taken after the undo still read "Placed
+minecraft:village_plains, 91 pieces". The rig renders in software and its frame
+trails the server by seconds, world and chat together.
+
+So: **on a slow client a screenshot is evidence about the client, not about the
+world** — ask the server for the world. And the useful trick, worth stealing:
+**the chat line visible in a frame timestamps that frame**, so a screenshot can
+be placed against the sequence of commands instead of assumed current. A ghost
+overlay muddies this further — one "village" in these shots turned out to be the
+drawn ghost, which the action bar said plainly (`Ghost village_plains · as
+generated`) for anyone reading it.
+
+**A probe that lied, and what it cost.** Five points inside the assembly's box
+were checked for air before the placement, after it and after the undo, and
+read air every time — which looks exactly like "nothing was ever placed". The
+points were in the empty ground *between* the houses: a village's bounding box
+is mostly gaps, so its corner region says nothing about whether it landed. The
+villager count and a screenshot from above settled it in one step each. Before
+trusting a probe to report absence, give it a subject you know is present.
+
 **Not yet done here:**
 
-- **Nothing has been watched.** It compiles on `main`; no placement, ghost,
-  reroll or undo has been seen in a game yet. A village on the 1.21.11 Vivo rig
-  is the measurement this needs, and until then every claim above is source
-  reading rather than evidence.
+- **The outline path has not been watched** for a whole structure — the rig
+  client is modded, so it always gets the drawn ghost. A vanilla client would
+  show the per-piece boxes, which is the half of this feature nobody has seen.
+- **Both 26.x branches compile, and neither has been watched.** The ports went
+  forwards — main to `mc26.1` to `mc26.2` — and every source file applied
+  unchanged both times. Verifying them needed a Standards jar for each, which is
+  absent from the sibling feed on this machine and was fetched from the rig
+  feeds on Vivo; that gap will bite the next port too.
+- **The first cut could not have compiled on either 26.x branch**, and only the
+  port said so: 26.x makes `ChunkPos` a record whose `x` and `z` are private and
+  drops `new ChunkPos(BlockPos)`. A `Roll` now carries the chunk as two ints and
+  builds a `ChunkPos` only where one is needed, so the three branches keep one
+  source. **Server-side code is not automatically portable** — this branch
+  family's churn is concentrated in rendering, which makes the exceptions easy
+  to assume away.
 - **Terrain is not adapted.** Generation flattens ground around a village as it
   builds the chunk; a placement into finished terrain cannot, so a village on a
   slope will have houses cut into it and standing proud of it. Vanilla's
