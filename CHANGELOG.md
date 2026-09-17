@@ -3,6 +3,36 @@
 All notable changes to LegendQuest StoryTeller are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.0 — unreleased
+
+Requires **LegendQuest ReForged 2.5.0 or newer**, as before.
+
+### Whole villages, bastions and fortresses — seen first, and undoable
+
+- `/st struct whole place <structure>` builds a whole generated structure the
+  way world generation assembles it: villages, bastions, outposts, ancient
+  cities, monuments, fortresses, strongholds, mansions — anything in the
+  structure registry. Typed on its own it is vanilla's `/place structure`,
+  reached through the Storyteller permission rather than operator level 2.
+- **`/st undo` takes it back off**, which vanilla's own command has never
+  offered — and it takes back anything that arrived with it, so undoing a
+  monument does not leave its guardians swimming about. A structure too large to
+  remember says so as it lands, instead of leaving you to find out at undo.
+- `/st struct whole ghost <structure>` shows the assembly where it would stand
+  before anything is built. On a modded client it is drawn block by block; on a
+  vanilla client you get an outline of **every piece** — the shape of the
+  village, not a rectangle around it.
+- **What you see is what lands.** Assembly is random, so the ghost pins its
+  layout and the placement rebuilds that exact one rather than rolling again.
+- `/st struct ghost reroll`, or the `[Reroll]` button, deals a different
+  assembly of the same structure on the same spot.
+- A whole structure is placed as generation assembled it, so it does not turn.
+  The ghost says "as generated" and puts `[Reroll]` where the turn buttons are;
+  on a modded client the scroll wheel raises and lowers it instead.
+- Fortresses, strongholds and mansions are built in code rather than from saved
+  templates, so they have no blocks to draw: those show their piece outlines,
+  and the ghost says which of the two reasons you are looking at an outline for.
+
 ## 1.1.0 — 2026-09-15
 
 Requires **LegendQuest ReForged 2.5.0 or newer**, as before. Showing and turning

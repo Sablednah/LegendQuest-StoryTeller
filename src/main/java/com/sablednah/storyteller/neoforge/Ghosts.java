@@ -66,6 +66,15 @@ public final class Ghosts {
         /** The command a placement finishes, without the slash or the position. */
         final String placeCommand;
         final Vec3i size;
+        /**
+         * What the outline draws, relative to the ghost's origin: null for a
+         * single building, which is its own box, or one box per piece for a
+         * whole generated structure — a village's houses rather than the empty
+         * rectangle that would contain them.
+         */
+        final java.util.List<BoundingBox> parts;
+        /** False for a whole generated structure; see {@code GhostPayload.rotatable}. */
+        final boolean rotatable;
         final ResourceKey<Level> dimension;
         Rotation rotation = Rotation.NONE;
         BlockPos offset = BlockPos.ZERO;
@@ -74,10 +83,13 @@ public final class Ghosts {
         /** The last block the gaze landed on, kept so glancing at the sky does not lose the ghost. */
         BlockPos lastAim;
 
-        Session(String label, String placeCommand, Vec3i size, ResourceKey<Level> dimension) {
+        Session(String label, String placeCommand, Vec3i size, java.util.List<BoundingBox> parts,
+                boolean rotatable, ResourceKey<Level> dimension) {
             this.label = label;
             this.placeCommand = placeCommand;
             this.size = size;
+            this.parts = parts;
+            this.rotatable = rotatable;
             this.dimension = dimension;
         }
     }
@@ -118,36 +130,64 @@ public final class Ghosts {
      */
     static int show(ServerPlayer player, String label, String placeCommand, Vec3i size,
             java.util.function.Supplier<Structures.Preview> blocks, int sinkY) {
+        return show(player, label, placeCommand, size, blocks, sinkY, true, null);
+    }
+
+    /**
+     * The same, for a ghost that does not turn and whose outline is many boxes
+     * rather than one — a whole generated structure.
+     *
+     * @param rotatable false to leave the rotation alone and say so; a generated
+     *                  assembly's pieces carry their own final rotations
+     * @param parts     one box per piece for the outline, or null for a single box
+     */
+    static int show(ServerPlayer player, String label, String placeCommand, Vec3i size,
+            java.util.function.Supplier<Structures.Preview> blocks, int sinkY,
+            boolean rotatable, java.util.List<BoundingBox> parts) {
         SESSIONS.remove(player.getUUID());
 
         if (clientDraws(player)) {
             Structures.Preview preview = blocks.get();
-            if (preview.states().length <= GhostPayload.MAX_BLOCKS) {
+            if (preview != null && preview.states().length > 0
+                    && preview.states().length <= GhostPayload.MAX_BLOCKS) {
                 // The client says what the controls are, because only the
                 // client knows which keys they are bound to.
                 STNetwork.sendGhost(player, new GhostPayload(label, placeCommand,
-                        size.getX(), size.getY(), size.getZ(), sinkY, preview.states(), preview.cells()));
+                        size.getX(), size.getY(), size.getZ(), sinkY, rotatable,
+                        preview.states(), preview.cells()));
                 return 1;
             }
             STNetwork.sendGhost(player, GhostPayload.clear());
-            Feedback.chat(player, "&7'" + label + "' has " + preview.states().length
-                    + " blocks, which is too many to draw as a ghost, so you get its outline instead.");
+            // Two different answers, said differently: one is a size and the
+            // other is what the structure is made of.
+            Feedback.chat(player, preview == null
+                    ? "&7'" + label + "' has more blocks than a ghost can carry, so you get its outline instead."
+                    : "&7'" + label + "' is built piece by piece in code rather than from saved templates, "
+                            + "so there are no blocks to draw — you get its outline instead.");
         }
 
-        Session session = new Session(label, placeCommand, size, player.level().dimension());
+        Session session = new Session(label, placeCommand, size, parts, rotatable, player.level().dimension());
         session.offset = new BlockPos(0, sinkY, 0);
         SESSIONS.put(player.getUUID(), session);
-        Feedback.chat(player, "&aGhost of &f" + label
-                + "&a: its outline follows where you look, and the &6gold edge&a is its front.");
+        Feedback.chat(player, "&aGhost of &f" + label + "&a: its outline follows where you look"
+                + (rotatable ? ", and the &6gold edge&a is its front." : "."));
         return controls(player);
     }
 
     /** {@code /st struct ghost} on its own: the buttons again, since chat scrolls them away. */
     static int controls(ServerPlayer player) {
-        if (!SESSIONS.containsKey(player.getUUID())) return noGhost(player);
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) return noGhost(player);
         MutableComponent line = Feedback.colored("&7Ghost:").copy();
-        button(line, "&e[↺]", "st struct ghost rotate ccw", "&7Turn it a quarter anticlockwise");
-        button(line, "&e[↻]", "st struct ghost rotate cw", "&7Turn it a quarter clockwise");
+        if (session.rotatable) {
+            button(line, "&e[↺]", "st struct ghost rotate ccw", "&7Turn it a quarter anticlockwise");
+            button(line, "&e[↻]", "st struct ghost rotate cw", "&7Turn it a quarter clockwise");
+        } else {
+            // A generated assembly does not turn, so the button in that slot is
+            // the one that does change it: another layout.
+            button(line, "&e[Reroll]", "st struct ghost reroll",
+                    "&7Another assembly of the same structure, on the same spot");
+        }
         button(line, "&b[▲]", "st struct ghost nudge up", "&7Raise it one block");
         button(line, "&b[▼]", "st struct ghost nudge down", "&7Lower it one block");
         button(line, "&b[◀]", "st struct ghost nudge left", "&7One block to your left");
@@ -165,6 +205,11 @@ public final class Ghosts {
     static int rotate(ServerPlayer player, boolean clockwise) {
         Session session = SESSIONS.get(player.getUUID());
         if (session == null) return noGhost(player);
+        if (!session.rotatable) {
+            Feedback.chat(player, "&7A whole structure lands the way generation assembled it, so it does not "
+                    + "turn. &f/st struct ghost reroll&7 deals a different layout instead.");
+            return 0;
+        }
         session.rotation = GhostMath.turn(session.rotation, clockwise);
         status(player, session);
         return 1;
@@ -218,6 +263,7 @@ public final class Ghosts {
 
     static int cancel(ServerPlayer player) {
         SESSIONS.remove(player.getUUID());
+        WholeStructures.forget(player);
         if (clientDraws(player)) STNetwork.sendGhost(player, GhostPayload.clear());
         Feedback.actionBar(player, "&7Ghost put away.");
         return 1;
@@ -225,6 +271,7 @@ public final class Ghosts {
 
     static void forget(ServerPlayer player) {
         SESSIONS.remove(player.getUUID());
+        WholeStructures.forget(player);
     }
 
     /** Redraw every outline. Costs nothing while nobody has one up. */
@@ -257,7 +304,18 @@ public final class Ghosts {
                 continue;
             }
             BlockPos origin = GhostMath.origin(aim, session.size, session.rotation, session.offset);
-            draw(player, GhostMath.worldBox(origin, session.size, session.rotation), GhostMath.front(session.rotation));
+            if (session.parts == null) {
+                BoundingBox box = GhostMath.worldBox(origin, session.size, session.rotation);
+                draw(player, box, GhostMath.front(session.rotation), step(session.size));
+            } else {
+                // Spacing comes from the whole assembly, not each piece: forty
+                // house-sized boxes drawn at a house's spacing is forty times
+                // the particles, four times a second, at one player.
+                double step = Math.max(1.5D, step(session.size) * 2);
+                for (BoundingBox part : session.parts) {
+                    draw(player, part.moved(origin.getX(), origin.getY(), origin.getZ()), null, step);
+                }
+            }
             if (now % STATUS_EVERY == 0) status(player, session);
         }
     }
@@ -274,7 +332,9 @@ public final class Ghosts {
     private static void status(ServerPlayer player, Session session) {
         String offset = GhostMath.describeOffset(session.offset);
         Feedback.actionBar(player, "&7Ghost &f" + GhostMath.shortName(session.label)
-                + " &8· &7front faces &f" + GhostMath.front(session.rotation).getName()
+                + " &8· " + (session.rotatable
+                        ? "&7front faces &f" + GhostMath.front(session.rotation).getName()
+                        : "&7as generated")
                 + (offset.isEmpty() ? "" : " &8· &f" + offset)
                 + (session.held != null ? " &8· &elocked" : ""));
     }
@@ -293,15 +353,24 @@ public final class Ghosts {
                 .withHoverEvent(new HoverEvent.ShowText(Feedback.colored(tooltip)))));
     }
 
-    /** The footprint's twelve edges, and its front's bottom edge again in gold. */
-    private static void draw(ServerPlayer player, BoundingBox box, Direction front) {
+    /**
+     * Spacing for a footprint of this size: it grows with the building, so a big
+     * one costs no more packets per edge than a 48-block one.
+     */
+    private static double step(Vec3i size) {
+        int longest = Math.max(size.getX(), Math.max(size.getY(), size.getZ()));
+        return Math.max(0.5D, longest / 48.0D);
+    }
+
+    /**
+     * The footprint's twelve edges, and its front's bottom edge again in gold —
+     * or no gold edge at all when {@code front} is null, which is a ghost that
+     * cannot be turned and so has no ambiguity to resolve.
+     */
+    private static void draw(ServerPlayer player, BoundingBox box, Direction front, double step) {
         ServerLevel level = (ServerLevel) player.level();
         double x0 = box.minX(), y0 = box.minY(), z0 = box.minZ();
         double x1 = box.maxX() + 1, y1 = box.maxY() + 1, z1 = box.maxZ() + 1;
-        int longest = Math.max(box.getXSpan(), Math.max(box.getYSpan(), box.getZSpan()));
-        // Spacing grows with the building so a big one costs no more packets
-        // per edge than a 48-block one.
-        double step = Math.max(0.5D, longest / 48.0D);
 
         for (double y : new double[] { y0, y1 }) {
             line(level, player, EDGE, x0, y, z0, x1, y, z0, step);
@@ -312,6 +381,7 @@ public final class Ghosts {
         for (double[] corner : new double[][] { { x0, z0 }, { x1, z0 }, { x0, z1 }, { x1, z1 } }) {
             line(level, player, EDGE, corner[0], y0, corner[1], corner[0], y1, corner[1], step);
         }
+        if (front == null) return;
         switch (front) {
             case NORTH -> line(level, player, FRONT, x0, y0, z0, x1, y0, z0, 0.5D);
             case SOUTH -> line(level, player, FRONT, x0, y0, z1, x1, y0, z1, 0.5D);

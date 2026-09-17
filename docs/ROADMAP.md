@@ -446,31 +446,97 @@ neither has been seen yet.
 - **Block-entity renderers** (chests, beds, signs) draw little or nothing in the
   ghost; the building places them normally.
 
-## Next: whole structures — villages, bastions, fortresses, with undo
+## Whole structures — BUILT, compiles, not yet watched
 
 **Asked for by Sable on 2026-09-14**, prompted by the jigsaw blocks: "spawning a
 whole village or bastion or fortress would be useful — especially with undo."
 Vanilla already assembles them for an operator — `/place structure <id>` places
-a configured structure as world generation would, and `/place jigsaw <pool>
-<target> <depth>` grows one from a pool — so the tool is those, reached through
-the Storyteller permission, with the thing vanilla has never had: undo.
+a configured structure as world generation would — so the tool is that, reached
+through the Storyteller permission, with the two things it has never had: a
+preview of the assembly that will actually land, and an undo.
 
-A sketch, and nothing below has been checked against the source yet:
+- `/st struct whole place <structure>` — every entry in the structure registry:
+  villages, bastions, outposts, ancient cities, monuments, fortresses,
+  strongholds, mansions. Bare, it is `/place structure` with an undo.
+- `/st struct whole ghost <structure>` — the assembly shown where it would
+  stand, steered by the same controls as a single building.
+- `/st struct ghost reroll`, and a `[Reroll]` button — another assembly of the
+  same structure on the same spot.
 
-- **Decide the layout, then snapshot, then place.** A structure start (its
-  pieces and their boxes) can be generated before anything is written; its
-  combined box plus margin is what undo must snapshot. Villages also reshape
-  the terrain around their pieces, so the margin may need to be generous.
-- **Size.** A village can be well over a hundred blocks across and span
-  unloaded chunks. The current undo keeps one object per block, which will not
-  scale to that; it wants a compact snapshot (a palette and packed positions).
-- **The ghost is the hard part.** Assembly is random, so a preview has to
-  generate one start, show that, and place exactly that one — not a fresh roll.
-  Villages and bastions are jigsaw pieces with templates, so they can be drawn
-  as blocks; fortresses and strongholds are built by code piece by piece and
-  would get an outline.
-- Turning one means choosing the start's rotation rather than rotating a
-  template, and may not be offered at all.
+**The sketch this replaces was right about the shape and wrong about one
+thing**, which is the entry worth keeping: it expected the combined box plus
+margin to be what undo snapshots. That box is mostly the *untouched ground
+between* a village's houses, so the snapshot is taken per piece instead —
+cheaper by an order of magnitude and a better fit to what actually changed.
+
+How it is built:
+
+- **Deciding and building are separate, and that is what makes both possible.**
+  `Structure.generate` works out every piece and its box without writing a
+  block. So a roll can be drawn, held, walked round, and only then built — and
+  the footprint is known before anything is overwritten, which is what undo
+  snapshots.
+- **A roll is a layout, pinned by a number.** Assembly is random, so a preview
+  that re-rolled on placement would show a different village from the one that
+  landed — the exact failure a preview exists to prevent. A layout is a function
+  of the world seed, a roll index and the chunk it was rolled in, so the ghost
+  sends all three back: `/st struct whole place <id> roll <n> <cx> <cz> at <x y
+  z>`. The server regenerates the identical assembly and moves it to `at`.
+- **The chunk is part of the pin for a reason.** Generation fits an assembly to
+  the terrain of the chunk it rolls in — a village's houses each sit on the
+  ground height where they land — so rolling at the chunk the Storyteller is
+  looking at is the difference between houses on the ground and houses in the
+  air.
+- **Moving one is rigid.** Every piece carries its own template position and
+  each kind overrides `move` to take it along, so the whole assembly shifts with
+  the layout untouched. Nudging it never re-rolls it.
+- **It does not turn**, and says so. A start's pieces carry their own final
+  rotations with no setter, and vanilla has never offered it either. The status
+  line reads "as generated" where a single building reads which way its front
+  faces, the `[Reroll]` button takes the rotate buttons' slot, and on a modded
+  client the scroll wheel raises and lowers instead — rather than leaving a
+  control that looks broken.
+- **Drawn where there are templates, outlined where there are not.** A jigsaw
+  piece names its element, which names its template, so villages, bastions,
+  outposts and ancient cities draw as real blocks. Fortresses, strongholds and
+  mansions are built block by block in code and have no template to read: those
+  get their **piece boxes** as an outline, which is a skeleton of the building
+  rather than one rectangle around it. A structure that is part one and part the
+  other draws what it can.
+- **Two different refusals, said differently.** "Too big to draw" and "nothing
+  to draw" are not the same answer, and a Storyteller should not have to work
+  out which they got.
+- **Undo snapshots the pieces**, as a palette and one index per block rather
+  than an object per block — a village is a few hundred thousand blocks and the
+  old per-block record costs some forty times as much each. Past about six
+  million blocks the snapshot is given up on, and the placement *says so* rather
+  than quietly leaving `/st undo` unable to help.
+- **It also takes back what arrived with it.** A monument brings guardians;
+  vanilla's own placement leaves every one of them behind. Anything inside the
+  footprint after the placement that was not there before goes when the
+  placement goes — the difference between "the village is gone" and "the village
+  is gone and forty villagers are standing in a field".
+
+**Not yet done here:**
+
+- **Nothing has been watched.** It compiles on `main`; no placement, ghost,
+  reroll or undo has been seen in a game yet. A village on the 1.21.11 Vivo rig
+  is the measurement this needs, and until then every claim above is source
+  reading rather than evidence.
+- **Terrain is not adapted.** Generation flattens ground around a village as it
+  builds the chunk; a placement into finished terrain cannot, so a village on a
+  slope will have houses cut into it and standing proud of it. Vanilla's
+  `/place structure` has the same limit. Whether to offer a levelling pass is
+  open.
+- **A mirrored template piece previews unmirrored.** A jigsaw piece's mirror is
+  always NONE, but a code-built template piece keeps its mirror in a private
+  place with no public reading, so the ghost can have a handful of pieces the
+  right shape and the wrong way round. The placement is correct either way.
+- **Processors are not applied to the preview**, so a ruin previews unrotted —
+  the same family as the several-palettes gap above.
+- **Jigsaw pools are not offered.** `/place jigsaw <pool> <target> <depth>`
+  grows part of an assembly from a pool; the same machinery would serve it.
+  Deliberately left until whole structures have been played.
 
 ## Control and safety, threaded throughout
 
