@@ -17,6 +17,14 @@
 # knowing: three 26.x instances sat on a build from 10 Sep while the question
 # "is the new one everywhere?" could only be answered by hand, jar by jar. An
 # audit nobody can run is an audit nobody runs.
+#
+# KEEP IN STEP WITH LegendQuest's deploy-all.sh. The two are the same script
+# with a different mod name, and they drift silently because nothing builds or
+# tests either one -- the only thing that notices is a person wondering why the
+# other repo's deploy said less. LegendQuest's copy sat without --check and
+# without stamp reporting until 2026-09-17, so an estate-wide deploy there
+# could not be told from a no-op without unzipping seven jars by hand. It has
+# both now. Fix a problem in both repos, not one.
 set -euo pipefail
 
 INSTANCES="${ST_INSTANCES:-/mnt/c/Users/darre/curseforge/minecraft/Instances}"
