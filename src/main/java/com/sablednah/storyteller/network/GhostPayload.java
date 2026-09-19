@@ -35,7 +35,9 @@ import net.minecraft.resources.Identifier;
  *                     building's {@code GroundLevelY} so its foundation starts buried as CityWorld buries it
  * @param rotatable    false for a whole generated structure, whose pieces carry their own final rotations:
  *                     the client turns nothing and says "as generated" rather than leaving a dead scroll wheel
- * @param cells        {@code x + sizeX * (y + sizeY * z)} for each block, template-local and unrotated
+ * @param cells        {@code x + sizeX * (y + sizeY * z)} for each block, relative to the ghost's own
+ *                     origin: a template's corner for a single building, the assembly's box for a whole
+ *                     structure, whose blocks already carry their final rotation
  */
 public record GhostPayload(String label, String placeCommand, int sizeX, int sizeY, int sizeZ, int sinkY,
         boolean rotatable, int[] states, int[] cells) implements CustomPacketPayload {

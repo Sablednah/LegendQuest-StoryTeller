@@ -159,12 +159,14 @@ public final class Ghosts {
                 return 1;
             }
             STNetwork.sendGhost(player, GhostPayload.clear());
-            // Two different answers, said differently: one is a size and the
-            // other is what the structure is made of.
+            // Two different answers, said differently: one is a size, the other
+            // is that nothing could be read. This said "built piece by piece in
+            // code" until CaptureLevel made that false -- a fortress draws now,
+            // so the old message named a cause that no longer happens.
             Feedback.chat(player, preview == null
                     ? "&7'" + label + "' has more blocks than a ghost can carry, so you get its outline instead."
-                    : "&7'" + label + "' is built piece by piece in code rather than from saved templates, "
-                            + "so there are no blocks to draw — you get its outline instead.");
+                    : "&7'" + label + "' gave the ghost no blocks to draw — you get its outline instead. "
+                            + "Move closer so the ground it stands on is loaded, then reroll.");
         }
 
         Session session = new Session(label, placeCommand, size, parts, rotatable, player.level().dimension());

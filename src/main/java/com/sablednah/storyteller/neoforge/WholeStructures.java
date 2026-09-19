@@ -86,10 +86,12 @@ public final class WholeStructures {
 
     /**
      * One layout of one structure. The world seed is the third term and comes
-     * from the level, so these two identify it inside a world.
+     * from the level, so a roll index and its chunk identify a layout inside a
+     * world.
      *
      * @param index  which roll: 0 is the one a bare command gets, {@code [Reroll]} counts up
-     * @param chunk  the chunk it was rolled in, whose terrain the pieces were fitted to
+     * @param chunkX x of the chunk it was rolled in, whose terrain the pieces were fitted to
+     * @param chunkZ z of that chunk; {@link #chunk()} pairs them back up
      */
     public record Roll(int index, int chunkX, int chunkZ) {
 
@@ -241,19 +243,19 @@ public final class WholeStructures {
      * Every piece's blocks, composed into one volume in the orientation they
      * will land in.
      *
-     * <p>A piece of a jigsaw structure knows its template, where it stands and
-     * which way it is turned, so the same reading that draws a single building
-     * draws all forty of a village's — turned and offset into the assembly's own
-     * box. Pieces built by code rather than from a template (a fortress
-     * corridor, a stronghold room) have no blocks to read and are left to the
-     * outline, so a mixed structure draws what it can and outlines the rest
-     * rather than showing nothing.</p>
+     * <p>The structure is asked to build itself into a {@link CaptureLevel} and
+     * the blocks it lays down are kept, so a fortress corridor and a village
+     * house answer the same way — processors applied and jigsaw blocks already
+     * swapped, which is why the ghost is what lands rather than an approximation
+     * of it. Only when the recorder captures nothing (chunks nobody holds open,
+     * or a piece that threw) are the pieces' own templates read instead.</p>
      *
-     * @return the blocks; an <i>empty</i> preview when no piece has a template to
-     *         read, and <i>null</i> when there are more than a payload may carry.
-     *         The caller falls back to the outline either way and says which,
-     *         because "too big to draw" and "nothing to draw" are different
-     *         answers and a Storyteller should not have to guess which they got.
+     * @return the blocks; an <i>empty</i> preview when neither the recorder nor
+     *         the templates yielded any, and <i>null</i> when there are more than
+     *         a payload may carry. The caller falls back to the outline either
+     *         way and says which, because "too big to draw" and "nothing to draw"
+     *         are different answers and a Storyteller should not have to guess
+     *         which they got.
      */
     static Structures.Preview preview(ServerLevel level, StructureStart start, BoundingBox box) {
         Structures.Preview built = previewByBuilding(level, start, box);
@@ -308,10 +310,11 @@ public final class WholeStructures {
                         chunk);
             }
         } catch (RuntimeException whileBuilding) {
-            // One awkward piece should cost the drawn ghost, not the session --
-            // and it must SAY so, because a silent fallback to the outline is
-            // exactly the confusing half-answer this feature already produced
-            // once.
+            // One awkward piece should cost the recorder's answer, not the
+            // session: an empty capture sends preview() down the template road,
+            // which may still draw it. Logged rather than silent, because a
+            // fallback that cannot say why is the half-answer this feature has
+            // already produced once.
             com.sablednah.storyteller.StoryTeller.LOGGER.warn(
                     "Whole-structure ghost: building into the recorder failed; falling back to reading templates",
                     whileBuilding);
@@ -345,7 +348,7 @@ public final class WholeStructures {
         // feature has already produced twice: "built piece by piece in code"
         // was wrong about End City, and "no blocks to draw" says nothing about
         // whether the pieces wrote nothing, wrote air, or wrote outside the box
-        // the ghost measures. These four numbers separate all of those.
+        // the ghost measures. These numbers separate all of those.
         if (states.isEmpty()) {
             com.sablednah.storyteller.StoryTeller.LOGGER.warn(
                     "Whole-structure ghost captured nothing: {} pieces, {} of {} chunks run, "

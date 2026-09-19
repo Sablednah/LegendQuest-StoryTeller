@@ -46,7 +46,9 @@ import net.neoforged.neoforge.client.event.InputEvent;
 public final class GhostPreview {
 
     /**
-     * A structure as received: unrotated, template-local.
+     * A structure as received, relative to its own origin: a template's corner
+     * for a single building, the assembly's box for a whole structure. The
+     * client's own rotation has not been applied yet.
      *
      * <p>{@code rotatable} is false for a whole generated structure, whose
      * pieces already carry their own final rotations — there, scroll raises and
