@@ -22,8 +22,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Mirror;
-import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -32,8 +30,8 @@ import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.levelgen.structure.TemplateStructurePiece;
-import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext;
 import net.minecraft.world.level.levelgen.structure.pools.SinglePoolElement;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -267,12 +265,10 @@ public final class WholeStructures {
             Optional<Placed> placed = templateOf(level, piece);
             if (placed.isEmpty()) continue;
             Placed part = placed.get();
-            Optional<StructureTemplate> template = Structures.template(level, part.template());
-            if (template.isEmpty()) continue;
 
-            Vec3i templateSize = template.get().getSize();
+            Vec3i templateSize = part.template().getSize();
             if (templateSize.getX() < 1 || templateSize.getY() < 1 || templateSize.getZ() < 1) continue;
-            CompoundTag saved = template.get().save(new CompoundTag());
+            CompoundTag saved = part.template().save(new CompoundTag());
             // Jigsaw blocks as their final state: this is the assembled form,
             // so every connector has been joined and swapped by definition.
             Structures.Preview raw = Structures.preview(saved, templateSize, false);
@@ -282,10 +278,13 @@ public final class WholeStructures {
                 BlockPos local = new BlockPos(cell % templateSize.getX(),
                         (cell / templateSize.getX()) % templateSize.getY(),
                         cell / (templateSize.getX() * templateSize.getY()));
+                // Vanilla's own arithmetic, settings and all, so a mirrored or
+                // off-pivot piece lands where it is drawn.
                 BlockPos world = part.at().offset(
-                        StructureTemplate.transform(local, part.mirror(), part.rotation(), BlockPos.ZERO));
+                        StructureTemplate.calculateRelativePosition(part.settings(), local));
                 if (!box.isInside(world)) continue;
-                BlockState state = Block.stateById(raw.states()[i]).mirror(part.mirror()).rotate(part.rotation());
+                BlockState state = Block.stateById(raw.states()[i])
+                        .mirror(part.settings().getMirror()).rotate(part.settings().getRotation());
                 states.add(Block.getId(state));
                 cells.add((world.getX() - box.minX())
                         + sizeX * ((world.getY() - box.minY()) + sizeY * (world.getZ() - box.minZ())));
@@ -297,37 +296,47 @@ public final class WholeStructures {
         return new Structures.Preview(states.toIntArray(), cells.toIntArray());
     }
 
-    /** Where one piece's template stands, for reading its blocks. */
-    private record Placed(Identifier template, BlockPos at, Rotation rotation, Mirror mirror) {}
+    /** One piece's template, where it stands, and how it is turned. */
+    private record Placed(StructureTemplate template, BlockPos at, StructurePlaceSettings settings) {}
 
     /**
      * The template a piece is stamped from, if it has one.
      *
-     * <p>Two shapes and no more. A jigsaw piece names its element, which names
-     * its template. A template piece keeps the same three facts in the tag it
-     * saves to the region file, which is the only public view of them. Anything
-     * else is built block by block in code and has no template at all.</p>
+     * <p>Two shapes and no more: a template piece holds its own template, and a
+     * jigsaw piece names an element that names one. Anything else is built
+     * block by block in code and has no template at all.</p>
+     *
+     * <p><b>A template piece's NAME is not its template's id, and reading the
+     * name was the bug.</b> The first cut took the {@code Template} string out
+     * of the tag the piece saves — for an End City that is {@code "base_floor"},
+     * because {@code EndCityPiece} overrides {@code makeTemplateLocation} to
+     * prepend its own folder, and Woodland Mansion does the same. So the lookup
+     * asked for {@code minecraft:base_floor}, found nothing, skipped all 105
+     * pieces, and the ghost said the structure was built in code. Sable hit it
+     * on the first structure he tried, 2026-09-19.</p>
+     *
+     * <p>Matching on the short name would have been the wrong repair: 163 of
+     * vanilla's 1,202 template names are ambiguous across structures
+     * ({@code corner_01} belongs to ten). The piece will simply hand over the
+     * template itself — {@code template()}, {@code templatePosition()} and
+     * {@code placeSettings()} are public on all three Minecraft lines — so
+     * there is no name to resolve. The settings carry the mirror and the
+     * rotation pivot too, which the name-reading version got wrong for any
+     * piece that used them.</p>
      */
     private static Optional<Placed> templateOf(ServerLevel level, StructurePiece piece) {
+        if (piece instanceof TemplateStructurePiece template) {
+            return Optional.of(new Placed(template.template(), template.templatePosition(),
+                    template.placeSettings()));
+        }
         if (piece instanceof PoolElementStructurePiece pool) {
             if (!(pool.getElement() instanceof SinglePoolElement single)) return Optional.empty();
             try {
-                return Optional.of(new Placed(single.getTemplateLocation(), pool.getPosition(),
-                        pool.getRotation(), Mirror.NONE));
+                return Structures.template(level, single.getTemplateLocation())
+                        .map(found -> new Placed(found, pool.getPosition(),
+                                new StructurePlaceSettings().setRotation(pool.getRotation())));
             } catch (RuntimeException notAnIdentifier) {
                 return Optional.empty();   // an element holding a template directly, not by name
-            }
-        }
-        if (piece instanceof TemplateStructurePiece template) {
-            CompoundTag tag = template.createTag(StructurePieceSerializationContext.fromLevel(level));
-            String name = tag.getStringOr("Template", "");
-            if (name.isEmpty()) return Optional.empty();
-            try {
-                return Optional.of(new Placed(Identifier.parse(name),
-                        new BlockPos(tag.getIntOr("TPX", 0), tag.getIntOr("TPY", 0), tag.getIntOr("TPZ", 0)),
-                        template.getRotation(), template.getMirror()));
-            } catch (net.minecraft.IdentifierException unparseable) {
-                return Optional.empty();
             }
         }
         return Optional.empty();
