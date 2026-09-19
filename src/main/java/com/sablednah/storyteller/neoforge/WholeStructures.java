@@ -293,9 +293,15 @@ public final class WholeStructures {
         ChunkPos max = new ChunkPos(SectionPos.blockToSectionCoord(box.maxX()),
                 SectionPos.blockToSectionCoord(box.maxZ()));
         ChunkGenerator generator = level.getChunkSource().getGenerator();
+        int ran = 0;
+        int skipped = 0;
         try {
             for (ChunkPos chunk : ChunkPos.rangeClosed(min, max).toList()) {
-                if (!level.isLoaded(chunk.getWorldPosition())) continue;
+                if (!level.isLoaded(chunk.getWorldPosition())) {
+                    skipped++;
+                    continue;
+                }
+                ran++;
                 start.placeInChunk(capture, level.structureManager(), generator, level.getRandom(),
                         new BoundingBox(chunk.getMinBlockX(), level.getMinY(), chunk.getMinBlockZ(),
                                 chunk.getMaxBlockX(), level.getMaxY() + 1, chunk.getMaxBlockZ()),
@@ -316,15 +322,36 @@ public final class WholeStructures {
         int sizeY = box.getYSpan();
         var states = new it.unimi.dsi.fastutil.ints.IntArrayList();
         var cells = new it.unimi.dsi.fastutil.ints.IntArrayList();
+        int air = 0;
+        int outside = 0;
         for (var entry : capture.captured().long2ObjectEntrySet()) {
             BlockState state = entry.getValue();
-            if (state.isAir()) continue;
+            if (state.isAir()) {
+                air++;
+                continue;
+            }
             BlockPos at = BlockPos.of(entry.getLongKey());
-            if (!box.isInside(at)) continue;
+            if (!box.isInside(at)) {
+                outside++;
+                continue;
+            }
             states.add(Block.getId(state));
             cells.add((at.getX() - box.minX())
                     + sizeX * ((at.getY() - box.minY()) + sizeY * (at.getZ() - box.minZ())));
             if (states.size() > com.sablednah.storyteller.network.GhostPayload.MAX_BLOCKS) return null;
+        }
+
+        // A fallback that cannot say WHY it fell back is the half-answer this
+        // feature has already produced twice: "built piece by piece in code"
+        // was wrong about End City, and "no blocks to draw" says nothing about
+        // whether the pieces wrote nothing, wrote air, or wrote outside the box
+        // the ghost measures. These four numbers separate all of those.
+        if (states.isEmpty()) {
+            com.sablednah.storyteller.StoryTeller.LOGGER.warn(
+                    "Whole-structure ghost captured nothing: {} pieces, {} of {} chunks run, "
+                            + "{} positions written ({} air, {} outside the {}x{}x{} box)",
+                    start.getPieces().size(), ran, ran + skipped, capture.captured().size(),
+                    air, outside, sizeX, sizeY, box.getZSpan());
         }
         return new Structures.Preview(states.toIntArray(), cells.toIntArray());
     }

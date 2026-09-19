@@ -769,6 +769,25 @@ node.
   **A catch that turns a failure into "skip it" needs to say how much it
   skipped**, or it can hide a total failure as easily as a partial one.
 
+- **`compileJava` is not `build`, and the jar you deploy is the one you last
+  BUILT.** After writing the recording level I ran `compileJava`, committed, and
+  deployed `build/libs/...jar` — which was still the jar from the previous
+  `build`, without a line of the new code in it. A fortress then fell back to an
+  outline and two conclusions were drawn from it, both wrong: "the recorder
+  captures nothing for code-built structures" and "the village proves the
+  recorder works" (that was the template path). The stamp was printed in the
+  deploy output both times and read straight past. **Read the stamp the server
+  logs at boot before believing any result from it** — this repo already records
+  "version equality is not build equality", and it is not a trap you stop
+  falling into by having written it down.
+
+- **A yes/no probe cannot tell you what changed.** Non-player entities went 1 →
+  27 across a ghost and it looked exactly like the preview spawning mobs. A
+  control — cancel the ghost, wait, count again — gave 28, 27, 29, and a type
+  sweep found no fortress mobs: it was ordinary night-time spawning in freshly
+  loaded chunks. When a number moves, measure the *same number with the cause
+  removed* before believing the cause.
+
 - **A structure piece's saved template NAME is not the template's id.**
   `EndCityPiece` and `WoodlandMansionPiece` store a bare `"base_floor"` and
   prepend their own folder in `makeTemplateLocation`, so reading `Template` out
