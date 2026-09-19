@@ -44,6 +44,17 @@ and `ClientText` are the two client files each Minecraft line rewrites —
 else on the client, `GhostPreview` included, is identical on all three branches.
 When porting, copy those two from the neighbouring 26.x branch, not from main.
 
+**There is now a third per-branch file, and it is on the SERVER: `CaptureLevel`.**
+It implements vanilla's `WorldGenLevel`, and that interface is not the same
+shape on every line — 1.21.11 requires `getShade(Direction, boolean)` as an
+abstract method of `BlockAndTintGetter`, while 26.1 and 26.2 have no shade
+method anywhere in the chain, so the override must be present on main and
+absent on both 26.x branches. Five lines, and they are the whole delta; the
+other ~47 delegating methods are identical. **Implementing somebody else's wide
+interface is a per-branch commitment** — this mod's rule of thumb that
+server-side code ports unchanged holds right up until you implement an
+interface you do not own.
+
 ## Versions — one branch per Minecraft version
 
 Matching LegendQuest exactly, for the same reason it does it: Minecraft is on
