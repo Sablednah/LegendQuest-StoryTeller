@@ -559,6 +559,32 @@ is mostly gaps, so its corner region says nothing about whether it landed. The
 villager count and a screenshot from above settled it in one step each. Before
 trusting a probe to report absence, give it a subject you know is present.
 
+**Every structure draws now — parity, asked for by Sable on 2026-09-19.**
+`CaptureLevel` is a `WorldGenLevel` that records writes instead of performing
+them, so a structure is asked to *build itself* into a map and the ghost draws
+what it laid down. That replaced reading templates as the primary path and
+covers the five structures with no templates at all — buried treasure,
+mineshaft, nether fortress, ocean monument, stronghold — which could previously
+only ever be an outline. It is also more faithful than reading templates:
+processors are applied, jigsaw blocks are already swapped, and every piece has
+already made its own decisions about the terrain it is landing in.
+
+**Measured on the 1.21.11 rig, 2026-09-19**, against a build whose stamp was
+checked first: fortress 140 pieces, stronghold 180, village 99, End City 77 —
+**all four drawn**, no fallbacks, and not one "captured nothing" diagnostic.
+Safety measured with a probe that can only fire on a real leak — nether bricks
+near the player, which cannot occur naturally in an overworld — zero before and
+zero after raising a fortress ghost, across eight positions including a fence.
+
+Two rules hold it honest, and both were found by needing them:
+
+- **Reads answer from the capture first**, because pieces read back what they
+  have just placed; forwarding every read would hand a piece a different world
+  from the one it is building, and the preview would diverge from what lands.
+- **Only chunks somebody already holds open**, because asking a `ServerLevel`
+  for an unloaded chunk *generates* it — an unbounded run would make merely
+  looking at a structure produce terrain.
+
 **Not yet done here:**
 
 - **The outline path has not been watched** for a whole structure — the rig
