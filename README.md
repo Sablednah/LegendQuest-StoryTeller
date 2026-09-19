@@ -87,6 +87,11 @@ level 2 to parse at all.
 - `/st cast save|use|list` — a saved cast, kept with the world.
 - `/st struct place <template> [rotate ...]` — any vanilla `.nbt` structure a
   loaded datapack declares, undo-able.
+- `/st struct whole place <structure>` · `/st struct whole ghost <structure>` —
+  a whole generated structure as world generation assembles it: villages,
+  bastions, outposts, ancient cities, fortresses, strongholds, mansions. The
+  ghost pins the layout, so what you see is what lands; `[Reroll]` deals
+  another, and `/st undo` takes the whole thing back off, mobs included.
 - `/st struct library list|place` — CityWorld's schematic library
   (`.schematic`/`.schem`/`.litematic`/`.nbt`) as a second pool, when installed.
   You get the building, not its loot: CityWorld stocks containers while

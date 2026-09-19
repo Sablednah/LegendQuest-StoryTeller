@@ -55,12 +55,15 @@ MIT — link to https://github.com/Sablednah/LegendQuest-StoryTeller/blob/main/L
 | Platform | URL | State |
 |---|---|---|
 | GitHub | https://github.com/Sablednah/LegendQuest-StoryTeller | live |
-| CurseForge | — | **not created yet** |
+| CurseForge | https://www.curseforge.com/minecraft/mc-mods/legendquest-storyteller | live |
 | Modrinth | — | not created yet |
 | Website | — | not created yet |
 
-Fill the project ID in here once CurseForge issues one; it is what a publish
-workflow will need as `CURSEFORGE_PROJECT_ID`.
+CurseForge project **1690309**, set on the GitHub repo as
+`CURSEFORGE_PROJECT_ID` alongside the `CURSEFORGE_TOKEN` secret; the upload
+workflow skips cleanly if either is missing. This table said "not created yet"
+through 1.1.0's release, which is exactly the store-copy drift this file warns
+about two screens above.
 
 ## Relations to declare on the project page
 

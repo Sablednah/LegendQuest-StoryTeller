@@ -496,16 +496,15 @@ How it is built:
   faces, the `[Reroll]` button takes the rotate buttons' slot, and on a modded
   client the scroll wheel raises and lowers instead — rather than leaving a
   control that looks broken.
-- **Drawn where there are templates, outlined where there are not.** A jigsaw
-  piece names its element, which names its template, so villages, bastions,
-  outposts and ancient cities draw as real blocks. Fortresses, strongholds and
-  mansions are built block by block in code and have no template to read: those
-  get their **piece boxes** as an outline, which is a skeleton of the building
-  rather than one rectangle around it. A structure that is part one and part the
-  other draws what it can.
+- **Every structure draws.** `CaptureLevel` records what a structure lays down
+  as it builds itself, so a fortress corridor and a village house are read the
+  same way; reading the pieces' templates is the fallback for a structure whose
+  chunks are not held open. A vanilla client still gets the **piece boxes** as
+  its outline — a skeleton of the village rather than one rectangle round it.
 - **Two different refusals, said differently.** "Too big to draw" and "nothing
-  to draw" are not the same answer, and a Storyteller should not have to work
-  out which they got.
+  could be read" are not the same answer, and a Storyteller should not have to
+  work out which they got. The second no longer means "built in code": that was
+  the pre-recorder cause, and it is gone.
 - **Undo snapshots the pieces**, as a palette and one index per block rather
   than an object per block — a village is a few hundred thousand blocks and the
   old per-block record costs some forty times as much each. Past about six

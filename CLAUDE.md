@@ -352,11 +352,19 @@ different questions, and only the second one is the bug report.
 
 ### Vivo — the second machine, and the better test loop
 
-`sable@192.168.7.102` (wifi; `192.168.137.154` on the Windows ICS subnet while
-docked) is an 8-core / 18GB Ubuntu 26.04 laptop that exists to run servers and
-clients so they are not competing with the owner's desktop. Key at
+`sable@<vivo>` is an 8-core / 18GB Ubuntu 26.04 laptop that exists to run
+servers and clients so they are not competing with the owner's desktop. Key at
 `~/.ssh/vivo_ed25519`, passwordless sudo, and any session on this WSL box can
 use it.
+
+**Its address MOVES — ask Sable, do not trust a remembered one.** Wifi is DHCP;
+it was `192.168.7.102`, then `192.168.7.105` on 2026-09-19 (and
+`192.168.137.154` on the Windows ICS subnet while docked). On 2026-09-19 the old
+address first answered ping while refusing ssh, then went away entirely, and
+both obvious readings — "sshd is down", "the box rebooted" — were wrong: another
+machine had taken the lease. **"Connection refused" and then "no route to host"
+on a box that worked an hour ago means the IP moved**, not that the box died.
+Asking costs Sable a second and cost one session several rounds of guessing.
 
 **Why it matters more than "spare capacity".** On Windows, Claude cannot drive a
 Minecraft client: `SetForegroundWindow` is refused to a background process,

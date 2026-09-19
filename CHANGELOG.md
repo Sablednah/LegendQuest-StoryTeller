@@ -3,7 +3,7 @@
 All notable changes to LegendQuest StoryTeller are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
-## 1.2.0 — unreleased
+## 1.2.0 — 2026-09-19
 
 Requires **LegendQuest ReForged 2.5.0 or newer**, as before.
 
@@ -29,9 +29,11 @@ Requires **LegendQuest ReForged 2.5.0 or newer**, as before.
 - A whole structure is placed as generation assembled it, so it does not turn.
   The ghost says "as generated" and puts `[Reroll]` where the turn buttons are;
   on a modded client the scroll wheel raises and lowers it instead.
-- Fortresses, strongholds and mansions are built in code rather than from saved
-  templates, so they have no blocks to draw: those show their piece outlines,
-  and the ghost says which of the two reasons you are looking at an outline for.
+- **Every structure draws, not just the ones made from saved templates.** A
+  fortress, a stronghold or a mansion is built in code rather than stamped from a
+  saved template, and those used to show only an outline. They are now asked to
+  build themselves into a recording level and the ghost shows what they laid
+  down, so what you see is what lands however the structure is made.
 
 ## 1.1.0 — 2026-09-15
 

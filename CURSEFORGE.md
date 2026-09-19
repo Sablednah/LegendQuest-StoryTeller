@@ -112,6 +112,15 @@ whatever happened to be under the crosshair.
   piece carries become what world generation would have made them; and nothing
   breaks and scatters drops as it lands. Add `withair` or `withjigsaw` to keep
   either.
+- **`/st struct whole ghost <structure>` · `/st struct whole place <structure>`**
+  — a *whole generated structure*, the way world generation assembles it: a
+  village with its streets and farms, a bastion, an outpost, an ancient city, a
+  monument, a fortress, a stronghold, a mansion. The ghost shows the assembly
+  before anything is built, and **what you see is what lands** — the layout is
+  pinned, so placing it does not quietly deal a different village. `[Reroll]`
+  deals another one. Every structure draws, whether it is stamped from saved
+  templates or built in code, because it is asked to build itself somewhere
+  nothing is kept and the ghost shows what it laid down.
 - `/st struct library ghost <name>` · `/st struct library place <name> [at <x y
   z>] [rotate ...]` — the same for CityWorld's schematic library, when it is
   installed.
