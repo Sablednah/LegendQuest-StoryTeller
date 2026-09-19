@@ -780,6 +780,23 @@ node.
   **A catch that turns a failure into "skip it" needs to say how much it
   skipped**, or it can hide a total failure as easily as a partial one.
 
+- **NEVER `git checkout <other-branch> -- build.gradle` in a port.** That file
+  is per-branch and always will be: `main` sets `JavaLanguageVersion.of(21)`
+  and both 26.x branches set 25, which is not optional there. Copying main's
+  copy onto `mc26.1` to undo three unwanted lines also silently downgraded the
+  toolchain, and the build then failed at *dependency resolution* —
+  `Could not resolve net.neoforged:neoforge:26.1.2.95 … compatible with Java 25
+  and the consumer needed … Java 21` — nowhere near the lines that were
+  actually edited. It drags main-only machinery across too (`runGM`,
+  `stageLegendQuestGM`). To undo something on a version branch, take the file
+  from **that branch's own parent commit**, never from another branch.
+
+- **A dependency-resolution failure emits no `error:` lines.** Grepping the
+  build for `error:` after that failure reported *zero errors* on a build that
+  had plainly failed, and nearly bought the conclusion that the compile was
+  fine. Grep for the failing TASK (`> Task … FAILED`, `What went wrong`,
+  `Could not resolve`) as well, or a whole class of failure reads as success.
+
 - **`compileJava` is not `build`, and the jar you deploy is the one you last
   BUILT.** After writing the recording level I ran `compileJava`, committed, and
   deployed `build/libs/...jar` — which was still the jar from the previous
