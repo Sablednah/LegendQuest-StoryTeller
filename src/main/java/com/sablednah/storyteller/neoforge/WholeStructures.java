@@ -256,6 +256,81 @@ public final class WholeStructures {
      *         answers and a Storyteller should not have to guess which they got.
      */
     static Structures.Preview preview(ServerLevel level, StructureStart start, BoundingBox box) {
+        Structures.Preview built = previewByBuilding(level, start, box);
+        if (built == null) return null;                          // over the payload's ceiling
+        if (built.states().length > 0) return built;
+        // Captured nothing: the pieces wrote no blocks into the recorder at all.
+        // Reading their templates is the older road and still the right answer
+        // for a structure whose chunks are not held open.
+        return previewFromTemplates(level, start, box);
+    }
+
+    /**
+     * Let the structure build itself into a {@link CaptureLevel} and keep what
+     * it laid down.
+     *
+     * <p><b>This is what gives every structure the same ghost.</b> Reading
+     * templates only works for structures made of them; a stronghold, a
+     * mineshaft, a nether fortress, an ocean monument and a buried treasure
+     * lay their blocks one call at a time in code, and there is nothing to
+     * read. Asked to build into a recorder they answer the same question
+     * directly — and better, because what comes back is what the placement
+     * will actually do: processors applied, jigsaw blocks already swapped,
+     * and every piece's own decisions about the terrain it is landing in
+     * already made.</p>
+     *
+     * <p><b>Only chunks somebody is already holding open.</b> Reads fall
+     * through to the real level, and asking a {@code ServerLevel} for an
+     * unloaded chunk generates it — so an unbounded run would make *looking*
+     * at a structure produce terrain. A preview must cost nothing it is not
+     * asked for, so unloaded chunks are skipped and their part of the
+     * structure simply is not drawn.</p>
+     */
+    private static Structures.Preview previewByBuilding(ServerLevel level, StructureStart start, BoundingBox box) {
+        CaptureLevel capture = new CaptureLevel(level);
+        ChunkPos min = new ChunkPos(SectionPos.blockToSectionCoord(box.minX()),
+                SectionPos.blockToSectionCoord(box.minZ()));
+        ChunkPos max = new ChunkPos(SectionPos.blockToSectionCoord(box.maxX()),
+                SectionPos.blockToSectionCoord(box.maxZ()));
+        ChunkGenerator generator = level.getChunkSource().getGenerator();
+        try {
+            for (ChunkPos chunk : ChunkPos.rangeClosed(min, max).toList()) {
+                if (!level.isLoaded(chunk.getWorldPosition())) continue;
+                start.placeInChunk(capture, level.structureManager(), generator, level.getRandom(),
+                        new BoundingBox(chunk.getMinBlockX(), level.getMinY(), chunk.getMinBlockZ(),
+                                chunk.getMaxBlockX(), level.getMaxY() + 1, chunk.getMaxBlockZ()),
+                        chunk);
+            }
+        } catch (RuntimeException whileBuilding) {
+            // One awkward piece should cost the drawn ghost, not the session --
+            // and it must SAY so, because a silent fallback to the outline is
+            // exactly the confusing half-answer this feature already produced
+            // once.
+            com.sablednah.storyteller.StoryTeller.LOGGER.warn(
+                    "Whole-structure ghost: building into the recorder failed; falling back to reading templates",
+                    whileBuilding);
+            return new Structures.Preview(new int[0], new int[0]);
+        }
+
+        int sizeX = box.getXSpan();
+        int sizeY = box.getYSpan();
+        var states = new it.unimi.dsi.fastutil.ints.IntArrayList();
+        var cells = new it.unimi.dsi.fastutil.ints.IntArrayList();
+        for (var entry : capture.captured().long2ObjectEntrySet()) {
+            BlockState state = entry.getValue();
+            if (state.isAir()) continue;
+            BlockPos at = BlockPos.of(entry.getLongKey());
+            if (!box.isInside(at)) continue;
+            states.add(Block.getId(state));
+            cells.add((at.getX() - box.minX())
+                    + sizeX * ((at.getY() - box.minY()) + sizeY * (at.getZ() - box.minZ())));
+            if (states.size() > com.sablednah.storyteller.network.GhostPayload.MAX_BLOCKS) return null;
+        }
+        return new Structures.Preview(states.toIntArray(), cells.toIntArray());
+    }
+
+    /** The older road: read each piece's template. See {@link #preview}. */
+    private static Structures.Preview previewFromTemplates(ServerLevel level, StructureStart start, BoundingBox box) {
         int sizeX = box.getXSpan();
         int sizeY = box.getYSpan();
         var states = new it.unimi.dsi.fastutil.ints.IntArrayList();
