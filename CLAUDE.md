@@ -769,6 +769,23 @@ node.
   **A catch that turns a failure into "skip it" needs to say how much it
   skipped**, or it can hide a total failure as easily as a partial one.
 
+- **A structure piece's saved template NAME is not the template's id.**
+  `EndCityPiece` and `WoodlandMansionPiece` store a bare `"base_floor"` and
+  prepend their own folder in `makeTemplateLocation`, so reading `Template` out
+  of the tag and parsing it asks for `minecraft:base_floor` and finds nothing.
+  The whole-structure ghost did exactly that and told Sable End City was "built
+  piece by piece in code" — a confident, wrong, *plausible* answer, which is the
+  worst kind. Ask the piece instead: `template()`, `templatePosition()` and
+  `placeSettings()` are public on all three lines. Do not repair it by matching
+  the short name — 163 of vanilla's 1,202 template names are ambiguous across
+  structures.
+
+- **An untested branch lies in whichever direction you were not looking.** The
+  whole-structure ghost was watched only on a village, which is jigsaw pieces;
+  the template-piece branch beside it had never run once, and the first
+  structure a human picked went straight down it. A feature with two paths needs
+  one measurement per path, not one measurement.
+
 - **After a rewrite, grep for the name of the thing you removed**, not the thing
   you added. `build.gradle` carried a comment naming a `StructureSupport` class
   that has never existed under that name.

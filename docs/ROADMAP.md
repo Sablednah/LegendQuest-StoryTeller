@@ -581,10 +581,27 @@ trusting a probe to report absence, give it a subject you know is present.
   slope will have houses cut into it and standing proud of it. Vanilla's
   `/place structure` has the same limit. Whether to offer a levelling pass is
   open.
-- **A mirrored template piece previews unmirrored.** A jigsaw piece's mirror is
-  always NONE, but a code-built template piece keeps its mirror in a private
-  place with no public reading, so the ghost can have a handful of pieces the
-  right shape and the wrong way round. The placement is correct either way.
+- **A template piece's NAME is not its template's id, and reading the name
+  meant End City drew nothing.** Sable's first try, 2026-09-19: the ghost said
+  `minecraft:end_city` is "built piece by piece in code", which is false — End
+  City is templates all the way down. The first cut read the `Template` string
+  out of the tag a piece saves, and `EndCityPiece` stores `"base_floor"`,
+  prepending its own folder in `makeTemplateLocation`; Woodland Mansion does the
+  same. So the lookup asked for `minecraft:base_floor`, missed, and skipped all
+  105 pieces.
+
+  **Matching on the short name would have been the wrong repair**, and the data
+  said so before any code was written: 163 of vanilla's 1,202 template names are
+  ambiguous across structures — `corner_01` belongs to ten of them. The piece
+  hands over the template itself instead (`template()`, `templatePosition()`,
+  `placeSettings()` are public on all three Minecraft lines), so there is no name
+  to resolve. **That also fixed the mirror gap this entry used to record**: the
+  settings carry the mirror and the rotation pivot, and the arithmetic is now
+  vanilla's own `calculateRelativePosition` rather than a hand-rolled transform
+  that assumed both were absent.
+
+  The lesson generalises: **a saved name is a serialisation detail, not an
+  identity.** Ask the object, not its tag.
 - **Processors are not applied to the preview**, so a ruin previews unrotted —
   the same family as the several-palettes gap above.
 - **Jigsaw pools are not offered.** `/place jigsaw <pool> <target> <depth>`

@@ -146,7 +146,8 @@ public final class Ghosts {
             boolean rotatable, java.util.List<BoundingBox> parts) {
         SESSIONS.remove(player.getUUID());
 
-        if (clientDraws(player)) {
+        boolean canDraw = clientDraws(player);
+        if (canDraw) {
             Structures.Preview preview = blocks.get();
             if (preview != null && preview.states().length > 0
                     && preview.states().length <= GhostPayload.MAX_BLOCKS) {
@@ -170,7 +171,12 @@ public final class Ghosts {
         session.offset = new BlockPos(0, sinkY, 0);
         SESSIONS.put(player.getUUID(), session);
         Feedback.chat(player, "&aGhost of &f" + label + "&a: its outline follows where you look"
-                + (rotatable ? ", and the &6gold edge&a is its front." : "."));
+                + (rotatable ? ", and the &6gold edge&a is its front." : ".")
+                // Only worth saying to somebody whose client COULD have drawn
+                // it: they are the ones who will try the mouse and the ghost
+                // keys and find nothing happens. Sable did exactly that.
+                + (canDraw ? " &7Mouse and the ghost keys do nothing for an outline —"
+                        + " these buttons are its controls." : ""));
         return controls(player);
     }
 
