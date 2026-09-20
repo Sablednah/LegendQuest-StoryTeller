@@ -3,7 +3,7 @@
 All notable changes to LegendQuest StoryTeller are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
-## 1.3.0 — unreleased
+## 1.3.0 — 2026-09-20
 
 Requires **LegendQuest ReForged 2.5.0 or newer**, as before.
 
