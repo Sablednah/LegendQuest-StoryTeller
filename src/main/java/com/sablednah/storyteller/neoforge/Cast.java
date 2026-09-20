@@ -230,11 +230,99 @@ public final class Cast {
         return BehaviourRefusal.NONE;
     }
 
+    /** What a move order needs the target to be, alongside {@link BehaviourRefusal}. */
+    public enum MoveRefusal { NONE, NOT_A_PATHFINDER, CANNOT_BE_LED }
+
+    /**
+     * Walk a wild creature to a spot, keeping whatever behaviour it already has
+     * and moving that behaviour's post to where it lands.
+     *
+     * <p>A guard sent across the room goes on guarding — there, not where it
+     * started. That is the chosen meaning of the order, and it is the one that
+     * needs no second command to make permanent: without it a guard walks over
+     * and then wanders home within seconds, because {@link AnchoredWanderGoal}
+     * holds a {@code final} anchor and re-paths to it on a cooldown.</p>
+     *
+     * <p>Follow and flee have no anchor to move, so they simply resume; the
+     * caller says which happened rather than implying a post was moved. A
+     * creature with no behaviour at all just stands where it was sent.</p>
+     */
+    public static MoveRefusal moveTo(Mob mob, BlockPos target) {
+        if (!(mob instanceof PathfinderMob pathfinder)) return MoveRefusal.NOT_A_PATHFINDER;
+        // A slime does not walk at all -- its move control is package-private
+        // and cannot be steered from here, so a path would be accepted and
+        // simply never followed. Refused rather than silently doing nothing,
+        // which is the defect this mod keeps guarding against.
+        if (Possession.cannotBeLed(mob)) return MoveRefusal.CANNOT_BE_LED;
+
+        Optional<Behaviour> resuming = currentBehaviour(mob);
+
+        // Replace an order already running, so a second /st move re-aims the
+        // walk instead of stacking a second goal that fights the first.
+        mob.goalSelector.getAvailableGoals().stream()
+                .filter(w -> w.getGoal() instanceof WalkToGoal)
+                .toList()
+                .forEach(w -> mob.goalSelector.removeGoal(w.getGoal()));
+
+        // Priority 2: above behave's 3, so the walk wins over the post it is
+        // being sent away from, and below the 0-1 band where fighting back and
+        // flinching from fire live -- a cast member walking across a room should
+        // still defend itself on the way.
+        mob.goalSelector.addGoal(2, new WalkToGoal(pathfinder, target,
+                () -> reanchor(mob, resuming.orElse(null), target)));
+        return MoveRefusal.NONE;
+    }
+
+    /**
+     * Put the behaviour back, at the place the walk ended.
+     *
+     * <p>Only guard and patrol have somewhere to be put: {@link #behave} anchors
+     * them at {@code mob.blockPosition()} when it is called, so re-issuing it on
+     * arrival is exactly "the post is here now". Follow and flee are already
+     * running and are left alone — re-issuing follow would need the player it
+     * was following, which this does not hold, and re-issuing flee would only
+     * rebuild an identical goal.</p>
+     */
+    private static void reanchor(Mob mob, Behaviour resuming, BlockPos target) {
+        if (resuming == null) return;
+        switch (resuming) {
+            case GUARD -> {
+                removeWander(mob);
+                if (mob instanceof PathfinderMob p) {
+                    mob.goalSelector.addGoal(3, new AnchoredWanderGoal(p, target, GUARD_RADIUS));
+                }
+            }
+            case PATROL -> {
+                removeWander(mob);
+                if (mob instanceof PathfinderMob p) {
+                    mob.goalSelector.addGoal(3, new AnchoredWanderGoal(p, target, PATROL_RADIUS));
+                }
+            }
+            // Nothing anchored: they carry on as they were.
+            case FOLLOW, FLEE, NONE -> { }
+        }
+    }
+
+    private static void removeWander(Mob mob) {
+        mob.goalSelector.getAvailableGoals().stream()
+                .filter(w -> w.getGoal() instanceof AnchoredWanderGoal)
+                .toList()
+                .forEach(w -> mob.goalSelector.removeGoal(w.getGoal()));
+    }
+
+    /** Is an order still being walked? For feedback that does not lie about a
+     *  walk the mob gave up on. */
+    public static boolean isWalking(Mob mob) {
+        return mob.goalSelector.getAvailableGoals().stream()
+                .anyMatch(w -> w.getGoal() instanceof WalkToGoal walk && walk.isRunning());
+    }
+
     // --- saved presets ---
 
     /** What behaviour a mob is currently running, for {@code /st cast save} to
-     *  capture — the inverse of {@link #behave}. */
-    private static Optional<Behaviour> currentBehaviour(Mob mob) {
+     *  capture — the inverse of {@link #behave}. Visible to {@link #moveTo},
+     *  which has to put the same behaviour back once the walk is over. */
+    static Optional<Behaviour> currentBehaviour(Mob mob) {
         boolean guard = false, follow = false;
         double radius = -1;
         for (var w : mob.goalSelector.getAvailableGoals()) {
