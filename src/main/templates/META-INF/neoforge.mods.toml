@@ -66,8 +66,13 @@ iconBlur=true
 # and mob bodies alike -- which the Storyteller can then possess, speak through
 # and direct. Without it, possession still works on any wild creature and the
 # NPC tools say plainly that there are no NPCs to work with.
+# The range is NOT optional even though the dependency is: /st swing on a human
+# body calls Cast.swing, which exists only from Cast 1.1.0. A range is checked
+# only when the mod is present, so this turns "Cast too old" into a refusal to
+# load with a clear reason, instead of a NoSuchMethodError mid-scene.
 [[dependencies.${mod_id}]]
     modId="cast"
     type="optional"
+    versionRange="${cast_version_range}"
     ordering="AFTER"
     side="BOTH"
