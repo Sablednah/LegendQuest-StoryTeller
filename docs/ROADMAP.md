@@ -104,6 +104,21 @@ keeping its own behaviour — a whole scene run without taking an NPC's AI away.
   them too. That is an *order* rather than one-to-one control — the creature
   paths there itself and keeps whatever behaviour it had, re-anchored where it
   lands — so the keypress-level version below is still wanted for a fight.
+
+  **Watched in play by Sable, 2026-09-20**, on the deployed 26.2 build: a swing
+  plays once; **a guard sent across a room guards at the new spot** rather than
+  wandering back to its old anchor, which is the whole of the re-anchor design;
+  wild mobs and Cast NPCs both walk when told; slimes refuse. The re-anchor is
+  the part that could not have been inferred — `AnchoredWanderGoal` holds a
+  `final` anchor and re-paths to it on a 60-120 tick cooldown, so "it obeyed"
+  and "it stayed obeyed" are different questions and only the second one proves
+  the design.
+
+  Two things that run did not cover, so they stay open rather than being
+  quietly counted as passed: a **second** swing on a body somebody is *driving*
+  (the case `swing(hand, true)` was chosen for, where `swingTime` is frozen by
+  the cancelled tick), and a brain-driven mob — a villager should *apply and
+  warn*, never refuse, and nobody has watched one fight its Brain for a post.
   Looking is already one-to-one and needs no client mod: the camera renders
   from the creature's orientation, so mirroring the possessor's rotation onto
   it every tick is mouse-look. Worth testing how that interacts with pathing,
