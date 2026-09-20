@@ -65,7 +65,14 @@ public final class STKeyMappings {
     public static final KeyMapping SUMMON = new KeyMapping(
             "key.storyteller.summon", InputConstants.UNKNOWN.getValue(), CATEGORY);
 
-    private static final KeyMapping[] ALL = { POSSESS, LOCK, DRIFT, NEXT, SUMMON };
+    /** Send what you have locked to where you are looking. */
+    public static final KeyMapping MOVE = new KeyMapping(
+            "key.storyteller.move", InputConstants.UNKNOWN.getValue(), CATEGORY);
+    /** Make what you have locked take a swing. */
+    public static final KeyMapping SWING = new KeyMapping(
+            "key.storyteller.swing", InputConstants.UNKNOWN.getValue(), CATEGORY);
+
+    private static final KeyMapping[] ALL = { POSSESS, LOCK, DRIFT, NEXT, SUMMON, MOVE, SWING };
 
     /**
      * Live only while a structure ghost is on screen.
@@ -123,6 +130,8 @@ public final class STKeyMappings {
         drain(mc, DRIFT, "st drift");
         drain(mc, NEXT, "st next");
         drain(mc, SUMMON, "st summon");
+        drain(mc, MOVE, "st move");
+        drain(mc, SWING, "st swing");
     }
 
     /**
@@ -197,8 +206,8 @@ public final class STKeyMappings {
         // that names client types, which is the arrangement that makes a
         // version drop cheap.
         mc.player.sendSystemMessage(Component.literal(
-                "§7StoryTeller keys are unbound. Bind possess, lock, drift, next and summon in "
-                + "§fOptions → Controls → StoryTeller§7 to use them while aiming."));
+                "§7StoryTeller keys are unbound. Bind possess, lock, move, swing, drift, next and "
+                + "summon in §fOptions → Controls → StoryTeller§7 to use them while aiming."));
     }
 
     /** Reset per connection, so switching servers says it again where it applies. */
