@@ -751,8 +751,14 @@ public final class STCommands {
      * that a driven body has its server tick cancelled
      * ({@code STServerEvents.onEntityTick}) and so never advances
      * {@code swingTime}, which the plain call checks before starting another
-     * swing. <b>Unverified:</b> that reasoning is from reading vanilla, not from
-     * watching a driven body swing twice. If a second swing is ever reported as
+     * swing.</p>
+     *
+     * <p><b>Watched in play 2026-09-20:</b> a swing plays exactly once, on wild
+     * creatures and on Cast bodies. What that run did <i>not</i> cover is the
+     * case the forcing overload was chosen for — a second swing on a body
+     * somebody is <i>driving</i>, where {@code swingTime} is frozen. So the
+     * ordinary path is measured and this one clause is still reasoned from
+     * vanilla's source. If a second swing on a driven body is ever reported
      * missing, this is the first place to look.</p>
      */
     private static int swing(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
