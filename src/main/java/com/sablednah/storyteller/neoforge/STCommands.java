@@ -110,6 +110,14 @@ public final class STCommands {
                 .then(Commands.literal("release").executes(STCommands::release))
                 .then(Commands.literal("lock").executes(STCommands::lock))
                 .then(Commands.literal("unlock").executes(STCommands::unlock))
+                // Both take no arguments on purpose: the server does its own
+                // raycast, so a vanilla client types four words and gets the
+                // whole feature. If a client-side preview is ever wanted, it
+                // adds an optional `at <x y z>` tail exactly as struct place
+                // does -- a refinement of a command that already works, never
+                // a prerequisite for it.
+                .then(Commands.literal("move").executes(STCommands::moveTo))
+                .then(Commands.literal("swing").executes(STCommands::swing))
                 .then(Commands.literal("say")
                         .then(Commands.argument("text", StringArgumentType.greedyString())
                                 .executes(STCommands::sayAs)))
@@ -558,6 +566,229 @@ public final class STCommands {
         // is a beat the Storyteller needs to know landed nowhere.
         if (heard == 0) Feedback.chat(player, "&8(nobody was close enough to hear that)");
         return heard;
+    }
+
+    // --- orders to a locked creature ---------------------------------------
+
+    /**
+     * Where the Storyteller is looking, as somewhere to stand.
+     *
+     * <p>The same three lines as {@code Ghosts.aim} and {@code WholeStructures},
+     * and deliberately the same reach: a Storyteller siting a building from a
+     * hilltop and one sending a guard across a courtyard are doing the same
+     * thing with their eyes. {@code .relative(getDirection())} is what makes the
+     * answer the block to stand <i>on</i> rather than the one to stand
+     * <i>in</i>.</p>
+     *
+     * <p>Unlike the ghost there is no session to hold a last aim, so a miss is
+     * empty rather than silently reusing an older one — an order that went
+     * somewhere the Storyteller stopped pointing at is worse than one that
+     * refused.</p>
+     */
+    private static Optional<net.minecraft.core.BlockPos> lookingAtGround(ServerPlayer player) {
+        net.minecraft.world.phys.HitResult hit =
+                player.pick(com.sablednah.storyteller.ghost.GhostMath.REACH, 1.0F, false);
+        if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                && hit instanceof net.minecraft.world.phys.BlockHitResult block) {
+            return Optional.of(block.getBlockPos().relative(block.getDirection()));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Send the locked creature to where the Storyteller is looking.
+     *
+     * <p>{@link Sights#locked} rather than {@code target}, and this is the one
+     * command where the difference is not a nicety: {@code target} falls back to
+     * the crosshair, and the crosshair is by definition pointing at the
+     * <i>destination</i>. A creature standing near that aim line would be the
+     * one walked, instead of the one the Storyteller chose. Same reasoning as
+     * {@code /st say}, which must be aimed deliberately for the same class of
+     * reason.</p>
+     *
+     * <p>Nothing here is recorded in the scene log. {@code /st undo} pops one
+     * entry, so a logged walk would quietly eat the undo meant for the building
+     * that was just placed — movement is not something to put back, it is
+     * something to give a new order for.</p>
+     */
+    private static int moveTo(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var locked = Sights.locked(player);
+        if (locked.isEmpty()) {
+            Feedback.chat(player, "&7Nothing locked to send anywhere. &f/st lock&7 on to a creature "
+                    + "first, then look where you want it and try again.");
+            return 0;
+        }
+        var target = lookingAtGround(player);
+        if (target.isEmpty()) {
+            Feedback.chat(player, "&7You are not looking at any ground. Point at the spot you want "
+                    + "it to walk to.");
+            return 0;
+        }
+        var sighted = locked.get();
+        var where = target.get();
+
+        if (sighted.isNpc()) return moveNpc(ctx, player, sighted, where);
+
+        Mob mob = sighted.mob();
+        // Worn or driven beats everything: a driven body has its server tick
+        // cancelled outright and a steered one has PossessionGoal re-issuing a
+        // path every tick at priority 0, so an order would be accepted and then
+        // do exactly nothing. Saying so is the whole point -- claiming a
+        // success it has not earned is the defect this mod keeps fixing.
+        if (Possession.isDrivenBody(mob)) {
+            Feedback.chat(player, "&7" + sighted.name() + " &7is being driven, so it goes where its "
+                    + "driver goes. &8Release it first, then send it.");
+            return 0;
+        }
+        var wearer = Possession.possessorOf(mob);
+        if (wearer.isPresent()) {
+            Feedback.chat(player, "&7" + sighted.name() + " &7is being worn by &f"
+                    + wearer.get().getName().getString() + "&7, so it follows them rather than an "
+                    + "order. &8Release it first.");
+            return 0;
+        }
+
+        // Read what it was doing BEFORE the order is issued. Cast.moveTo takes
+        // its own copy for the arrival handler, and asking again afterwards
+        // would make this sentence depend on whether moveTo happens to leave
+        // the behaviour goals in place -- true today, and silently wrong the
+        // first time that changes.
+        String willResume = resuming(mob);
+
+        var refusal = Cast.moveTo(mob, where);
+        if (refusal == Cast.MoveRefusal.CANNOT_BE_LED) {
+            Feedback.chat(player, "&7" + sighted.name() + " &7cannot be walked anywhere — a slime "
+                    + "moves by jumping, driven by its own goals, and no path will be followed. "
+                    + "&8Its voice and its eyes still work.");
+            return 0;
+        }
+        if (refusal == Cast.MoveRefusal.NOT_A_PATHFINDER) {
+            Feedback.chat(player, "&c" + sighted.name() + " cannot be sent anywhere (it does not path).");
+            return 0;
+        }
+
+        Feedback.chat(player, "&aWalking &f" + sighted.name() + "&a over. " + willResume);
+        if (Cast.brainDriven(mob)) {
+            Feedback.chat(player, "&8It has a mind of its own — villagers, goats, camels and "
+                    + "their like run on a Brain rather than goals, so this competes with what "
+                    + "it already wants and may not hold. Watch it before you rely on it.");
+        }
+        return 1;
+    }
+
+    /** What happens when it gets there, said at the time rather than left to be
+     *  discovered — a guard whose post silently moved is exactly the kind of
+     *  invisible state this mod treats as a defect. */
+    private static String resuming(Mob mob) {
+        var behaviour = Cast.currentBehaviour(mob);
+        if (behaviour.isEmpty()) return "&8It will stand there.";
+        return switch (behaviour.get()) {
+            case GUARD -> "&8It will guard there instead.";
+            case PATROL -> "&8It will patrol from there instead.";
+            case FOLLOW -> "&8It is still following someone, so it will head back to them.";
+            case FLEE -> "&8It is still fleeing, so it may not stay.";
+            case NONE -> "&8It will stand there.";
+        };
+    }
+
+    /**
+     * The same order on one of Cast's own bodies.
+     *
+     * <p>Through {@code Cast.walkTo} rather than a goal, because Cast pulls its
+     * bodies back to their spot once a second and a goal on top of that is the
+     * "it ran, then bounced back to anchor, repeat" bug. Cast's own walk
+     * suspends the anchor while it moves and re-anchors on arrival, which is
+     * precisely the meaning this command wants — so the anchor is deliberately
+     * <b>not</b> touched here; doing it either side would pin the body
+     * mid-stride.</p>
+     *
+     * <p>No brain-driven warning here, unlike the wild path. A Cast body walks
+     * through Cast's own motion rather than through a goal competing with a
+     * Brain, so the reason for that warning does not apply. If Cast ever moves
+     * its mob bodies by goal instead, this becomes wrong and the warning
+     * belongs here too.</p>
+     */
+    private static int moveNpc(CommandContext<CommandSourceStack> ctx, ServerPlayer player,
+            Possession.Sighted sighted, net.minecraft.core.BlockPos where) {
+        if (!Possession.castAvailable()) {
+            Feedback.chat(player, "&7" + sighted.name() + " &7belongs to Cast, which is not "
+                    + "installed here.");
+            return 0;
+        }
+        var server = ctx.getSource().getServer();
+        var body = CastSupport.bodyOf(server, sighted.npcId());
+        if (body.isPresent() && Possession.isDrivenBody(body.get())) {
+            Feedback.chat(player, "&7" + sighted.name() + " &7is being driven, so it goes where its "
+                    + "driver goes. &8Release it first, then send it.");
+            return 0;
+        }
+        var target = new net.minecraft.world.phys.Vec3(
+                where.getX() + 0.5D, where.getY(), where.getZ() + 0.5D);
+        if (!CastSupport.walkTo(server, sighted.npcId(), target)) {
+            Feedback.chat(player, "&c" + sighted.name() + " could not be sent there.");
+            return 0;
+        }
+        // Cast teleports anything that cannot path within a minute. Surprising
+        // mid-scene if nobody said so, so it is said before it happens rather
+        // than explained afterwards.
+        Feedback.chat(player, "&aWalking &f" + sighted.name() + "&a over. "
+                + "&8Cast will make that its spot when it arrives; one that cannot find a way "
+                + "there is put there after a minute.");
+        return 1;
+    }
+
+    /**
+     * Make the locked creature take a swing.
+     *
+     * <p>A gesture with no state: it swings once and there is nothing to undo,
+     * cancel or remember. Unlike {@code /st move} this does not refuse a body
+     * somebody is driving — an animation does not fight a driver the way a path
+     * does, and a Storyteller swinging the arm of the body they are wearing is a
+     * reasonable thing to want.</p>
+     *
+     * <p>{@code swing(hand, true)} rather than the plain overload, on the theory
+     * that a driven body has its server tick cancelled
+     * ({@code STServerEvents.onEntityTick}) and so never advances
+     * {@code swingTime}, which the plain call checks before starting another
+     * swing. <b>Unverified:</b> that reasoning is from reading vanilla, not from
+     * watching a driven body swing twice. If a second swing is ever reported as
+     * missing, this is the first place to look.</p>
+     */
+    private static int swing(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        var locked = Sights.locked(player);
+        if (locked.isEmpty()) {
+            Feedback.chat(player, "&7Nothing locked to swing. &f/st lock&7 on to a creature first.");
+            return 0;
+        }
+        var sighted = locked.get();
+        Mob mob;
+        if (sighted.isNpc()) {
+            if (!Possession.castAvailable()) {
+                Feedback.chat(player, "&7" + sighted.name() + " &7belongs to Cast, which is not "
+                        + "installed here.");
+                return 0;
+            }
+            var body = CastSupport.bodyOf(ctx.getSource().getServer(), sighted.npcId());
+            if (body.isEmpty()) {
+                // A human NPC is a phantom ServerPlayer in no level, so there is
+                // nothing to animate and no viewer to broadcast to. Cast exposes
+                // no animation verb at all -- walkTo, follow, lookAt, drive, say,
+                // equip, setLurk, scare -- so this is a real limit rather than an
+                // oversight here, and it is named instead of failing quietly.
+                Feedback.chat(player, "&7" + sighted.name() + " &7has no creature body to swing — "
+                        + "a person is drawn by Cast, which has no animation to give. "
+                        + "&8Creatures and mob bodies can swing.");
+                return 0;
+            }
+            mob = body.get();
+        } else {
+            mob = sighted.mob();
+        }
+        mob.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+        Feedback.chat(player, "&f" + sighted.name() + "&a takes a swing.");
+        return 1;
     }
 
     // --- sights ------------------------------------------------------------

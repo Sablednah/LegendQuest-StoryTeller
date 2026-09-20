@@ -3,6 +3,32 @@
 All notable changes to LegendQuest StoryTeller are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.3.0 — unreleased
+
+Requires **LegendQuest ReForged 2.5.0 or newer**, as before.
+
+### Tell a locked creature what to do
+
+- **`/st move`** sends whatever you have locked to where you are looking. It
+  walks there — and **keeps doing what it was doing**, at the new spot: a guard
+  sent across a courtyard guards there from then on, rather than strolling back
+  to where it started a few seconds later.
+- **`/st swing`** makes it take a swing. A blacksmith strikes the anvil, a
+  guard warns somebody off — a gesture for a scene, with nothing to undo.
+- Both need a **lock**, and that is deliberate rather than a shortcut: your
+  crosshair is pointing at the *destination*, so the thing being aimed at is
+  not the thing being ordered. `/st lock` on to it first.
+- Both are on a **button and a keybind** as well as the command, like every
+  other tool you aim. The keys arrive unbound, as they all do.
+- They say what will happen rather than leaving you to find out: whether it
+  will guard or patrol at the new spot, whether it is still following somebody
+  and will head back, and — for one of Cast's own people — that anything which
+  cannot find a way there is simply put there after a minute.
+- Honest about what it cannot do. A slime cannot be walked anywhere at all; a
+  creature somebody is wearing or driving goes where its driver goes; and a
+  person spawned by Cast has no swing to give. Each one says which, instead of
+  accepting the order and quietly doing nothing.
+
 ## 1.2.0 — 2026-09-19
 
 Requires **LegendQuest ReForged 2.5.0 or newer**, as before.

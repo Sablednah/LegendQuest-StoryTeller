@@ -78,6 +78,13 @@ level 2 to parse at all.
   locked creature without possessing it, so a shopkeeper can hold a whole
   conversation while keeping its own behaviour.
 - `/st release` — the unambiguous way to give it back, exactly as it was.
+- `/st move` — send the creature you have locked to where you are looking. It
+  keeps whatever it was doing and takes that with it: a guard sent across a
+  courtyard guards *there* from then on. Needs a lock, deliberately — the
+  crosshair is pointing at the destination, not at the creature.
+- `/st swing` — make the locked creature take a swing. A gesture for a scene:
+  the blacksmith strikes the anvil, the guard warns you off. A person spawned
+  by Cast has no swing to give and says so.
 - `/st cast spawn <entity> [name]` · `/st cast citizen [race] [class]` — put a
   named mob in the scene; citizen rolls a race and class by weighted
   `frequency` for a Villager's name (flavour, not a character — LegendQuest
@@ -190,7 +197,7 @@ An action carries a **command string**, not a payload — a button sends
 of the commands, and permissions and refusals behave identically whichever way
 the command arrives. The commands stay the interface.
 
-**Five buttons, not nine, because the commands toggle.** There is no separate
+**Seven buttons, not eleven, because the commands toggle.** There is no separate
 Release or Return button: `/st possess` while wearing something lets it go,
 `/st drift` while drifting brings you back, `/st lock` while locked lets go.
 Two buttons for one idea reads as clunky, and the state is already on the
@@ -205,9 +212,9 @@ later.
 
 ## Keys, for the tools you aim
 
-With the StoryTeller mod on the Storyteller's own client, five keybinds appear
-under **Options → Controls → StoryTeller**: possess, lock, drift, next and
-summon. A command wants your hands off the mouse and a button wants a screen
+With the StoryTeller mod on the Storyteller's own client, seven keybinds appear
+under **Options → Controls → StoryTeller**: possess, lock, move, swing, drift,
+next and summon. A command wants your hands off the mouse and a button wants a screen
 open, and neither works while you are still tracking a creature across the
 room — a key does.
 

@@ -126,6 +126,28 @@ public final class CastSupport {
         Cast.setAnchored(server, npcId, anchored);
     }
 
+    /**
+     * Walk one of Cast's own bodies to a spot and let it settle there.
+     *
+     * <p><b>Do not manage the anchor around this.</b> Cast's own {@code walkTo}
+     * suspends the anchor before it moves and re-anchors on arrival, which is
+     * precisely "walk there and make that the new post" — the same meaning
+     * {@code /st move} gives a wild creature. Calling {@link #setAnchored}
+     * either side of it would pin the body mid-stride, which is the bug
+     * {@code castNpcBehave} exists to avoid and must not be reintroduced here.</p>
+     *
+     * <p>A human body is handled too: Cast walks a person in a straight line
+     * hugging the ground, where a mob body uses its own navigation. <b>Anything
+     * that cannot get there within a minute is simply put there</b> — worth
+     * saying out loud to the Storyteller, because an NPC appearing at the
+     * destination a minute later is startling mid-scene.</p>
+     *
+     * @return false when Cast does not know this NPC.
+     */
+    static boolean walkTo(MinecraftServer server, UUID npcId, Vec3 target) {
+        return Cast.walkTo(server, npcId, target);
+    }
+
     /** Keep this NPC on this player's client whatever the range, for as long
      *  as they are wearing it. */
     static void pin(ServerPlayer viewer, UUID npcId) {

@@ -98,6 +98,12 @@ keeping its own behaviour — a whole scene run without taking an NPC's AI away.
 
 - One-to-one *movement* via the Storyteller's client mod — strafe, jump and
   attack on their keypress rather than the creature pathing after them.
+  **Partly answered, from the other direction:** `/st move` sends a locked
+  creature to where the Storyteller is looking and `/st swing` makes it strike,
+  both as ordinary commands on a button and a key, so a vanilla Storyteller gets
+  them too. That is an *order* rather than one-to-one control — the creature
+  paths there itself and keeps whatever behaviour it had, re-anchored where it
+  lands — so the keypress-level version below is still wanted for a fight.
   Looking is already one-to-one and needs no client mod: the camera renders
   from the creature's orientation, so mirroring the possessor's rotation onto
   it every tick is mouse-look. Worth testing how that interacts with pathing,
@@ -244,7 +250,8 @@ goal. The quest-giver half of that now exists in Chronicler — see section 5.
 
 ## Buttons — DONE (Standards actions)
 
-Four actions registered with Standards 1.6.0: possess, lock, drift, next.
+Seven actions registered with Standards: possess, lock, move, swing, drift,
+next, summon.
 Standards draws them as a bar for its client half and as clickable chat
 components for anyone without it, so **a vanilla Storyteller gets working
 buttons** — which is the only reason this mod could adopt them.
@@ -278,9 +285,9 @@ bound.
 **The client half exists now**, and the three rules set down before it was
 built all held:
 
-- **Keys are registered UNBOUND.** Five of them — possess, lock, drift, next and
-  summon — under Options → Controls → StoryTeller, and the Storyteller is told
-  once, on joining, that they exist. A mod claiming letters on install is how
+- **Keys are registered UNBOUND.** Seven of them — possess, lock, move, swing,
+  drift, next and summon — under Options → Controls → StoryTeller, and the
+  Storyteller is told once, on joining, that they exist. A mod claiming letters on install is how
   conflicts start.
 - **Everything version-sensitive on the client stays in a few small classes.**
   `STClient`, `STKeyMappings` and `DrivenView`, which only declines to draw the

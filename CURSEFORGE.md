@@ -65,6 +65,20 @@ yourself first, in which case you stay hidden and are told why.
 
 ## Lock on, then look wherever you like
 
+**`/st move` sends what you have locked to where you are looking**, and **`/st
+swing` makes it take a swing** — a blacksmith striking an anvil, a guard warning
+somebody off. Both need a lock rather than your crosshair, deliberately: when you
+are pointing at the place you want it to walk to, the crosshair is on the
+*destination*, not on the creature.
+
+A creature sent somewhere **keeps doing what it was doing, at the new spot** — a
+guard walked across a courtyard guards there from then on, instead of strolling
+home a few seconds later. And each order says what will actually happen: whether
+it will guard or patrol where it lands, whether it is still following somebody
+and will head back, that a slime cannot be walked anywhere at all, and that a
+creature somebody is wearing goes where its driver goes. An order it cannot
+carry out is refused out loud rather than accepted and quietly dropped.
+
 `/st lock` makes the creature in your sights *the* target until you say it again.
 Possess, speak, dress, direct and save all mean that one afterwards, wherever you
 happen to be looking.
@@ -181,8 +195,9 @@ Storyteller who can see "you are wearing a cow" notices a possession that has
 quietly ended, instead of finding out three commands later.
 
 **And keys, for the tools you aim.** Install StoryTeller on the Storyteller's own
-client and five keybinds appear — possess, lock, drift, next and summon — so you
-can take over a creature while you are still tracking it with the mouse. They
+client and seven keybinds appear — possess, lock, move, swing, drift, next and
+summon — so you can take over a creature, or send it somewhere, while you are
+still tracking it with the mouse. They
 arrive unbound, and the game tells you once that they are there.
 
 ---

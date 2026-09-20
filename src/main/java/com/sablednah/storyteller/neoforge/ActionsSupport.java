@@ -36,7 +36,7 @@ import net.minecraft.server.level.ServerPlayer;
  * {@code children} is not required — so reading out what is being worn is safe
  * to rely on again.</p>
  *
- * <p><b>Five buttons, not nine, because the commands toggle.</b> There is no
+ * <p><b>Seven buttons, not eleven, because the commands toggle.</b> There is no
  * separate Release or Return: {@code /st possess} while wearing something lets
  * it go, and {@code /st drift} while drifting brings you back. Two buttons for
  * one idea reads as clunky, and the state is already on the screen — a lit
@@ -56,7 +56,8 @@ public final class ActionsSupport {
 
     /** Higher sits nearer the anchor; possession is what a Storyteller reaches
      *  for most, so it leads. */
-    private static final int POSSESS = 50, LOCK = 48, DRIFT = 45, NEXT = 43, SUMMON = 42;
+    private static final int POSSESS = 50, LOCK = 48, MOVE = 47, SWING = 46, DRIFT = 45,
+            NEXT = 43, SUMMON = 42;
 
     /**
      * Whether this Standards has the hint constructor.
@@ -110,6 +111,33 @@ public final class ActionsSupport {
                         "action.storyteller.lock", "st lock",
                         STPermissions::isStoryteller, Sights::isLocked));
 
+        // Next to the lock, because both are useless without one and the pair
+        // reads as "who, then what". Lit by the lock rather than by a walk in
+        // progress: a walk is over in seconds and a button that flickered
+        // through a scene would be noise, where "you have something aimed" is
+        // the state that actually decides what the click will do.
+        Actions.register(hints
+                ? new Action("storyteller:move", MOVE,
+                        Identifier.parse("minecraft:leather_boots"),
+                        "action.storyteller.move", "st move",
+                        STPermissions::isStoryteller, Sights::isLocked,
+                        player -> Sights.lockedName(player).orElse(null))
+                : new Action("storyteller:move", MOVE,
+                        Identifier.parse("minecraft:leather_boots"),
+                        "action.storyteller.move", "st move",
+                        STPermissions::isStoryteller, Sights::isLocked));
+
+        Actions.register(hints
+                ? new Action("storyteller:swing", SWING,
+                        Identifier.parse("minecraft:wooden_sword"),
+                        "action.storyteller.swing", "st swing",
+                        STPermissions::isStoryteller, Sights::isLocked,
+                        player -> Sights.lockedName(player).orElse(null))
+                : new Action("storyteller:swing", SWING,
+                        Identifier.parse("minecraft:wooden_sword"),
+                        "action.storyteller.swing", "st swing",
+                        STPermissions::isStoryteller, Sights::isLocked));
+
         Actions.register(hints
                 ? new Action("storyteller:drift", DRIFT,
                         Identifier.parse("minecraft:elytra"),
@@ -134,7 +162,7 @@ public final class ActionsSupport {
                 "action.storyteller.next", "st next",
                 Presence::isDrifting));
 
-        StoryTeller.LOGGER.info("Registered 5 Storyteller actions with Standards");
+        StoryTeller.LOGGER.info("Registered 7 Storyteller actions with Standards");
     }
 
     // Deliberately the remembered name rather than a fresh resolve. Standards
