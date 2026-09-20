@@ -148,6 +148,26 @@ public final class CastSupport {
         return Cast.walkTo(server, npcId, target);
     }
 
+    /**
+     * Make a body take a swing — including a human one.
+     *
+     * <p>Cast dispatches on what the body is, the same way {@code equip} does: a
+     * mob body is an ordinary tracked entity and broadcasts its own animation,
+     * while a human phantom has no entity tracker at all, so Cast sends the
+     * animate packet by hand to the viewer list it already maintains for that
+     * phantom's position and equipment.</p>
+     *
+     * <p><b>Cast 1.1.0 or newer.</b> The method does not exist in 1.0.0, which
+     * is why {@code cast_version_range} is {@code [1.1.0,)} rather than open —
+     * see the note beside it in {@code gradle.properties}.</p>
+     *
+     * @return false when Cast does not know this NPC.
+     */
+    static boolean swing(MinecraftServer server, UUID npcId,
+            net.minecraft.world.InteractionHand hand) {
+        return Cast.swing(server, npcId, hand);
+    }
+
     /** Keep this NPC on this player's client whatever the range, for as long
      *  as they are wearing it. */
     static void pin(ServerPlayer viewer, UUID npcId) {

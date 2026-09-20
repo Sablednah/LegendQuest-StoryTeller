@@ -772,14 +772,20 @@ public final class STCommands {
             }
             var body = CastSupport.bodyOf(ctx.getSource().getServer(), sighted.npcId());
             if (body.isEmpty()) {
-                // A human NPC is a phantom ServerPlayer in no level, so there is
-                // nothing to animate and no viewer to broadcast to. Cast exposes
-                // no animation verb at all -- walkTo, follow, lookAt, drive, say,
-                // equip, setLurk, scare -- so this is a real limit rather than an
-                // oversight here, and it is named instead of failing quietly.
-                Feedback.chat(player, "&7" + sighted.name() + " &7has no creature body to swing — "
-                        + "a person is drawn by Cast, which has no animation to give. "
-                        + "&8Creatures and mob bodies can swing.");
+                // A human NPC is a phantom ServerPlayer in no level: no entity
+                // tracker, so nothing would broadcast an animation on its own.
+                // This was refused outright until Cast 1.1.0, which added
+                // swing() for exactly this case and sends the packet by hand to
+                // the viewer list it already keeps for that phantom's position
+                // and equipment. Hence cast_version_range=[1.1.0,): 1.0.0 has no
+                // such method, and an optional dependency with no floor would
+                // take it happily and fail here instead of at boot.
+                if (CastSupport.swing(ctx.getSource().getServer(), sighted.npcId(),
+                        net.minecraft.world.InteractionHand.MAIN_HAND)) {
+                    Feedback.chat(player, "&f" + sighted.name() + "&a takes a swing.");
+                    return 1;
+                }
+                Feedback.chat(player, "&c" + sighted.name() + " could not be made to swing.");
                 return 0;
             }
             mob = body.get();

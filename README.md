@@ -83,8 +83,9 @@ level 2 to parse at all.
   courtyard guards *there* from then on. Needs a lock, deliberately — the
   crosshair is pointing at the destination, not at the creature.
 - `/st swing` — make the locked creature take a swing. A gesture for a scene:
-  the blacksmith strikes the anvil, the guard warns you off. A person spawned
-  by Cast has no swing to give and says so.
+  the blacksmith strikes the anvil, the guard warns you off. People spawned by
+  Cast swing too, from **Cast 1.1.0** — a human body has no entity tracker of
+  its own, so Cast sends the animation to the people watching it.
 - `/st cast spawn <entity> [name]` · `/st cast citizen [race] [class]` — put a
   named mob in the scene; citizen rolls a race and class by weighted
   `frequency` for a Villager's name (flavour, not a character — LegendQuest

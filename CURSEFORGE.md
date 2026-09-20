@@ -231,12 +231,18 @@ is a hard dependency, matching Minecraft version for Minecraft version.
 | Mod | Adds |
 |---|---|
 | [Standards](https://www.curseforge.com/minecraft/mc-mods/sablecraft-standards) | the buttons, money rewards, reputation rewards, and hiding you while you wear a body |
-| [Cast](https://www.curseforge.com/minecraft/mc-mods/sablecraft-cast) | NPC bodies — human and mob — to possess, dress and speak through |
+| [Cast](https://www.curseforge.com/minecraft/mc-mods/sablecraft-cast) | NPC bodies — human and mob — to possess, dress and speak through; making a *person* swing needs 1.1.0 or newer |
 | CityWorld | its schematic library (`.schematic`, `.schem`, `.litematic`, `.nbt`) as a second pool for `/st struct`; ghosts and turning need 5.8.0 or newer |
 
 Every one of these degrades to a plain "not available on this server" rather
 than breaking. Standards being *installed* and the server *having an economy*
 are asked as two separate questions, because they are two separate things.
+
+Where a version is named it is enforced, deliberately: a Cast older than 1.1.0
+stops StoryTeller loading, with a message saying which mod to update. That reads
+harsher than degrading quietly, and it is the kinder failure — the alternative
+is a server that starts cleanly and then throws, mid-scene, the first time a
+Storyteller makes somebody swing.
 
 ---
 

@@ -24,10 +24,14 @@ Requires **LegendQuest ReForged 2.5.0 or newer**, as before.
   will guard or patrol at the new spot, whether it is still following somebody
   and will head back, and — for one of Cast's own people — that anything which
   cannot find a way there is simply put there after a minute.
-- Honest about what it cannot do. A slime cannot be walked anywhere at all; a
-  creature somebody is wearing or driving goes where its driver goes; and a
-  person spawned by Cast has no swing to give. Each one says which, instead of
-  accepting the order and quietly doing nothing.
+- **People swing too, with Cast 1.1.0 or newer.** A human body is drawn by Cast
+  rather than being an ordinary creature, so it has nothing of its own to play
+  an animation — Cast gained a swing for this and sends it to whoever is
+  watching. On an older Cast, StoryTeller says so at start-up rather than
+  failing the first time somebody swings.
+- Honest about what it cannot do. A slime cannot be walked anywhere at all, and
+  a creature somebody is wearing or driving goes where its driver goes. Each one
+  says which, instead of accepting the order and quietly doing nothing.
 
 ## 1.2.0 — 2026-09-19
 
