@@ -12,8 +12,7 @@ gone a full three releases out of date before anybody noticed, which is the
 argument for checking it at release time rather than when it feels stale.
 
 CurseForge's description editor accepts pasted rich text and has a Markdown
-mode; headings, tables and lists survive the paste. Modrinth takes Markdown
-directly, so the same file serves both.
+mode; headings, tables and lists survive the paste.
 
 ---
 
@@ -56,7 +55,7 @@ MIT — link to https://github.com/Sablednah/LegendQuest-StoryTeller/blob/main/L
 |---|---|---|
 | GitHub | https://github.com/Sablednah/LegendQuest-StoryTeller | live |
 | CurseForge | https://www.curseforge.com/minecraft/mc-mods/legendquest-storyteller | live |
-| Modrinth | — | not created yet |
+| Modrinth | — | not listed — Modrinth refused the project over AI-assisted content (2026-09) |
 | Website | — | not created yet |
 
 CurseForge project **1690309**, set on the GitHub repo as

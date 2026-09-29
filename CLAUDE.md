@@ -886,8 +886,8 @@ meant to stay in step with it**, along with `scripts/curseforge-upload.sh` and
 - **`lq_version_range` is `[2.5.0,)`** because 1.0.0 was only run against 2.5.0.
   Every symbol it calls exists in 2.4.1; loosen the range only after running on
   the older one.
-- **No Modrinth yet.** LegendQuest has a Modrinth workflow waiting on a project;
-  this repo has neither, so none was copied.
+- **No Modrinth.** Modrinth refused both LegendQuest and StoryTeller over
+  AI-assisted content (2026-09); LegendQuest's workflow was removed. Do not add one.
 - **CurseForge's changelog sanitiser 500s** on blockquotes, indented code blocks
   with pipes and angle-bracket autolinks. `curseforge-changelog.py` rewrites the
   known ones and prints what it changed.

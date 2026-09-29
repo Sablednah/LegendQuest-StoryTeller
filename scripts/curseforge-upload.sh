@@ -30,8 +30,8 @@
 # Uses python3 rather than jq: jq is not installed on the dev box, and python3 is, so this stays
 # runnable locally as well as on a CI runner.
 #
-# NOTE: the CurseForge upload API can only add files to a project that already exists. Unlike
-# Modrinth there is no create-project endpoint - make the project on the website first, then put its
+# NOTE: the CurseForge upload API can only add files to a project that already exists. There is
+# no create-project endpoint - make the project on the website first, then put its
 # numeric ID in CURSEFORGE_PROJECT_ID.
 #
 # API reference: https://support.curseforge.com/en/support/solutions/articles/9000197321

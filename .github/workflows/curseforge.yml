@@ -17,8 +17,8 @@ name: Publish to CurseForge
 #   3. Add the numeric project ID, shown on the CurseForge project page, as the repository
 #      variable CURSEFORGE_PROJECT_ID (same screen, "Variables" tab)
 #
-# The CurseForge project must already exist - the upload API can only add files to one, and unlike
-# Modrinth it has no create-project endpoint.
+# The CurseForge project must already exist - the upload API can only add files to one; it has no
+# create-project endpoint.
 #
 # Until the secret exists this workflow skips rather than fails, so it will not redden the release.
 
