@@ -128,7 +128,7 @@ public final class Rewards {
                 // Inventory.add drains the stack as it fills slots; whatever is
                 // left over goes at their feet rather than vanishing, so a full
                 // inventory costs a pickup, not the reward itself.
-                player.drop(stack, false);
+                player.drop(stack, false, net.minecraft.util.Prediction.SERVER_ONLY);
             }
             granted.add(label + (fit ? "" : " (dropped — inventory was full)"));
         }

@@ -217,7 +217,7 @@ public final class GhostPreview {
     static void onScreenOpening(net.neoforged.neoforge.client.event.ScreenEvent.Opening event) {
         if (ghost == null || !(event.getNewScreen() instanceof net.minecraft.client.gui.screens.PauseScreen)) return;
         Minecraft mc = Minecraft.getInstance();
-        if (!com.mojang.blaze3d.platform.InputConstants.isKeyDown(mc.getWindow(),
+        if (!com.mojang.blaze3d.platform.InputConstants.isKeyDown(
                 com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE)) return;
         event.setCanceled(true);
         forget();

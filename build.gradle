@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.144'
+    id 'net.neoforged.moddev' version '2.0.147'
     id 'idea'
 }
 
@@ -154,7 +154,8 @@ dependencies {
     // the only class that imports it.
     compileOnly files(provider {
         def pattern = ~/cityworld-.*\+mc${minecraft_version}\.jar/
-        def found = (file('../CityWorld-ReForged/build/libs').listFiles() ?: [])
+        def found = [file('libs'), file('../CityWorld-ReForged/build/libs')]
+                .collectMany { (it.listFiles() ?: []) as List }
                 .findAll { it.name ==~ pattern }
                 .sort { -it.lastModified() }
         if (found.isEmpty()) {
@@ -170,7 +171,8 @@ dependencies {
     // mob bodies. StoryTeller drives them when present, unchanged when not.
     compileOnly files(provider {
         def pattern = ~/cast-.*\+mc${minecraft_version}\.jar/
-        def found = (file('../Cast/build/libs').listFiles() ?: [])
+        def found = [file('libs'), file('../Cast/build/libs')]
+                .collectMany { (it.listFiles() ?: []) as List }
                 .findAll { it.name ==~ pattern }
                 .sort { -it.lastModified() }
         if (found.isEmpty()) {

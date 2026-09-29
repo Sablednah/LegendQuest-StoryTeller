@@ -196,6 +196,11 @@ public final class GhostRenderer {
         }
 
         @Override
+        public VertexConsumer setUv3(float u, float v) {
+            return this;   // 26.3's extra UV set: not replayed, same as overlay and light
+        }
+
+        @Override
         public VertexConsumer setNormal(float x, float y, float z) {
             if (current >= 0) {
                 int f = current * 8;

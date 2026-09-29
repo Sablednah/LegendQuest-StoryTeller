@@ -278,7 +278,7 @@ public final class Structures {
     /** A template by id, or empty for an unknown or malformed one. */
     public static Optional<StructureTemplate> template(ServerLevel level, Identifier templateId) {
         try {
-            return level.getStructureManager().get(templateId);
+            return level.getStructureTemplateManager().get(templateId);
         } catch (net.minecraft.IdentifierException e) {
             return Optional.empty();
         }
@@ -364,7 +364,7 @@ public final class Structures {
     /** Every template any loaded datapack declares, for {@code /st struct list}
      *  and tab-completion — the exact set {@code /place template} offers. */
     public static List<String> list(ServerPlayer caster) {
-        StructureTemplateManager manager = ((ServerLevel) caster.level()).getStructureManager();
+        StructureTemplateManager manager = ((ServerLevel) caster.level()).getStructureTemplateManager();
         return manager.listTemplates().map(Identifier::toString).sorted().collect(Collectors.toList());
     }
 

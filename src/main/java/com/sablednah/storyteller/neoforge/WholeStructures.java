@@ -24,6 +24,8 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 import net.minecraft.world.level.levelgen.structure.Structure;
@@ -145,9 +147,11 @@ public final class WholeStructures {
      */
     static StructureStart generate(ServerLevel level, Holder<Structure> structure, Roll roll) {
         ChunkGenerator generator = level.getChunkSource().getGenerator();
+        RandomState randomState = level.getChunkSource().randomState();
         return structure.value().generate(
                 structure, level.dimension(), level.registryAccess(), generator, generator.getBiomeSource(),
-                level.getChunkSource().randomState(), level.getStructureManager(),
+                randomState.createClimateSampler(SamplerContext.EMPTY_UNCACHED), randomState,
+                level.getStructureTemplateManager(),
                 level.getSeed() + roll.index(), roll.chunk(), 0, level, holder -> true);
     }
 

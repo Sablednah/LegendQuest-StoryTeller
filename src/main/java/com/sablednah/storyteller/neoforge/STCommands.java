@@ -747,11 +747,13 @@ public final class STCommands {
      * does, and a Storyteller swinging the arm of the body they are wearing is a
      * reasonable thing to want.</p>
      *
-     * <p>{@code swing(hand, true)} rather than the plain overload, on the theory
-     * that a driven body has its server tick cancelled
-     * ({@code STServerEvents.onEntityTick}) and so never advances
-     * {@code swingTime}, which the plain call checks before starting another
-     * swing.</p>
+     * <p>{@code swingForAttack} on 26.3, which swings with the held item's own
+     * attack animation (a spear stabs). The other lines use {@code swing(hand,
+     * true)}, whose flag forced a swing past a frozen {@code swingTime}; 26.3's
+     * boolean means something else (whether the swinger is sent the packet) and
+     * there is no forcing overload any more. A driven body has its server tick
+     * cancelled ({@code STServerEvents.onEntityTick}), so on 26.3 a second swing
+     * started within the first half of a frozen one is refused.</p>
      *
      * <p><b>Watched in play 2026-09-20:</b> a swing plays exactly once, on wild
      * creatures and on Cast bodies. What that run did <i>not</i> cover is the
@@ -798,7 +800,7 @@ public final class STCommands {
         } else {
             mob = sighted.mob();
         }
-        mob.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+        mob.swingForAttack(net.minecraft.world.InteractionHand.MAIN_HAND);
         Feedback.chat(player, "&f" + sighted.name() + "&a takes a swing.");
         return 1;
     }

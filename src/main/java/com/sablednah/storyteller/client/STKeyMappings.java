@@ -109,7 +109,7 @@ public final class STKeyMappings {
             GHOST_LEFT, GHOST_RIGHT, GHOST_FORWARD, GHOST_BACK, GHOST_RAISE, GHOST_LOWER };
 
     private static KeyMapping ghostKey(String name, int key) {
-        return new KeyMapping("key.storyteller." + name, WHILE_GHOST, InputConstants.Type.KEYSYM, key, CATEGORY);
+        return new KeyMapping("key.storyteller." + name, WHILE_GHOST, InputConstants.Type.KEYBOARD, key, CATEGORY);
     }
 
     public static void register(RegisterKeyMappingsEvent event) {
