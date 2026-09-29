@@ -358,13 +358,15 @@ servers and clients so they are not competing with the owner's desktop. Key at
 use it.
 
 **Its address MOVES — ask Sable, do not trust a remembered one.** Wifi is DHCP;
-it was `192.168.7.102`, then `192.168.7.105` on 2026-09-19 (and
+it was `192.168.7.102`, then `192.168.7.105` on 2026-09-19, and is FIXED at `192.168.7.246` since 2026-09-24 (and
 `192.168.137.154` on the Windows ICS subnet while docked). On 2026-09-19 the old
 address first answered ping while refusing ssh, then went away entirely, and
 both obvious readings — "sshd is down", "the box rebooted" — were wrong: another
 machine had taken the lease. **"Connection refused" and then "no route to host"
 on a box that worked an hour ago means the IP moved**, not that the box died.
 Asking costs Sable a second and cost one session several rounds of guessing.
+
+> **2026-09-24: Vivo now has a FIXED IP, `192.168.7.246`** (no longer DHCP). Any `.102`/`.105` below is history. `ssh -i ~/.ssh/vivo_ed25519 sable@192.168.7.246`.
 
 **Why it matters more than "spare capacity".** On Windows, Claude cannot drive a
 Minecraft client: `SetForegroundWindow` is refused to a background process,
