@@ -12,7 +12,7 @@ An expansion for
 not a standalone mod. An NPC here *is* a LegendQuest character sheet; a reward
 *is* LegendQuest XP; a party *is* a LegendQuest party.
 
-Built for **Minecraft 1.21.11, 26.1.2 and 26.2**. Each download names the version
+Built for **Minecraft 1.21.11, 26.1.2, 26.2 and 26.3**. Each download names the version
 it is for, and refuses to load on the wrong one rather than misbehaving quietly.
 
 ---
@@ -261,9 +261,12 @@ Storyteller makes somebody swing.
 | `storyteller-<version>+mc1.21.11.jar` | 1.21.11 | any 21.11 build |
 | `storyteller-<version>+mc26.1.2.jar` | 26.1.2 | any 26.1 build |
 | `storyteller-<version>+mc26.2.jar` | 26.2 | any 26.2 build |
+| `storyteller-<version>+mc26.3.jar` | 26.3 | 26.3.0.33-beta or later |
 
-Any build within the series will do — updating NeoForge does not mean waiting
-for a StoryTeller release that changes nothing else.
+Any build within the series will do, except on 26.3: NeoForge changed an API
+partway through its 26.3 betas, so that line needs 26.3.0.33-beta or newer.
+Updating NeoForge otherwise never means waiting for a StoryTeller release that
+changes nothing else.
 
 ---
 

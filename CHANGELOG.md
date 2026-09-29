@@ -3,6 +3,21 @@
 All notable changes to LegendQuest StoryTeller are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.3.1 — 2026-09-29
+
+**Minecraft 26.3.** This release is the 26.3 line only: the same features as
+1.3.0, rebuilt for the new version. The other downloads stay on 1.3.0.
+
+- Needs **NeoForge 26.3.0.33-beta or later** and **LegendQuest ReForged 2.6.1**
+  (its 26.3 build).
+- **`/st swing`** plays the held item's own attack animation on 26.3, so a spear
+  stabs instead of swinging. 26.3 no longer lets a new swing interrupt one
+  still in progress, so a second swing ordered too quickly on a body someone
+  is driving can be ignored.
+- **Cast** is still optional. Its 26.3 build is not released yet, so until it
+  is, the NPC-body features are not available on 26.3. Everything else works
+  without it.
+
 ## 1.3.0 — 2026-09-20
 
 Requires **LegendQuest ReForged 2.5.0 or newer**, as before.
