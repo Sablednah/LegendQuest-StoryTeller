@@ -65,8 +65,9 @@ quarterly calendar versioning, so this is a treadmill rather than a port.
 | `main` | 1.21.11 | 21.11.42 | 21 |
 | `mc26.1` | 26.1.2 | 26.1.2.95 | **25** |
 | `mc26.2` | 26.2 | 26.2.0.59 | **25** |
+| `mc26.3` | 26.3 | 26.3.0.33-beta | **25** |
 
-- **Port forwards, not sideways:** `main` → `mc26.1` → `mc26.2`. Cherry-pick;
+- **Port forwards, not sideways:** `main` → `mc26.1` → `mc26.2` → `mc26.3`. Cherry-pick;
   both 26.x branches take main's commits cleanly in the normal case, because
   this mod is server-side and 26.x's churn is concentrated in rendering.
 - Jars carry the target (`storyteller-0.1.0+mc26.2.jar`); the version inside
@@ -83,7 +84,7 @@ Java 21 on `main`, Java 25 on both 26.x branches:
 
 ```bash
 export JAVA_HOME=/home/sable/.gradle/jdks/eclipse_adoptium-21-amd64-linux.2   # main
-export JAVA_HOME=/home/sable/.gradle/jdks/eclipse_adoptium-25-amd64-linux.2   # mc26.1, mc26.2
+export JAVA_HOME=/home/sable/.gradle/jdks/eclipse_adoptium-25-amd64-linux.2   # mc26.1, mc26.2, mc26.3
 
 ./gradlew build     # -> build/libs/storyteller-<version>+mc<mcversion>.jar
 ```
