@@ -536,4 +536,9 @@ public final class WholeStructures {
     }
 
     private WholeStructures() {}
+
+    /** The server is stopping: in single player the next world's player has the same UUID. */
+    static void forgetSession() {
+        PENDING.clear();
+    }
 }
