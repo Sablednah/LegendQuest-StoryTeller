@@ -80,6 +80,19 @@ public final class STServerEvents {
      * there — with no way for anyone still online to free it. Drifting can
      * safely persist because it costs nobody else anything; this cannot.</p>
      */
+    /**
+     * In single player the game outlives the world: quitting to the title and
+     * opening another keeps every static, and the player there has the same
+     * UUID. The scene log is the one that matters: an undo in the next world
+     * would replay this world's scene there.
+     */
+    @SubscribeEvent
+    static void onServerStopping(net.neoforged.neoforge.event.server.ServerStoppingEvent event) {
+        com.sablednah.storyteller.scene.SceneLog.forgetSession();
+        STCommands.forgetSession();
+        WholeStructures.forgetSession();
+    }
+
     @SubscribeEvent
     static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
