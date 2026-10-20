@@ -1600,4 +1600,9 @@ public final class STCommands {
     }
 
     private STCommands() {}
+
+    /** The server is stopping: in single player the next world's player has the same UUID. */
+    static void forgetSession() {
+        LAST_VISITED.clear();
+    }
 }

@@ -54,4 +54,9 @@ public final class SceneLog {
     }
 
     private SceneLog() {}
+
+    /** The server is stopping: in single player the next world's player has the same UUID. */
+    public static void forgetSession() {
+        LOG.clear();
+    }
 }
