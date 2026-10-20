@@ -3,6 +3,12 @@
 All notable changes to LegendQuest StoryTeller are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## 1.3.2 — 2026-10-20
+
+For every Minecraft version: 1.21.11, 26.1.2, 26.2 and 26.3.
+
+- **A second world in the same game starts clean.** In single player, quitting to the title and opening another world kept the first world's scene log, so `/st undo` there could replay the old world's scene into the new one. The scene log, a pending structure reroll and the "visit next" pointer are now forgotten when a world closes.
+
 ## 1.3.1 — 2026-09-29
 
 **Minecraft 26.3.** This release is the 26.3 line only: the same features as
